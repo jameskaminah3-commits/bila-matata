@@ -131,7 +131,7 @@ function payOptions(view: PageView): string {
   blocks.paystack = () => methods.push(`<div class="method"><form method="post" action="${action("paystack")}">
 ${booking.customerEmail ? "" : '<label>Email for your receipt<input name="email" type="email" autocomplete="email" required maxlength="200"></label>'}
 <button type="submit">Pay ${amount} by card${booking.currency === "KES" ? " or M-Pesa" : ""}</button>
-<p class="hint">On Paystack's secure page.</p></form></div>`);
+<p class="hint">On a secure payment page.</p></form></div>`);
   blocks.mpesa_express = () => booking.currency === "KES" && methods.push(`<div class="method"><form method="post" action="${action("mpesa")}">
 <label>M-Pesa number<span>We'll send a payment prompt to this phone.</span><input name="phone" type="tel" inputmode="tel" autocomplete="tel" required maxlength="20" value="${escapeHtml(booking.customerPhone ?? "")}"></label>
 <button type="submit"${first !== "mpesa_express" ? ' class="secondary"' : ""}>Send the M-Pesa prompt for ${amount}</button></form></div>`);
@@ -218,7 +218,7 @@ ${view.settings.cancellationPolicy ? `<p><strong>Cancellation:</strong> ${escape
 </section>
 <footer>
 <p>Always check the address bar starts with ${escapeHtml(view.host)} before you pay.</p>
-${view.options.paystack ? "<p>Card details are entered on Paystack's page, never here.</p>" : ""}
+${view.options.paystack ? "<p>Card details are entered on the secure payment page, never here.</p>" : ""}
 </footer>
 </main>
 </body>

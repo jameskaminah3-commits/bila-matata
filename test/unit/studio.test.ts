@@ -154,6 +154,39 @@ test("the home page carries the agreed offer: headline, navigation, both plans, 
   assert.deepEqual(data.makesOffer.map((offer: { price: number }) => offer.price), [6700, 11000]);
 });
 
+test("the home page says how Zaina works: only the business's own information, no invented prices, the up-to-date calendar, finding and booking", () => {
+  const words = text(renderHome(PAGE));
+  assert.match(words, /using only what your business gives her: your catalogue, your price list and your up-to-date calendar/);
+  assert.match(words, /Zaina doesn't guess\. Everything she says comes directly from your business/);
+  assert.match(words, /She never makes up a price, and if an answer isn't in your information she says so and brings in your team\./);
+  assert.match(words, /She helps each customer find what suits them, checks your up-to-date calendar, quotes the exact price, creates the booking and takes the deposit/);
+  assert.match(words, /Never invents a price: every quote comes straight from your price list/);
+  assert.match(words, /Checks your up-to-date calendar before she offers a time/);
+  assert.match(words, /Made-up answers Doesn't guess: if it isn't in your information, she says so and brings in your team/);
+  assert.match(words, /paid into your own payment account/);
+});
+
+test("nothing a client or their customer reads names the payment provider", () => {
+  const provider = /paystack/i;
+  const pages = {
+    home: renderHome(PAGE),
+    terms: renderTerms(PAGE),
+    pay: renderPayHome(PAGE, { message: "provider", reference: "", testMode: true, available: false }),
+    open: renderInvoicePage(PAGE, { invoice: invoice(), message: "pending", email: "", testMode: true, available: true, waiting: true }),
+    failed: renderInvoicePage(PAGE, { invoice: invoice(), message: "failed", email: "", testMode: false, available: true, waiting: false }),
+    paid: renderInvoicePage(PAGE, { invoice: invoice({ status: "paid", paidAt: new Date(), method: "paystack", receipt: "5000001" }), message: "paid", email: "", testMode: false, available: true, waiting: false }),
+  };
+  for (const [name, html] of Object.entries(pages)) assert.doesNotMatch(text(html), provider, name);
+  assert.match(text(pages.open), /You pay on a secure payment page by M-Pesa or card\./);
+  configureStudioPay({ paystackKey: "sk_test_abcdefghij0001", publicBaseUrl: "https://bilamatata.co.ke", notifyEmail: null });
+  const sent = invoiceEmail(invoice())!;
+  const receipt = receiptEmail(invoice({ status: "paid", paidAt: new Date(), method: "paystack", receipt: "5000001" }));
+  for (const email of [sent, receipt]) assert.doesNotMatch(`${email.subject}\n${email.text}`, provider);
+  configureStudioPay({ paystackKey: null, publicBaseUrl: null, notifyEmail: null });
+  const knowledge = path.join(REPO, "knowledge", STUDIO.businessId);
+  for (const file of readdirSync(knowledge)) assert.doesNotMatch(readFileSync(path.join(knowledge, file), "utf8"), provider, file);
+});
+
 test("the home page promises nothing it can't show: no invented numbers, reviews or guarantees", () => {
   const words = text(renderHome(PAGE)).toLowerCase();
   for (const claim of ["guarantee", "testimonial", "trusted by", "rated", "% more", "x more", "15+ hours", "pays for itself", "award"]) {
@@ -170,7 +203,7 @@ test("the terms cover projects (50% to start, balance on delivery), Zaina's mont
   assert.match(words, /You can cancel at any time/);
   assert.match(words, /Kenya's Data Protection Act, 2019/);
   assert.match(words, /Office of the Data Protection Commissioner/);
-  assert.match(words, /Payments are processed by Paystack; we never see or store your card number or M-Pesa PIN\./);
+  assert.match(words, /You pay on a licensed payment provider's secure page; we never see or store your card number or M-Pesa PIN\./);
   assert.match(words, /the money is paid into your own payment account/);
   assert.match(words, /Refunds/);
 });
@@ -236,7 +269,7 @@ test("the invoice and receipt emails say what was bought, in the studio's own na
   const receipt = receiptEmail(invoice({ status: "paid", paidAt: new Date("2026-11-14T09:00:00Z"), method: "paystack", receipt: "5000001" }));
   assert.equal(receipt.subject, "Receipt: invoice BM-7K2Q9XHD paid (KES 45,000)");
   assert.match(receipt.text, /Paid on: 14 November 2026/);
-  assert.match(receipt.text, /Paystack receipt: 5000001/);
+  assert.match(receipt.text, /Payment reference: 5000001/);
   configureStudioPay({ paystackKey: null, publicBaseUrl: null, notifyEmail: null });
   assert.equal(invoiceEmail(invoice()), null, "no address, no link to send");
 });

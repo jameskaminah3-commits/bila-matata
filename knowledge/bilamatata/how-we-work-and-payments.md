@@ -26,7 +26,7 @@ Work outside the quote is quoted separately before we start it. After delivery y
 
 - Project invoices and Zaina set-up fees: at https://bilamatata.co.ke/pay with your invoice reference (it starts with BM-), by M-Pesa or card.
 - Zaina monthly invoices: from your dashboard at https://bilamatata.co.ke/app/ under Settings, then Plan & billing.
-- Payments are processed by Paystack. Bila Matata never sees your card number or M-Pesa PIN.
+- You pay on a secure payment page. Bila Matata never sees your card number or M-Pesa PIN.
 - A receipt is emailed after each payment.
 
 ## Refunds

@@ -103,7 +103,8 @@ const PLANS = [
     setupMinor: 1_000_000,
     for: "Every enquiry answered and every lead captured, without adding to your team.",
     features: [
-      "Answers customers day and night from your own catalogue, price list and policies",
+      "Answers customers day and night, only from your own catalogue, price list and policies",
+      "Never invents a price: every quote comes straight from your price list",
       "Captures each lead's name, number and what they want",
       "Alerts your team and hands the conversation over, on WhatsApp or in your dashboard",
       "Chat on your website with one line of code",
@@ -118,10 +119,10 @@ const PLANS = [
     for: "For businesses that sell by appointment, reservation or quote: Zaina finishes the sale.",
     features: [
       "Everything in Starter",
-      "Checks your live availability before it offers a time",
+      "Checks your up-to-date calendar before she offers a time",
       "Builds exact quotes from your price list, including bundles",
-      "Creates the booking from start to finish",
-      "Takes deposits by M-Pesa or card, paid straight into your own account",
+      "Helps each customer find the right option, then books it from start to finish",
+      "Takes deposits by M-Pesa or card, paid straight into your own payment account",
       "Calendar sync and booking notices for your team",
     ],
     featured: true,
@@ -129,17 +130,18 @@ const PLANS = [
 ];
 
 const OUTCOMES = [
-  { icon: ICONS.moon, title: "Stop losing the customers who message after hours", text: "Zaina replies in seconds, at midnight and on Sunday, with answers from your own catalogue and price list. The customer who would have gone to whoever answered first stays with you." },
-  { icon: ICONS.inbox, title: "Wake up to leads that are ready to close", text: "Every serious enquiry arrives with a name, a number and exactly what the customer wants, so your team's first message is the offer, not twenty questions." },
-  { icon: ICONS.calendar, title: "Bookings and deposits without the back-and-forth", text: "Zaina checks your availability, quotes the exact price, creates the booking and takes the deposit by M-Pesa or card, paid into your own account." },
-  { icon: ICONS.people, title: "Your team does the work only people can do", text: "Repeat questions stop landing on your staff. When a customer needs a person, Zaina hands over the whole conversation and your team picks up where it left off." },
+  { icon: ICONS.moon, title: "Stop losing the customers who message after hours", text: "Zaina replies in seconds, at midnight and on Sunday. The customer who would have gone to whoever answered first stays with you." },
+  { icon: ICONS.lock, title: "Answers you can stand behind: nothing invented", text: "Zaina doesn't guess. Everything she says comes directly from your business: your catalogue, your policies and your price list. She never makes up a price, and if an answer isn't in your information she says so and brings in your team." },
+  { icon: ICONS.calendar, title: "From \"do you have…?\" to booked", text: "She helps each customer find what suits them, checks your up-to-date calendar, quotes the exact price, creates the booking and takes the deposit by M-Pesa or card, paid into your own payment account." },
+  { icon: ICONS.inbox, title: "Leads that are ready to close, and a team that isn't buried", text: "Every serious enquiry arrives with a name, a number and exactly what the customer wants. Repeat questions stop landing on your staff, and when a customer needs a person, your team gets the whole conversation." },
 ];
 
 const COMPARISON: Array<[string, string, string]> = [
-  ["Where answers come from", "Your own catalogue, price list and policies, loaded and checked with you", "Scripted menus, or general knowledge that isn't about your business"],
-  ["Prices and quotes", "Exact figures from your price list; if a price isn't there, it says so and asks your team", "Often \"contact us for pricing\", or a guess"],
-  ["Availability", "Checks your live calendar before it offers a time", "Can't see your calendar"],
-  ["Booking and payment", "Creates the booking and takes the deposit by M-Pesa or card, into your own account", "Sends a form or a link and leaves the rest to you"],
+  ["Where answers come from", "Directly from your business: your catalogue, price list, policies and up-to-date calendar", "Scripted menus, or general knowledge that isn't about your business"],
+  ["Made-up answers", "Doesn't guess: if it isn't in your information, she says so and brings in your team", "Can answer confidently with something that isn't true"],
+  ["Prices and quotes", "Only the prices in your price list. She never invents a figure", "Often \"contact us for pricing\", or a guess"],
+  ["Availability", "Checks your up-to-date calendar before she offers a time", "Can't see your calendar"],
+  ["Finding and booking", "Helps the customer find the right option, creates the booking and takes the deposit by M-Pesa or card, into your own payment account", "Sends a form or a link and leaves the rest to you"],
   ["When a person is needed", "Alerts your team and hands over the full conversation; a person can take over any chat", "\"An agent will get back to you\""],
   ["Languages", "English and Swahili, in the customer's own style", "Usually English only"],
   ["Where it works", "Your website and your WhatsApp number, with one shared inbox", "Usually one channel"],
@@ -175,7 +177,7 @@ const SERVICES = [
 
 export function renderHome(page: SitePage): string {
   const title = "Bila Matata | AI Sales Concierge, Software, Data & Research Studio in Mombasa";
-  const description = "Zaina AI answers your customers day and night, captures leads and takes bookings. Plus custom websites and apps, AI automation, data analysis and research, from a studio in Mombasa, Kenya.";
+  const description = "Zaina AI answers your customers day and night from your own prices and calendar, captures leads and takes bookings. Plus custom websites and apps, AI automation, data analysis and research, from a studio in Mombasa, Kenya.";
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "ProfessionalService",
@@ -216,11 +218,12 @@ ${header("home")}
         <a class="btn btn-primary" href="#zaina" data-open-zaina>${ICONS.chat}Try Zaina AI Live</a>
         <a class="btn btn-ghost" href="${projectLink}" rel="noopener">${ICONS.whatsapp}Start a Project on WhatsApp</a>
       </div>
-      <p class="hero-note">Ask Zaina anything about our services and prices: it is the same assistant we set up for your business.</p>
+      <p class="hero-note">Ask Zaina anything about our services and prices: she is the same assistant we set up for your business.</p>
       <ul class="chips" aria-label="At a glance">
         <li>Replies in seconds, day and night</li>
+        <li>Answers only from your business</li>
+        <li>No invented prices</li>
         <li>English and Swahili</li>
-        <li>M-Pesa and card payments</li>
         <li>Website and WhatsApp</li>
       </ul>
     </div>
@@ -242,7 +245,7 @@ ${header("home")}
     <div class="section-head">
       <p class="eyebrow">Zaina AI</p>
       <h2 id="zaina-title">Your 24/7 AI sales closer and booking engine</h2>
-      <p>Customers buy from the business that answers first. Zaina answers every enquiry on your website and WhatsApp the moment it arrives, quotes from your real prices, and turns the conversation into a lead or a paid booking.</p>
+      <p>Customers buy from the business that answers first. Zaina answers every enquiry on your website and WhatsApp the moment it arrives, using only what your business gives her: your catalogue, your price list and your up-to-date calendar. She helps each customer find what they need, then turns the conversation into a lead or a paid booking.</p>
     </div>
     <div class="grid two">
       ${OUTCOMES.map((item) => `<article class="card"><div class="icon">${item.icon}</div><h3>${esc(item.title)}</h3><p>${esc(item.text)}</p></article>`).join("\n      ")}
@@ -259,7 +262,7 @@ ${header("home")}
     <div class="section-head">
       <p class="eyebrow">Why Zaina</p>
       <h2 id="compare-title">Zaina vs. generic chatbots</h2>
-      <p>A generic bot answers questions. Zaina is set up on your business, so it can do the part that earns money: the quote, the booking and the hand-over to your team.</p>
+      <p>A generic bot answers from a script or from the internet. Zaina answers from your business, so she gets the facts right and does the part that earns money: the quote, the booking and the hand-over to your team.</p>
     </div>
     <div class="table-scroll">
       <table class="compare">
@@ -429,17 +432,18 @@ ${header("terms")}
       <li>You can cancel at any time from your dashboard or by writing to us. Your plan runs to the end of the month you have paid for and then stops; there is no cancellation fee.</li>
       <li>After a plan ends you can ask for an export of your conversations and leads within 30 days. After that we delete them as described under <a href="#privacy">Privacy</a>.</li>
     </ul>
-    <h3>What Zaina does, and its limits</h3>
+    <h3>How Zaina answers</h3>
     <ul>
-      <li>Zaina answers your customers using the information you give us: your catalogue, prices, opening hours and policies. You are responsible for keeping that information correct and for telling us when it changes.</li>
-      <li>Zaina is an AI system. It is built to answer from your information and to hand a conversation to your team when it is unsure, but it can still make mistakes. Check bookings, quotes and anything important before you rely on it, and tell us about a wrong answer so we can correct it.</li>
+      <li>Zaina answers your customers only from the information your business provides: your catalogue, price list, opening hours, policies and calendar. She quotes prices only from your price list and checks availability against your up-to-date calendar.</li>
+      <li>Where an answer isn't in your information, Zaina says so and hands the conversation to your team rather than guess.</li>
+      <li>Her answers are only as accurate as the information she is given. You are responsible for keeping your catalogue, prices and calendar correct and up to date. If you ever see an answer that isn't right, tell us and we will correct it.</li>
       <li>We do not promise a particular number of leads, bookings or sales.</li>
       <li>Each plan includes a fair-use allowance of AI conversations a day. If your business regularly needs more, we will agree a plan that fits before anything changes.</li>
       <li>We aim to keep Zaina available at all times but do not guarantee uninterrupted service. Planned maintenance is announced in advance where we can.</li>
     </ul>
     <h3>Your customers' payments</h3>
     <ul>
-      <li>When Zaina takes a deposit or payment from one of your customers, the money is paid into your own payment account (your Paystack or M-Pesa account), not ours. You are the seller, and refunds and disputes for those payments are between you and your customer.</li>
+      <li>When Zaina takes a deposit or payment from one of your customers, the money is paid into your own payment account (the M-Pesa or card payment account you connect), not ours. You are the seller, and refunds and disputes for those payments are between you and your customer.</li>
       <li>Your payment provider's fees and rules apply to those payments.</li>
     </ul>
     <h3>Acceptable use</h3>
@@ -451,7 +455,7 @@ ${header("terms")}
 
     <h2 id="payments">3. Payments and refunds</h2>
     <ul>
-      <li>Invoices are paid on our <a href="/pay">payment page</a> by M-Pesa or card. Payments are processed by Paystack; we never see or store your card number or M-Pesa PIN. Zaina AI monthly invoices can also be paid from your dashboard.</li>
+      <li>Invoices are paid on our <a href="/pay">payment page</a> by M-Pesa or card. You pay on a licensed payment provider's secure page; we never see or store your card number or M-Pesa PIN. Zaina AI monthly invoices can also be paid from your dashboard.</li>
       <li>Prices are in Kenya shillings unless an invoice says otherwise, and include the taxes shown on the invoice.</li>
       <li>You receive a receipt by email for each payment.</li>
     </ul>
@@ -472,7 +476,7 @@ ${header("terms")}
     <ul>
       <li><strong>When you contact us or become a client:</strong> your name, business name, phone number, email address and what you tell us about your project, so we can quote, deliver and support the work.</li>
       <li><strong>When you chat with Zaina on this website:</strong> the messages you send, and any name or contact details you choose to give, so we can answer you and follow up on your enquiry.</li>
-      <li><strong>When you pay us:</strong> the invoice, amount, date, payment reference and the email address for your receipt. Card and M-Pesa details are handled by Paystack and are not stored by us.</li>
+      <li><strong>When you pay us:</strong> the invoice, amount, date, payment reference and the email address for your receipt. Card and M-Pesa details are handled by our payment provider and are not stored by us.</li>
       <li><strong>When you sign in to your dashboard:</strong> your email address, a protected (hashed) password and a sign-in cookie that keeps you signed in.</li>
     </ul>
     <p>We use this data to provide the service you asked for, to meet our contract with you, to keep the accounting records the law requires, and to keep the service secure. We do not sell personal data and we do not use advertising trackers on this website.</p>
@@ -484,7 +488,7 @@ ${header("terms")}
       <li>You are responsible for telling your customers how you use their data, for example in your own privacy notice.</li>
     </ul>
     <h3>Who helps us provide the service</h3>
-    <p>We share data only with the providers needed to run the service, each under its own data protection terms: our hosting and database providers; Google, whose AI model generates Zaina's replies; Paystack and Safaricom for payments; Meta, if WhatsApp is connected; and our email provider for receipts and alerts. Some of these providers process data outside Kenya; where they do, we rely on the safeguards the Act requires for transfers.</p>
+    <p>We share data only with the providers needed to run the service, each under its own data protection terms: our hosting and database providers; Google, whose AI model generates Zaina's replies; our payment providers, for card and M-Pesa payments; Meta, if WhatsApp is connected; and our email provider for receipts and alerts. Some of these providers process data outside Kenya; where they do, we rely on the safeguards the Act requires for transfers. You can ask us for the current list of providers at any time.</p>
     <h3>How long we keep data</h3>
     <ul>
       <li>Chat conversations: for the retention period above, then deleted.</li>

@@ -95,7 +95,7 @@ export function composeEmail(event: BillingEvent, business: { name: string; time
     case "paid": {
       const waived = event.invoice.method === "waived";
       const how = event.invoice.method === "paystack"
-        ? `by card or M-Pesa through Paystack${event.invoice.receipt ? ` (transaction ${event.invoice.receipt})` : ""}`
+        ? `by card or M-Pesa${event.invoice.receipt ? ` (transaction ${event.invoice.receipt})` : ""}`
         : `by hand${event.invoice.receipt ? ` (receipt ${event.invoice.receipt})` : ""}`;
       return {
         subject: waived ? `Zaina invoice ${event.invoice.number} is waived` : `Receipt: Zaina invoice ${event.invoice.number} is paid`,

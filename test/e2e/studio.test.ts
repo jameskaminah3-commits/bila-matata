@@ -162,6 +162,7 @@ test("a client finds their invoice by its reference; a wrong one finds nothing",
   assert.match(html, /KES 45,000/);
   assert.match(html, /50% deposit: company website, 6 pages/);
   assert.match(html, /Test mode/);
+  assert.doesNotMatch(html, /Paystack/i, "the page doesn't name the payment provider");
   assert.ok(!html.includes("accounts@example.com"), "the client's email isn't shown to whoever has the link");
 });
 
@@ -184,7 +185,7 @@ test("paying on Paystack: nothing is paid until Paystack says so, then the invoi
   assert.equal(early.headers.get("location"), `/pay/${invoice.reference}?m=pending`);
   assert.equal((await invoiceById(invoice.id)).status, "open");
   const waiting = await (await page(`/pay/${invoice.reference}?m=pending`)).text();
-  assert.match(waiting, /waiting for Paystack to confirm/);
+  assert.match(waiting, /waiting for your payment to be confirmed/);
   assert.match(waiting, /<meta http-equiv="refresh" content="8">/);
 
   // Paid on Paystack; the payer comes back.

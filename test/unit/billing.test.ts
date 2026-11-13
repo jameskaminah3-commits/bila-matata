@@ -108,7 +108,7 @@ test("the owners' emails say what happened, by when, and how to pay", () => {
 
   const paid = composeEmail({ kind: "paid", invoice: { ...invoice, status: "paid", paidAt: at("2026-10-16"), method: "paystack", receipt: "5000123" }, paidThrough: at("2026-11-16"), resumed: true }, business, link);
   assert.equal(paid.subject, "Receipt: Zaina invoice ZN-000042 is paid");
-  assert.match(paid.body.join("\n"), /16 October 2026, by card or M-Pesa through Paystack \(transaction 5000123\)/);
+  assert.match(paid.body.join("\n"), /16 October 2026, by card or M-Pesa \(transaction 5000123\)/);
   assert.match(paid.body.join("\n"), /paid through 16 November 2026\. Zaina is answering your customers again\./);
   const waived = composeEmail({ kind: "paid", invoice: { ...invoice, status: "paid", paidAt: at("2026-10-16"), method: "waived" }, paidThrough: at("2026-11-15"), resumed: false }, business, link);
   assert.equal(waived.subject, "Zaina invoice ZN-000042 is waived");

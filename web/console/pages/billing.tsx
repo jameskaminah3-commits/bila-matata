@@ -15,7 +15,7 @@ type Note = { kind: "success" | "error"; text: string };
 /** What Paystack's way back said (the address), shown only when it matches what the platform knows. */
 function outcomeNote(outcome: string | null, data: Billing): Note | null {
   if (outcome === "paid" && !data.open_invoice) return { kind: "success", text: "Thank you: your payment went through. The receipt is on its way by email." };
-  if (outcome === "paid" || outcome === "pending") return { kind: "success", text: "Your payment is being confirmed. This page shows it as paid as soon as Paystack confirms it, usually within a minute." };
+  if (outcome === "paid" || outcome === "pending") return { kind: "success", text: "Your payment is being confirmed. This page shows it as paid as soon as it's confirmed, usually within a minute." };
   if (outcome === "failed") return { kind: "error", text: "The payment didn't go through. You can try again, or pay another way." };
   return null;
 }

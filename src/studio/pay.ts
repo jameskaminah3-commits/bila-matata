@@ -58,7 +58,7 @@ export function receiptEmail(invoice: StudioInvoice): { subject: string; text: s
       `Service: ${categoryLabels[invoice.category]}`,
       `Details: ${invoice.description}`,
       `Paid on: ${DATE.format(invoice.paidAt ?? new Date())}`,
-      ...(invoice.receipt ? [`Paystack receipt: ${invoice.receipt}`] : []),
+      ...(invoice.receipt ? [`Payment reference: ${invoice.receipt}`] : []),
       ...(link ? ["", `Your invoice: ${link}`] : []),
       "",
       `${STUDIO.name}, ${STUDIO.city}`,

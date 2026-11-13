@@ -210,7 +210,8 @@ test("the trial's invoice goes out a week ahead and is paid by card through Pays
   assert.equal(view.subscription.status, "active");
   assert.equal(view.subscription.current_period_end, paid.period_end);
   const receipt = await eventually(() => emails().find((email) => email.subject === `Receipt: Zaina invoice ${invoice.number} is paid`), "the receipt");
-  assert.match(receipt.text, /by card or M-Pesa through Paystack \(transaction \d+\)/);
+  assert.match(receipt.text, /by card or M-Pesa \(transaction \d+\)/);
+  assert.doesNotMatch(receipt.text, /Paystack/, "the client's receipt doesn't name the payment provider");
 });
 
 test("the next invoice, paid through Paystack's webhook: signed by the platform's key, and settled once", async () => {
