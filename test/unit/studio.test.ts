@@ -136,7 +136,7 @@ test("the home page carries the agreed offer: headline, navigation, both plans, 
 
   assert.match(words, /Starter Sales Concierge KES 6,700 \/ month \+ KES 10,000 one-off set-up/);
   assert.match(words, /Full Booking & Quote Engine KES 11,000 \/ month \+ KES 20,000 one-off set-up/);
-  assert.match(words, /Zaina vs\. generic chatbots/);
+  assert.match(words, /Zaina vs\. generic AI bots/);
   for (const service of ["Website & Mobile App Development", "AI Automation & Workflow Systems", "Data Analysis & Business Intelligence", "Strategic Research & Professional Writing"]) {
     assert.ok(words.includes(service), service);
   }
@@ -164,6 +164,30 @@ test("the home page says how Zaina works: only the business's own information, n
   assert.match(words, /Checks your up-to-date calendar before she offers a time/);
   assert.match(words, /Made-up answers Doesn't guess: if it isn't in your information, she says so and brings in your team/);
   assert.match(words, /paid into your own payment account/);
+});
+
+test("the home page shows a smart assistant, and compares her with generic AI bots on facts only", () => {
+  const html = renderHome(PAGE);
+  const words = text(html);
+  assert.match(words, /Smart enough to sell, not just reply/);
+  assert.match(words, /works out what each customer is really after, asks the one question that matters, recommends the option that suits them from what you actually sell, and always offers the next step/);
+  assert.match(words, /Understands what each customer needs and recommends what suits them/);
+  assert.equal((html.match(/<article class="card"><div class="icon">/g) ?? []).length, 10, "six outcomes and four services");
+
+  // The other column is named, and every claim in it is about what a general assistant can't know or do for one business.
+  assert.match(words, /Generic AI bots \(such as Meta AI or ChatGPT\)/);
+  assert.match(words, /General AI assistants like Meta AI and ChatGPT are good at general questions\./);
+  for (const fact of [
+    "Nothing about your prices, your stock or your calendar",
+    "Doesn't know your prices",
+    "Can't see your calendar",
+    "Can't make a booking or take a payment for your business",
+    "Your team never hears about the conversation",
+    "Has no way to reach your team",
+  ]) assert.ok(words.includes(fact), fact);
+  assert.equal((html.match(/<tr><th scope="row">/g) ?? []).length, 9);
+  // No superiority claims that can't be shown, and nothing that runs the others down.
+  assert.doesNotMatch(words, /smarter than|better than (Meta|ChatGPT)|beats|outperforms|\b(useless|dumb|stupid|bad)\b|#1|number one|the best AI/i);
 });
 
 test("nothing a client or their customer reads names the payment provider", () => {

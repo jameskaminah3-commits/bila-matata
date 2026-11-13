@@ -12,6 +12,14 @@
     "answer": "Yes. The chat is one script tag, which those platforms and custom-built sites all accept. We install it for you as part of set-up."
   },
   {
+    "question": "How is Zaina different from Meta AI or ChatGPT?",
+    "answer": "General AI assistants like Meta AI and ChatGPT are good at general questions, but they know nothing about your prices, your stock or your calendar, they cannot take a booking or a payment for you, and your team never hears about the conversation. Zaina is set up on your business: she answers only from your own information, never invents a price, checks your up-to-date calendar, recommends what suits each customer from what you sell, makes the booking, and passes every lead to your team."
+  },
+  {
+    "question": "Is Zaina smart, or does she just follow a script?",
+    "answer": "She is not a script. Zaina understands what each customer is really after, asks a short question when a detail is missing, recommends the option that suits them, and always offers a next step. What she never does is make things up: every fact, price and time comes from your business's own information."
+  },
+  {
     "question": "Does Zaina make things up or invent prices?",
     "answer": "No. Zaina answers only from the information your business gives her, and every price she quotes comes straight from your price list. If something is not in your information, she says so and brings in your team instead of guessing."
   },

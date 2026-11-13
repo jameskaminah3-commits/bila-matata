@@ -174,4 +174,5 @@ are indexable; invoices, the dashboard and the APIs are not.
 | WhatsApp | `WHATSAPP_APP_SECRET`, `WHATSAPP_VERIFY_TOKEN`; webhook `https://<domain>/v1/whatsapp/webhook` |
 | Google Calendar for clients | `PLATFORM_GOOGLE_CLIENT_ID`, `PLATFORM_GOOGLE_CLIENT_SECRET` |
 | Businesses signing up by themselves | `PLATFORM_SIGNUP=open` (needs email), `PLATFORM_TERMS_URL=https://bilamatata.co.ke/terms` |
+| A stronger AI model for Zaina | `ZAINA_MODEL=<model id>`. The default is the fast, low-cost "lite" model. A larger model in the same family reasons better (smarter recommendations, fewer missed details) and costs more per conversation: try one on staging and compare real chats before changing it for everyone |
 | A staging site that embeds clients' chats | `EXTRA_ALLOWED_ORIGINS=https://staging.example.com` (staging only) |

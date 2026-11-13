@@ -41,6 +41,7 @@ import { alertTeam, type AlertEvent } from "../conversations/team-alerts.ts";
 import { businessDay, claimCapAlert, isOverCap, recordUsage, usageOn } from "../gateway/spend-cap.ts";
 import { runSearchKnowledge, SEARCH_KNOWLEDGE } from "../knowledge/tool.ts";
 import { GET_PRICES, runGetPrices } from "../prices/tool.ts";
+import { withConciergeGuidance } from "./concierge.ts";
 import { afterFailedTurn } from "./failure-policy.ts";
 import { buildHistory, MAX_EVENTS } from "./history.ts";
 import { withServerIdempotencyKey } from "./idempotency.ts";
@@ -295,7 +296,8 @@ async function runLockedTurn(input: TurnInput, connector: BusinessConnector, rec
   // model, writes its payment link and "what happens next" steps.
   const turnPayments: PaymentDetails[] = [];
   const budget = createTurnBudget(options.turnBudgetMs);
-  const systemInstruction = await connector.systemPrompt(business);
+  // The connector says where facts come from; the shared guidance says how to help well with them.
+  const systemInstruction = withConciergeGuidance(await connector.systemPrompt(business));
   const tools = [{ functionDeclarations: toolDeclarationsFor(business, connector) }];
 
   let finalText: string | null = null;

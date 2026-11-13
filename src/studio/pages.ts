@@ -24,6 +24,7 @@ const ICONS = {
   flow: `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="6" rx="1.500"/><rect x="14" y="15" width="7" height="6" rx="1.500"/><path d="M6.500 9v4a3 3 0 0 0 3 3H14"/></svg>`,
   chart: `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V4M4 20h16M8 16v-5M12 16V8M16 16v-3"/></svg>`,
   doc: `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h8l4 4v14H6Z"/><path d="M14 3v4h4M9 12h6M9 16h6"/></svg>`,
+  spark: `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.900 5.100L19 10l-5.100 1.900L12 17l-1.900-5.100L5 10l5.100-1.900ZM19 16l.800 2.200L22 19l-2.200.800L19 22l-.800-2.200L16 19l2.200-.800Z"/></svg>`,
   lock: `<svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>`,
 };
 
@@ -104,6 +105,7 @@ const PLANS = [
     for: "Every enquiry answered and every lead captured, without adding to your team.",
     features: [
       "Answers customers day and night, only from your own catalogue, price list and policies",
+      "Understands what each customer needs and recommends what suits them",
       "Never invents a price: every quote comes straight from your price list",
       "Captures each lead's name, number and what they want",
       "Alerts your team and hands the conversation over, on WhatsApp or in your dashboard",
@@ -131,21 +133,27 @@ const PLANS = [
 
 const OUTCOMES = [
   { icon: ICONS.moon, title: "Stop losing the customers who message after hours", text: "Zaina replies in seconds, at midnight and on Sunday. The customer who would have gone to whoever answered first stays with you." },
+  { icon: ICONS.spark, title: "Smart enough to sell, not just reply", text: "Zaina works out what each customer is really after, asks the one question that matters, recommends the option that suits them from what you actually sell, and always offers the next step: a time, a quote or a call from your team." },
   { icon: ICONS.lock, title: "Answers you can stand behind: nothing invented", text: "Zaina doesn't guess. Everything she says comes directly from your business: your catalogue, your policies and your price list. She never makes up a price, and if an answer isn't in your information she says so and brings in your team." },
   { icon: ICONS.calendar, title: "From \"do you have…?\" to booked", text: "She helps each customer find what suits them, checks your up-to-date calendar, quotes the exact price, creates the booking and takes the deposit by M-Pesa or card, paid into your own payment account." },
-  { icon: ICONS.inbox, title: "Leads that are ready to close, and a team that isn't buried", text: "Every serious enquiry arrives with a name, a number and exactly what the customer wants. Repeat questions stop landing on your staff, and when a customer needs a person, your team gets the whole conversation." },
+  { icon: ICONS.inbox, title: "Wake up to leads that are ready to close", text: "Every serious enquiry arrives with a name, a number and exactly what the customer wants, so your team's first message is the offer, not twenty questions." },
+  { icon: ICONS.people, title: "Your team does the work only people can do", text: "Repeat questions stop landing on your staff. When a customer needs a person, Zaina hands over the whole conversation and your team picks up where she left off." },
 ];
 
+/** The name the comparison gives the other column: general AI assistants, with the best-known examples. */
+const GENERIC_BOTS = "Generic AI bots (such as Meta AI or ChatGPT)";
+
+// Each right-hand claim is true of any general-purpose assistant: it has no access to one business's data or tools.
 const COMPARISON: Array<[string, string, string]> = [
-  ["Where answers come from", "Directly from your business: your catalogue, price list, policies and up-to-date calendar", "Scripted menus, or general knowledge that isn't about your business"],
-  ["Made-up answers", "Doesn't guess: if it isn't in your information, she says so and brings in your team", "Can answer confidently with something that isn't true"],
-  ["Prices and quotes", "Only the prices in your price list. She never invents a figure", "Often \"contact us for pricing\", or a guess"],
+  ["What it knows", "Your business: your catalogue, price list, policies and up-to-date calendar", "The internet in general. Nothing about your prices, your stock or your calendar"],
+  ["Made-up answers", "Doesn't guess: if it isn't in your information, she says so and brings in your team", "Has to guess about your business, and can sound sure while being wrong"],
+  ["Prices and quotes", "Only the prices in your price list. She never invents a figure", "Doesn't know your prices"],
   ["Availability", "Checks your up-to-date calendar before she offers a time", "Can't see your calendar"],
-  ["Finding and booking", "Helps the customer find the right option, creates the booking and takes the deposit by M-Pesa or card, into your own payment account", "Sends a form or a link and leaves the rest to you"],
-  ["When a person is needed", "Alerts your team and hands over the full conversation; a person can take over any chat", "\"An agent will get back to you\""],
-  ["Languages", "English and Swahili, in the customer's own style", "Usually English only"],
-  ["Where it works", "Your website and your WhatsApp number, with one shared inbox", "Usually one channel"],
-  ["Getting started", "We set it up for you: your catalogue, prices, tone and installation", "You build the flows yourself"],
+  ["Understanding the customer", "Works out what the customer needs and recommends what suits them from what you actually sell", "Gives general advice, and may point your customer to other businesses"],
+  ["Finding and booking", "Creates the booking and takes the deposit by M-Pesa or card, into your own payment account", "Can't make a booking or take a payment for your business"],
+  ["Leads", "Captures each lead's name, number and need, and alerts your team", "Your team never hears about the conversation"],
+  ["When a person is needed", "Hands your team the full conversation; a person can take over any chat", "Has no way to reach your team"],
+  ["Where it works", "On your own website and your own WhatsApp number, as your business's assistant", "In its own chat or app, not as your business's assistant"],
 ];
 
 const SERVICES = [
@@ -245,7 +253,7 @@ ${header("home")}
     <div class="section-head">
       <p class="eyebrow">Zaina AI</p>
       <h2 id="zaina-title">Your 24/7 AI sales closer and booking engine</h2>
-      <p>Customers buy from the business that answers first. Zaina answers every enquiry on your website and WhatsApp the moment it arrives, using only what your business gives her: your catalogue, your price list and your up-to-date calendar. She helps each customer find what they need, then turns the conversation into a lead or a paid booking.</p>
+      <p>Customers buy from the business that answers first and answers well. Zaina replies the moment an enquiry arrives on your website or WhatsApp, understands what the customer actually needs, and answers using only what your business gives her: your catalogue, your price list and your up-to-date calendar. She helps each customer find the right option, then turns the conversation into a lead or a paid booking.</p>
     </div>
     <div class="grid two">
       ${OUTCOMES.map((item) => `<article class="card"><div class="icon">${item.icon}</div><h3>${esc(item.title)}</h3><p>${esc(item.text)}</p></article>`).join("\n      ")}
@@ -261,12 +269,12 @@ ${header("home")}
   <div class="wrap">
     <div class="section-head">
       <p class="eyebrow">Why Zaina</p>
-      <h2 id="compare-title">Zaina vs. generic chatbots</h2>
-      <p>A generic bot answers from a script or from the internet. Zaina answers from your business, so she gets the facts right and does the part that earns money: the quote, the booking and the hand-over to your team.</p>
+      <h2 id="compare-title">Zaina vs. generic AI bots</h2>
+      <p>General AI assistants like Meta AI and ChatGPT are good at general questions. But they know nothing about your prices or your calendar, and they can't take a booking for you. Zaina is just as easy to talk to, and she is set up on one thing: your business. So she gets the facts right and does the part that earns money: the recommendation, the quote, the booking and the hand-over to your team.</p>
     </div>
     <div class="table-scroll">
       <table class="compare">
-        <thead><tr><th scope="col">What matters to you</th><th scope="col" class="us">Zaina AI</th><th scope="col">A typical generic chatbot</th></tr></thead>
+        <thead><tr><th scope="col">What matters to you</th><th scope="col" class="us">Zaina AI</th><th scope="col">${esc(GENERIC_BOTS)}</th></tr></thead>
         <tbody>
           ${COMPARISON.map(([what, zaina, generic]) => `<tr><th scope="row">${esc(what)}</th><td class="us">${esc(zaina)}</td><td class="them">${esc(generic)}</td></tr>`).join("\n          ")}
         </tbody>
