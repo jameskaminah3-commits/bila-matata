@@ -77,6 +77,8 @@ before(async () => {
       RESEND_API_KEY: "re_scripted",
       ALERT_FROM_EMAIL: "alerts@zaina.example",
       TURN_BUDGET_MS: String(TURN_BUDGET_MS),
+      // A main model other than the cheaper one, so the switch near the daily budget shows.
+      ZAINA_MODEL: "gemini-test-main",
       HANDOFF_SWEEP_INTERVAL_MS: "500",
       LIMIT_SESSION_MESSAGES_PER_MINUTE: "6",
       LIMIT_VISITOR_SESSIONS_PER_HOUR: "4",
@@ -279,6 +281,33 @@ test("a business over its daily model budget gets its contact line, without call
     await platform.db.query("update businesses set daily_token_cap = 5000000 where id = $1", [BUSINESS]);
     await settle(300);
   }
+});
+
+test("near its daily budget a business is answered by the cheaper model, and still answered", async () => {
+  // 900 of 1,000 tokens used today: past the 80% mark, still under the cap.
+  await platform.db.query(
+    `insert into usage_daily (business_id, day, input_tokens, output_tokens, turns)
+     values ($1, (now() at time zone 'Africa/Nairobi')::date, 900, 0, 1)
+     on conflict (business_id, day) do update set input_tokens = 900, output_tokens = 0`,
+    [BUSINESS],
+  );
+  await platform.db.query("update businesses set daily_token_cap = 1000 where id = $1", [BUSINESS]);
+  await settle(300);
+  try {
+    const before = platform.log("model").length;
+    const chat = await openChat();
+    assert.equal(await say(chat, "Hi"), GREETING);
+    const calls = platform.log("model").slice(before);
+    assert.ok(calls.length > 0);
+    assert.deepEqual([...new Set(calls.map((call: any) => call.model))], ["gemini-3.5-flash-lite"]);
+  } finally {
+    await platform.db.query("update businesses set daily_token_cap = 5000000 where id = $1", [BUSINESS]);
+    await settle(300);
+  }
+  // Well under the budget again: the main model.
+  const before = platform.log("model").length;
+  await say(await openChat(), "Hi");
+  assert.deepEqual([...new Set(platform.log("model").slice(before).map((call: any) => call.model))], ["gemini-test-main"]);
 });
 
 test("too many messages in a minute are refused before any model call", async () => {

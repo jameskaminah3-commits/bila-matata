@@ -571,6 +571,7 @@ globalThis.fetch = async (input, init) => {
     appendFileSync(LOG, JSON.stringify({
       at: new Date().toISOString(),
       customerText,
+      model: /\/models\/([^:/?]+)/.exec(url)?.[1] ?? null,
       phase: fnResponses.length ? "after_tool" : "first",
       systemChars: systemText.length,
       toolsChars: JSON.stringify(body.tools ?? []).length,

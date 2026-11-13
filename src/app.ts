@@ -215,6 +215,8 @@ export async function startServer(config: PlatformConfig): Promise<{ server: Ser
   const engine: EngineOptions = {
     ai: new GoogleGenAI({ apiKey: config.geminiApiKey }),
     model: config.model,
+    saverModel: config.saverModel,
+    saverAtShare: config.saverAtPercent / 100,
     turnBudgetMs: config.turnBudgetMs,
     prices: config.modelPriceUsdPerMillion,
   };

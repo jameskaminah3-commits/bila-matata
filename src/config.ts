@@ -68,6 +68,10 @@ export type PlatformConfig = {
   sessionTokenSecret: string;
   geminiApiKey: string;
   model: string;
+  /** ZAINA_SAVER_MODEL: the cheaper model near a business's daily budget ("off": none). */
+  saverModel: string | null;
+  /** ZAINA_SAVER_AT_PERCENT: how much of the daily budget is used before it takes over. */
+  saverAtPercent: number;
   /** The longest one chat turn may take, model calls and tools included (I4). */
   turnBudgetMs: number;
   /** Proxy hops in front of the service, for the visitor's IP address. */
@@ -235,6 +239,22 @@ function billingPaymentInstructions(env: NodeJS.ProcessEnv): string | null {
   return raw;
 }
 
+/** ZAINA_SAVER_MODEL: a model id, "off", or unset (the lite model). */
+function saverModel(env: NodeJS.ProcessEnv): string | null {
+  const raw = env.ZAINA_SAVER_MODEL?.trim();
+  if (raw && raw.toLowerCase() === "off") return null;
+  return raw || "gemini-3.5-flash-lite";
+}
+
+/** A whole number from 1 to 100. */
+function percent(env: NodeJS.ProcessEnv, name: string, fallback: number): number {
+  const raw = env[name]?.trim();
+  if (!raw) return fallback;
+  const value = Number(raw);
+  if (!Number.isInteger(value) || value < 1 || value > 100) throw new Error(`${name} must be a whole number from 1 to 100`);
+  return value;
+}
+
 /** STUDIO_NOTIFY_EMAIL: an email address, or unset. */
 function studioNotifyEmail(env: NodeJS.ProcessEnv): string | null {
   const raw = env.STUDIO_NOTIFY_EMAIL?.trim();
@@ -267,6 +287,8 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): PlatformConfig
     sessionTokenSecret,
     geminiApiKey: required(env, "GEMINI_API_KEY"),
     model: env.ZAINA_MODEL?.trim() || "gemini-3.5-flash-lite",
+    saverModel: saverModel(env),
+    saverAtPercent: percent(env, "ZAINA_SAVER_AT_PERCENT", 80),
     turnBudgetMs: positiveInt(env, "TURN_BUDGET_MS", 25_000),
     trustProxy: Number(env.TRUST_PROXY ?? "1") || 0,
     migrateOnStart: env.MIGRATE_ON_START === "true",

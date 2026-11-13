@@ -189,4 +189,5 @@ are indexable; invoices, the dashboard and the APIs are not.
 | Google Calendar for clients | `PLATFORM_GOOGLE_CLIENT_ID`, `PLATFORM_GOOGLE_CLIENT_SECRET` |
 | Businesses signing up by themselves | `PLATFORM_SIGNUP=open` (needs email), `PLATFORM_TERMS_URL=https://bilamatata.co.ke/terms` |
 | A stronger AI model for Zaina | `ZAINA_MODEL=<model id>`. The default is the fast, low-cost "lite" model. A larger model in the same family reasons better (smarter recommendations, fewer missed details) and costs more per conversation: try one on staging and compare real chats before changing it for everyone |
+| A cheaper model near the daily budget | On by default: once a business has used 80% of its daily AI budget, Zaina answers with `gemini-3.5-flash-lite` for the rest of the day instead of stopping at the cap. Change the model with `ZAINA_SAVER_MODEL=<model id>` (or `off`), and the point with `ZAINA_SAVER_AT_PERCENT=<1-100>`. Cost reports price every turn at `MODEL_PRICE_*`, so they overstate days that switched |
 | A staging site that embeds clients' chats | `EXTRA_ALLOWED_ORIGINS=https://staging.example.com` (staging only) |

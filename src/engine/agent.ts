@@ -38,7 +38,7 @@ import {
   whatsappNumberLine,
 } from "../conversations/store.ts";
 import { alertTeam, type AlertEvent } from "../conversations/team-alerts.ts";
-import { businessDay, claimCapAlert, isOverCap, recordUsage, usageOn } from "../gateway/spend-cap.ts";
+import { businessDay, claimCapAlert, isOverCap, modelForUsage, recordUsage, usageOn } from "../gateway/spend-cap.ts";
 import { runSearchKnowledge, SEARCH_KNOWLEDGE } from "../knowledge/tool.ts";
 import { GET_PRICES, runGetPrices } from "../prices/tool.ts";
 import { withConciergeGuidance } from "./concierge.ts";
@@ -78,6 +78,10 @@ const LOCK_GRACE_MS = 20_000;
 export type EngineOptions = {
   ai: GoogleGenAI;
   model: string;
+  /** A cheaper model used once a business has used saverAtShare of its daily budget (null: never). */
+  saverModel?: string | null;
+  /** The share of the daily budget at which the saver model takes over (0.8 = 80%). */
+  saverAtShare?: number;
   turnBudgetMs: number;
   prices: ModelPrices | null;
 };
@@ -311,7 +315,9 @@ async function runLockedTurn(input: TurnInput, connector: BusinessConnector, rec
   let sawFailedWrite = false;
 
   const ai = await modelClientFor(business, options.ai);
-  const callModel = (withTools: boolean) => generate({ ...options, ai }, budget, recorder, {
+  // Near the daily budget, the cheaper model answers for the rest of the day.
+  const model = modelForUsage(usage, business.dailyTokenCap, { primary: options.model, saver: options.saverModel ?? null, saverAtShare: options.saverAtShare ?? 0.8 });
+  const callModel = (withTools: boolean) => generate({ ...options, ai, model }, budget, recorder, {
     contents,
     config: withTools ? { systemInstruction, tools } : { systemInstruction },
   });

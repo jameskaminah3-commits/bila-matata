@@ -28,6 +28,20 @@ export async function usageOn(businessId: string, day: string): Promise<DailyUsa
     : { inputTokens: 0, outputTokens: 0, turns: 0 };
 }
 
+/**
+ * The model for this turn: the cheaper "saver" model once the business has used
+ * saverAtShare of its daily cap (0.8 = 80%), so a busy day costs less and Zaina
+ * keeps answering instead of reaching the cap. The main model otherwise.
+ */
+export function modelForUsage(
+  usage: DailyUsage,
+  dailyTokenCap: number | null,
+  models: { primary: string; saver: string | null; saverAtShare: number },
+): string {
+  if (!models.saver || models.saver === models.primary || dailyTokenCap === null) return models.primary;
+  return usage.inputTokens + usage.outputTokens >= dailyTokenCap * models.saverAtShare ? models.saver : models.primary;
+}
+
 /** Whether the business has already used its cap for the day. */
 export function isOverCap(usage: DailyUsage, dailyTokenCap: number | null): boolean {
   return dailyTokenCap !== null && usage.inputTokens + usage.outputTokens >= dailyTokenCap;
