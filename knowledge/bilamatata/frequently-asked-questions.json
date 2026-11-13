@@ -1,0 +1,13 @@
+[
+  { "question": "How long does it take to set up Zaina?", "answer": "It depends on how much there is to load: your catalogue, prices and policies. Tell us about your business on WhatsApp at +254 707 255 598 and the team will give you a date. We don't promise a fixed number of days before seeing what you have." },
+  { "question": "Do I need a website to use Zaina?", "answer": "No. Zaina can work on your WhatsApp number alone. If you have a website, the chat is added with one line of code. If you want a website, the studio builds those too." },
+  { "question": "Will Zaina work on my WordPress, Shopify or Wix site?", "answer": "Yes. The chat is one script tag, which those platforms and custom-built sites all accept. We install it for you as part of set-up." },
+  { "question": "Can my staff take over a conversation?", "answer": "Yes. Your team sees every conversation in the dashboard, gets an alert when a customer needs a person, and can take over any chat. Zaina steps back while a person is replying." },
+  { "question": "What languages does Zaina speak?", "answer": "English and Swahili. It replies in the language the customer writes in." },
+  { "question": "Where does my customers' money go?", "answer": "Straight into your own Paystack or M-Pesa account. Bila Matata does not hold your customers' payments." },
+  { "question": "What happens if Zaina doesn't know an answer?", "answer": "It says so, offers to take the customer's details, and alerts your team. It is built not to guess prices or make promises that aren't in your information." },
+  { "question": "Can I cancel Zaina?", "answer": "Yes, at any time. Your plan runs to the end of the month you have paid for and then stops. There is no cancellation fee." },
+  { "question": "Do you work with clients outside Kenya?", "answer": "Yes. We are based in Mombasa and work with clients across Kenya and abroad, online." },
+  { "question": "How do I get a quote for a website, app, automation, data or research project?", "answer": "Tell us what you need on WhatsApp at +254 707 255 598, or leave your name, number and a short description in this chat and the team will contact you. Quotes are free and in writing." },
+  { "question": "Is my data safe?", "answer": "Each business's conversations, leads and bookings are kept separate from every other business's. Data is encrypted in transit, and conversations are deleted after the retention period. We handle personal data under Kenya's Data Protection Act, 2019. Details are at https://bilamatata.co.ke/terms" }
+]

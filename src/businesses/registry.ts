@@ -19,6 +19,17 @@ export function setExtraAllowedOrigins(origins: string[]) {
   extraOrigins = origins.map((origin) => origin.trim()).filter(Boolean);
 }
 
+let ownSite: { businessId: string; origins: string[] } | null = null;
+
+/**
+ * The service's own address, allowed for the one business whose chat is on
+ * the service's own pages (the studio's Zaina on the home page): so that chat
+ * also works on a staging address, without opening every business to it.
+ */
+export function setOwnSiteOrigins(businessId: string, origins: Array<string | null>) {
+  ownSite = { businessId, origins: origins.filter((origin): origin is string => Boolean(origin)) };
+}
+
 async function all(): Promise<Business[]> {
   if (cache && Date.now() - cache.at < CACHE_MS) return cache.list;
   const list = await appDb().select().from(businesses);
@@ -59,12 +70,12 @@ export async function businessByPublicKey(publicKey: string): Promise<Business |
 }
 
 export function allowedOriginsFor(business: Business): string[] {
-  return [...business.allowedOrigins, ...extraOrigins];
+  return [...business.allowedOrigins, ...extraOrigins, ...(ownSite?.businessId === business.id ? ownSite.origins : [])];
 }
 
 /** Every origin any active business allows (answers browsers' CORS preflight). */
 export async function anyAllowedOrigins(): Promise<string[]> {
-  return [...(await all()).filter((business) => business.status === "active").flatMap((business) => business.allowedOrigins), ...extraOrigins];
+  return [...(await all()).filter((business) => business.status === "active").flatMap((business) => business.allowedOrigins), ...extraOrigins, ...(ownSite?.origins ?? [])];
 }
 
 export async function reloadBusiness(id: string): Promise<Business | undefined> {

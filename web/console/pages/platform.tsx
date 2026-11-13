@@ -2,8 +2,9 @@
 //
 // The platform's own view, for its admins: every business's day (model use
 // against its budget, chats, waiting handoffs, failed turns, WhatsApp), what
-// the platform has switched on, adding a business, and billing (plans and
-// invoices: platform-billing.tsx).
+// the platform has switched on, adding a business, billing (plans and
+// invoices: platform-billing.tsx) and the studio's own invoices
+// (platform-studio-invoices.tsx).
 
 import { useState } from "react";
 import { api } from "../api.ts";
@@ -11,6 +12,7 @@ import { go } from "../app.tsx";
 import { count, money, timeAgo } from "../format.ts";
 import { Button, ErrorLine, Field, Icon, Message, Modal, useAction, useEvery, useLoad } from "../ui.tsx";
 import { PlatformBillingSection } from "./platform-billing.tsx";
+import { StudioInvoicesSection } from "./platform-studio-invoices.tsx";
 
 type Overview = {
   businesses: Array<{
@@ -99,6 +101,7 @@ export function PlatformPage() {
       ) : null}
       {data ? <Pilot businesses={data.businesses} /> : null}
       <PlatformBillingSection />
+      <StudioInvoicesSection />
       {adding ? <AddBusiness onClose={() => setAdding(false)} onAdded={async (text) => { setAdding(false); setMessage({ kind: "success", text }); await overview.reload(); }} /> : null}
     </div>
   );

@@ -40,6 +40,7 @@ import { formatMoney } from "../booking/money.ts";
 import { chargeFromWebhook, initializeCheckout, validWebhookSignature, verifyTransaction, type PaystackAccount, type VerifiedTransaction } from "./paystack.ts";
 import { mpesaPhone, readStkCallback, stkPush, stkQuery, type MpesaAccount } from "./mpesa.ts";
 import { applyInvoiceCharge } from "../billing/payments.ts";
+import { applyStudioCharge } from "../studio/pay.ts";
 
 let config: { publicBaseUrl: string | null; platformPaystackKey: string | null } = { publicBaseUrl: null, platformPaystackKey: null };
 
@@ -277,6 +278,12 @@ export async function handlePaystackWebhook(businessId: string | null, rawBody: 
   if (!businessId && reference.startsWith("zi_")) {
     if (!config.platformPaystackKey || !validWebhookSignature(config.platformPaystackKey, rawBody, signature)) return false;
     if (charge) await applyInvoiceCharge(charge);
+    return true;
+  }
+  // One of the studio's own invoices (/pay), paid into the same account.
+  if (!businessId && reference.startsWith("bm_")) {
+    if (!config.platformPaystackKey || !validWebhookSignature(config.platformPaystackKey, rawBody, signature)) return false;
+    if (charge) await applyStudioCharge(charge);
     return true;
   }
   const ownerId = businessId ?? (reference ? await businessForToken("paystack", reference) : null);

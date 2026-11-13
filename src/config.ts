@@ -89,6 +89,8 @@ export type PlatformConfig = {
   billingGraceDays: number;
   /** How to pay an invoice by hand (bank or M-Pesa), shown with every invoice (BILLING_PAYMENT_INSTRUCTIONS). */
   billingPaymentInstructions: string | null;
+  /** Where the studio hears that one of its own invoices was paid on /pay (STUDIO_NOTIFY_EMAIL). */
+  studioNotifyEmail: string | null;
 };
 
 function required(env: NodeJS.ProcessEnv, name: string): string {
@@ -233,6 +235,14 @@ function billingPaymentInstructions(env: NodeJS.ProcessEnv): string | null {
   return raw;
 }
 
+/** STUDIO_NOTIFY_EMAIL: an email address, or unset. */
+function studioNotifyEmail(env: NodeJS.ProcessEnv): string | null {
+  const raw = env.STUDIO_NOTIFY_EMAIL?.trim();
+  if (!raw) return null;
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(raw)) throw new Error("STUDIO_NOTIFY_EMAIL is an email address");
+  return raw;
+}
+
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): PlatformConfig {
   const sessionTokenSecret = required(env, "SESSION_TOKEN_SECRET");
   if (sessionTokenSecret.length < 32) throw new Error("SESSION_TOKEN_SECRET must be at least 32 characters");
@@ -276,5 +286,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): PlatformConfig
     privacyUrl: httpsUrl(env, "PLATFORM_PRIVACY_URL"),
     billingGraceDays: billingGraceDays(env),
     billingPaymentInstructions: billingPaymentInstructions(env),
+    studioNotifyEmail: studioNotifyEmail(env),
   };
 }

@@ -8,7 +8,7 @@ import express, { type Express, type NextFunction, type Request, type Response }
 import type { Server } from "node:http";
 import { GoogleGenAI } from "@google/genai";
 import type { PlatformConfig } from "./config.ts";
-import { anyAllowedOrigins, setExtraAllowedOrigins } from "./businesses/registry.ts";
+import { anyAllowedOrigins, setExtraAllowedOrigins, setOwnSiteOrigins } from "./businesses/registry.ts";
 import { loadSecretKeys, setSecretKeys } from "./businesses/secrets.ts";
 import type { WhatsappContext } from "./channels/whatsapp/context.ts";
 import { registerWhatsappRoutes, WEBHOOK_PATH } from "./channels/whatsapp/routes.ts";
@@ -47,6 +47,9 @@ import { sweepInvoicePayments } from "./billing/payments.ts";
 import { planStep, registerBillingRoutes } from "./billing/routes.ts";
 import { sweepBilling } from "./billing/store.ts";
 import { setPlanCheck } from "./onboarding/checklist.ts";
+import { STUDIO } from "./studio/brand.ts";
+import { configureStudioPay, sweepStudio } from "./studio/pay.ts";
+import { registerStudioRoutes } from "./studio/routes.ts";
 
 /** Browsers may call the API from any website a business allows. */
 function cors() {
@@ -97,6 +100,9 @@ export function createApp(config: PlatformConfig, engine: EngineOptions, whatsap
     platformPaystackKey: config.platformPaystackKey,
     paymentInstructions: config.billingPaymentInstructions,
   });
+  configureStudioPay({ paystackKey: config.platformPaystackKey, publicBaseUrl: config.publicBaseUrl, notifyEmail: config.studioNotifyEmail });
+  // The studio's own Zaina is on the service's own home page, wherever the service is (staging included).
+  setOwnSiteOrigins(STUDIO.businessId, [config.publicBaseUrl]);
   // A business that signed up by itself chooses a plan before going live, once the platform offers plans.
   setPlanCheck(planStep);
   setWhatsappRuntime(whatsapp);
@@ -114,6 +120,8 @@ export function createApp(config: PlatformConfig, engine: EngineOptions, whatsap
   // it is the same API as /v1/*, which webhooks and the dashboard keep using.
   app.use((req: Request, _res: Response, next: NextFunction) => {
     if (/^\/api\/zaina(?=\/|\?|$)/.test(req.url)) req.url = `/v1${req.url.slice("/api/zaina".length)}`;
+    // Paystack's webhook for the platform's own account, by the name set in Paystack's dashboard.
+    else if (/^\/api\/paystack\/webhook(?=\?|$)/.test(req.url)) req.url = `/v1/payments/paystack${req.url.slice("/api/paystack/webhook".length)}`;
     next();
   });
   // Knowledge and price-list routes parse their own, bigger bodies (documents,
@@ -134,6 +142,8 @@ export function createApp(config: PlatformConfig, engine: EngineOptions, whatsap
   registerWhatsappRoutes(app, config, whatsapp);
   registerBookingRoutes(app, config);
   registerSlotRoutes(app, config);
+  // The studio's site and invoices (/pay, /pay/BM-…) come before the booking payment pages (/pay/:token).
+  registerStudioRoutes(app, config);
   registerPaymentRoutes(app, config);
   registerCalendarRoutes(app, config);
   registerSignupRoutes(app, config);
@@ -241,6 +251,8 @@ export async function startServer(config: PlatformConfig): Promise<{ server: Ser
       if (moved) console.log(`[platform] billing moved on for ${moved} business(es)`);
       await sweepInvoicePayments();
     }),
+    // The studio's own invoices: payments Paystack settled without the payer coming back.
+    every("studio invoices", Number(process.env.BOOKING_SWEEP_INTERVAL_MS ?? "") || 60_000, () => sweepStudio()),
   ];
 
   const stop = async () => {
