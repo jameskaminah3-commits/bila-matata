@@ -13,11 +13,15 @@
   },
   {
     "question": "How is Zaina different from Meta AI or ChatGPT?",
-    "answer": "General AI assistants like Meta AI and ChatGPT are good at general questions, but they know nothing about your prices, your stock or your calendar, they cannot take a booking or a payment for you, and your team never hears about the conversation. Zaina is set up on your business: she answers only from your own information, never invents a price, checks your up-to-date calendar, recommends what suits each customer from what you sell, makes the booking, and passes every lead to your team."
+    "answer": "Those are general assistants: good at general questions, but they know nothing about your prices, your stock or your calendar, they can't take a booking or a payment for your business, and your team never hears about the conversation. Zaina works for your business only: she answers from your own information, never invents a price, checks your up-to-date calendar, recommends what suits each customer from what you sell, makes the booking, and passes every lead to your team."
   },
   {
     "question": "Is Zaina smart, or does she just follow a script?",
     "answer": "She is not a script. Zaina understands what each customer is really after, asks a short question when a detail is missing, recommends the option that suits them, and always offers a next step. What she never does is make things up: every fact, price and time comes from your business's own information."
+  },
+  {
+    "question": "Does Zaina hand chats over to my WhatsApp?",
+    "answer": "When a customer needs a person, Zaina alerts your team on their phones (and by email) and hands over the whole conversation in your dashboard, with the customer's details. If the customer is chatting on your WhatsApp number, your team's replies from the dashboard reach them on WhatsApp."
   },
   {
     "question": "Does Zaina make things up or invent prices?",
@@ -29,7 +33,7 @@
   },
   {
     "question": "Can Zaina help my customers choose and book?",
-    "answer": "Yes. She helps each customer find the option that suits them, quotes the exact price from your price list, and on the Full plan creates the booking and takes the deposit."
+    "answer": "Yes. She helps each customer find the option that suits them, suggests extras you really offer when they fit, and on the Full plan works out the exact total from your rates, creates the booking and sends the M-Pesa or card checkout."
   },
   {
     "question": "How do I pay for Zaina?",

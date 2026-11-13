@@ -19,6 +19,8 @@ test("Zaina is told to understand the customer, recommend, and always offer a ne
     /ask one short question/,
     /Answer the whole message/,
     /Recommend, don't just list/,
+    /Suggest extras that genuinely fit/,
+    /suggest one, once, with its price exactly as the tools give it/,
     /offer the nearest thing the business really has/,
     /Always finish with one clear next step/,
     /offer once to take their name and number/,

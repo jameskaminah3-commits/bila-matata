@@ -108,7 +108,8 @@ const PLANS = [
       "Understands what each customer needs and recommends what suits them",
       "Never invents a price: every quote comes straight from your price list",
       "Captures each lead's name, number and what they want",
-      "Alerts your team and hands the conversation over, on WhatsApp or in your dashboard",
+      "Suggests the extras and upgrades you really offer, at your listed prices, without being pushy",
+      "Alerts your team on their phones and hands over the whole conversation, ready to close",
       "Chat on your website with one line of code",
       "Conversations, leads and reports in your dashboard",
     ],
@@ -122,9 +123,9 @@ const PLANS = [
     features: [
       "Everything in Starter",
       "Checks your up-to-date calendar before she offers a time",
-      "Builds exact quotes from your price list, including bundles",
+      "Works out exact totals from your own rates: dates, number of people and fees included",
       "Helps each customer find the right option, then books it from start to finish",
-      "Takes deposits by M-Pesa or card, paid straight into your own payment account",
+      "Sends the M-Pesa or card checkout 24/7, paid straight into your own payment account",
       "Calendar sync and booking notices for your team",
     ],
     featured: true,
@@ -140,20 +141,16 @@ const OUTCOMES = [
   { icon: ICONS.people, title: "Your team does the work only people can do", text: "Repeat questions stop landing on your staff. When a customer needs a person, Zaina hands over the whole conversation and your team picks up where she left off." },
 ];
 
-/** The name the comparison gives the other column: general AI assistants, with the best-known examples. */
-const GENERIC_BOTS = "Generic AI bots (such as Meta AI or ChatGPT)";
-
-// Each right-hand claim is true of any general-purpose assistant: it has no access to one business's data or tools.
+// The comparison is with what business owners already use and dislike: auto-replies and basic chatbots.
+// No other company is named on the page. Every Zaina claim here is something she really does (Full plan
+// for availability, totals, booking and checkout: the note under the table says so).
 const COMPARISON: Array<[string, string, string]> = [
-  ["What it knows", "Your business: your catalogue, price list, policies and up-to-date calendar", "The internet in general. Nothing about your prices, your stock or your calendar"],
-  ["Made-up answers", "Doesn't guess: if it isn't in your information, she says so and brings in your team", "Has to guess about your business, and can sound sure while being wrong"],
-  ["Prices and quotes", "Only the prices in your price list. She never invents a figure", "Doesn't know your prices"],
-  ["Availability", "Checks your up-to-date calendar before she offers a time", "Can't see your calendar"],
-  ["Understanding the customer", "Works out what the customer needs and recommends what suits them from what you actually sell", "Gives general advice, and may point your customer to other businesses"],
-  ["Finding and booking", "Creates the booking and takes the deposit by M-Pesa or card, into your own payment account", "Can't make a booking or take a payment for your business"],
-  ["Leads", "Captures each lead's name, number and need, and alerts your team", "Your team never hears about the conversation"],
-  ["When a person is needed", "Hands your team the full conversation; a person can take over any chat", "Has no way to reach your team"],
-  ["Where it works", "On your own website and your own WhatsApp number, as your business's assistant", "In its own chat or app, not as your business's assistant"],
+  ["Live availability", "Reply \"We'll check and get back to you\", and impatient buyers go to whoever answers first", "Checks your up-to-date calendar the moment a customer asks, and offers only the times or dates that are really free"],
+  ["Accurate price quotes", "Send a static price list or guess, so your staff still have to step in and work out the total", "Works out the exact total from your own rates for the dates, the number of people and your fees. Never a guessed figure"],
+  ["Answers you can trust", "Guess, or answer from general knowledge that isn't about your business", "Answers only from your own information. If something isn't there, she says so and brings in your team"],
+  ["Recommendations and extras", "Only answer what was asked, and leave money on the table", "Recommends what suits each customer and suggests the extras and upgrades you really offer, at your listed prices"],
+  ["Booking and checkout", "Stop at chatting: your staff still create the order and chase the payment", "Creates the booking and sends the M-Pesa or card checkout, 24/7 while you sleep, paid into your own account"],
+  ["Hand-off to your team", "Trap frustrated customers in a loop, or dump messy chats on your phone", "Passes complex or VIP requests to your team with the whole conversation and the customer's details, ready to close"],
 ];
 
 const SERVICES = [
@@ -269,17 +266,18 @@ ${header("home")}
   <div class="wrap">
     <div class="section-head">
       <p class="eyebrow">Why Zaina</p>
-      <h2 id="compare-title">Zaina vs. generic AI bots</h2>
-      <p>General AI assistants like Meta AI and ChatGPT are good at general questions. But they know nothing about your prices or your calendar, and they can't take a booking for you. Zaina is just as easy to talk to, and she is set up on one thing: your business. So she gets the facts right and does the part that earns money: the recommendation, the quote, the booking and the hand-over to your team.</p>
+      <h2 id="compare-title">Not just another chatbot: Zaina actually closes bookings</h2>
+      <p>Auto-responders and generic chatbots leave customers waiting for someone to check availability and work out the price. Zaina is a sales engine wired into your own rates, calendar and checkout, so she answers, quotes and books on the spot.</p>
     </div>
     <div class="table-scroll">
       <table class="compare">
-        <thead><tr><th scope="col">What matters to you</th><th scope="col" class="us">Zaina AI</th><th scope="col">${esc(GENERIC_BOTS)}</th></tr></thead>
+        <thead><tr><th scope="col">What your customers need</th><th scope="col">Basic auto-responders &amp; generic bots</th><th scope="col" class="us">Zaina AI, built for revenue</th></tr></thead>
         <tbody>
-          ${COMPARISON.map(([what, zaina, generic]) => `<tr><th scope="row">${esc(what)}</th><td class="us">${esc(zaina)}</td><td class="them">${esc(generic)}</td></tr>`).join("\n          ")}
+          ${COMPARISON.map(([what, generic, zaina]) => `<tr><th scope="row">${esc(what)}</th><td class="them">${esc(generic)}</td><td class="us">${esc(zaina)}</td></tr>`).join("\n          ")}
         </tbody>
       </table>
     </div>
+    <p class="fine">Live availability, exact booking totals, booking and checkout come with the Full Booking &amp; Quote Engine. The Starter plan answers from your catalogue and price list and hands every lead to your team. <a href="#pricing">Compare the plans</a>.</p>
   </div>
 </section>
 

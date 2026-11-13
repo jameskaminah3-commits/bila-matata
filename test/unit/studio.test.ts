@@ -136,7 +136,7 @@ test("the home page carries the agreed offer: headline, navigation, both plans, 
 
   assert.match(words, /Starter Sales Concierge KES 6,700 \/ month \+ KES 10,000 one-off set-up/);
   assert.match(words, /Full Booking & Quote Engine KES 11,000 \/ month \+ KES 20,000 one-off set-up/);
-  assert.match(words, /Zaina vs\. generic AI bots/);
+  assert.match(words, /Not just another chatbot: Zaina actually closes bookings/);
   for (const service of ["Website & Mobile App Development", "AI Automation & Workflow Systems", "Data Analysis & Business Intelligence", "Strategic Research & Professional Writing"]) {
     assert.ok(words.includes(service), service);
   }
@@ -162,11 +162,11 @@ test("the home page says how Zaina works: only the business's own information, n
   assert.match(words, /She helps each customer find what suits them, checks your up-to-date calendar, quotes the exact price, creates the booking and takes the deposit/);
   assert.match(words, /Never invents a price: every quote comes straight from your price list/);
   assert.match(words, /Checks your up-to-date calendar before she offers a time/);
-  assert.match(words, /Made-up answers Doesn't guess: if it isn't in your information, she says so and brings in your team/);
+  assert.match(words, /Answers you can trust Guess, or answer from general knowledge that isn't about your business Answers only from your own information\. If something isn't there, she says so and brings in your team/);
   assert.match(words, /paid into your own payment account/);
 });
 
-test("the home page shows a smart assistant, and compares her with generic AI bots on facts only", () => {
+test("the home page shows a smart assistant, and compares her with auto-replies and basic bots on what she really does", () => {
   const html = renderHome(PAGE);
   const words = text(html);
   assert.match(words, /Smart enough to sell, not just reply/);
@@ -174,20 +174,19 @@ test("the home page shows a smart assistant, and compares her with generic AI bo
   assert.match(words, /Understands what each customer needs and recommends what suits them/);
   assert.equal((html.match(/<article class="card"><div class="icon">/g) ?? []).length, 10, "six outcomes and four services");
 
-  // The other column is named, and every claim in it is about what a general assistant can't know or do for one business.
-  assert.match(words, /Generic AI bots \(such as Meta AI or ChatGPT\)/);
-  assert.match(words, /General AI assistants like Meta AI and ChatGPT are good at general questions\./);
-  for (const fact of [
-    "Nothing about your prices, your stock or your calendar",
-    "Doesn't know your prices",
-    "Can't see your calendar",
-    "Can't make a booking or take a payment for your business",
-    "Your team never hears about the conversation",
-    "Has no way to reach your team",
-  ]) assert.ok(words.includes(fact), fact);
-  assert.equal((html.match(/<tr><th scope="row">/g) ?? []).length, 9);
-  // No superiority claims that can't be shown, and nothing that runs the others down.
-  assert.doesNotMatch(words, /smarter than|better than (Meta|ChatGPT)|beats|outperforms|\b(useless|dumb|stupid|bad)\b|#1|number one|the best AI/i);
+  // The comparison: what customers need, then the basic bots, then Zaina last.
+  const table = /<table class="compare">[\s\S]*?<\/table>/.exec(html)![0];
+  assert.deepEqual([...table.matchAll(/<th scope="col"[^>]*>([^<]+)<\/th>/g)].map((match) => match[1]), ["What your customers need", "Basic auto-responders &amp; generic bots", "Zaina AI, built for revenue"]);
+  assert.deepEqual([...table.matchAll(/<th scope="row">([^<]+)<\/th>/g)].map((match) => match[1]), ["Live availability", "Accurate price quotes", "Answers you can trust", "Recommendations and extras", "Booking and checkout", "Hand-off to your team"]);
+  assert.equal((table.match(/<td class="them">[^<]*<\/td><td class="us">/g) ?? []).length, 6);
+  assert.match(words, /Auto-responders and generic chatbots leave customers waiting for someone to check availability and work out the price\./);
+  assert.match(words, /Live availability, exact booking totals, booking and checkout come with the Full Booking & Quote Engine\./);
+
+  // No other company is named on the page (that answer is kept for one-to-one questions).
+  assert.doesNotMatch(words, /Meta AI|ChatGPT|Gemini|Copilot|OpenAI/);
+  // Only what Zaina really does: no stock tracking, bundles, currency conversion, timed promises, or hand-off "to WhatsApp".
+  assert.doesNotMatch(words, /inventory|\bstock levels?\b|bundles?|KSh (&|and) USD|\b\d+ seconds\b|to your WhatsApp/i);
+  assert.doesNotMatch(words, /smarter than|beats|outperforms|#1|number one|the best AI|increase every/i);
 });
 
 test("nothing a client or their customer reads names the payment provider", () => {
@@ -214,7 +213,8 @@ test("nothing a client or their customer reads names the payment provider", () =
 test("the home page promises nothing it can't show: no invented numbers, reviews or guarantees", () => {
   const words = text(renderHome(PAGE)).toLowerCase();
   for (const claim of ["guarantee", "testimonial", "trusted by", "rated", "% more", "x more", "15+ hours", "pays for itself", "award"]) {
-    assert.ok(!words.includes(claim), claim);
+    // Whole words: "frustrated" isn't "rated".
+    assert.doesNotMatch(words, new RegExp(`(^|[^a-z])${claim.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^a-z]|$)`), claim);
   }
   assert.match(words, /example conversation/);
 });
@@ -244,6 +244,8 @@ test("public pages, the price list and the studio's knowledge describe a softwar
   const knowledge = path.join(REPO, "knowledge", STUDIO.businessId);
   const files = readdirSync(knowledge);
   assert.ok(files.includes("about-bila-matata.md"), "the release step looks for this file");
+  const zaina = readFileSync(path.join(knowledge, "zaina-ai.md"), "utf8");
+  assert.doesNotMatch(zaina, /Meta AI|ChatGPT|bundles?|inventory/i, "the long-form page about Zaina names no other company and claims nothing she doesn't do");
   for (const file of files) assert.doesNotMatch(readFileSync(path.join(knowledge, file), "utf8"), banned, file);
   const seeded = readFileSync(path.join(REPO, "migrations", "0016_studio_invoices.sql"), "utf8");
   assert.doesNotMatch(seeded.slice(seeded.indexOf("insert into price_items")), banned);
