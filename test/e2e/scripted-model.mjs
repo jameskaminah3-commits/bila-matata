@@ -1,0 +1,592 @@
+// test/e2e/scripted-model.mjs
+//
+// Test-only preload (node --import): replaces the Gemini API with a scripted
+// model, and the email and exchange-rate services with local stand-ins, so
+// the real pipeline (gateway → engine → connector → Postgres → reply policy
+// → HTTP) runs locally without keys. Never load it in production.
+//
+// The customer message selects a scenario: "TEST:<name> [extra text]";
+// "TEST:whoami" answers with the first line of the business's instructions
+// and its tool names, "TEST:say64 <base64>" with exactly that text, and
+// "TEST:ask <question>" searches the business's knowledge and answers from
+// the first passage, naming its source. The system's <turn_context> block
+// isn't part of what the customer wrote.
+// Round 1 returns a scripted function call; round 2 returns a deliberately
+// messy "model reply" (bold, bare paths, phishing link, foreign phone
+// number, its own payment steps) so the server-side reply policy is tested.
+// Token counts are estimated at four characters each, so telemetry has
+// numbers to add up.
+import { appendFileSync, existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import dns from "node:dns";
+import { EventEmitter } from "node:events";
+import https from "node:https";
+import { Readable } from "node:stream";
+import { createHash, randomUUID } from "node:crypto";
+import path from "node:path";
+
+const LOG = process.env.FAKE_GEMINI_LOG;
+// FAKE_GEMINI_DUMP_DIR=<dir> saves every request as sent, to measure what a call costs.
+const DUMP_DIR = process.env.FAKE_GEMINI_DUMP_DIR;
+let dumped = 0;
+const realFetch = globalThis.fetch;
+
+const scenarios = {
+  lead: () => ({ name: "create_lead", args: { name: "Jane Wanjiru", email: "jane@example.com", interest: "A website with online ordering" } }),
+  ask: (customerText) => ({ name: "search_knowledge", args: { query: customerText.replace(/TEST:ask/, "").trim() } }),
+  escalate: () => ({ name: "escalate_to_human", args: { reason: "Customer asked for a discount (internal note)" } }),
+  // "TEST:raw <tool_name> <json args>" — replays exactly the call a real model made.
+  raw: (customerText) => {
+    const m = customerText.match(/TEST:raw\s+(\S+)\s+(\{[\s\S]*\})\s*$/);
+    return { name: m[1], args: JSON.parse(m[2]) };
+  },
+  // Same, with the JSON base64-encoded so invented contact details don't
+  // appear in the customer's own message.
+  raw64: (customerText) => {
+    const m = customerText.match(/TEST:raw64\s+(\S+)\s+(\S+)/);
+    return { name: m[1], args: JSON.parse(Buffer.from(m[2], "base64").toString("utf8")) };
+  },
+};
+
+/** The customer's own words: the system's turn context removed. */
+function withoutContext(text) {
+  return text.replace(/\s*<turn_context>[\s\S]*?<\/turn_context>\s*/g, " ").trim();
+}
+
+function latestCustomerText(contents) {
+  for (let i = contents.length - 1; i >= 0; i -= 1) {
+    const c = contents[i];
+    if (c.role !== "user") continue;
+    const text = (c.parts || []).map((p) => p.text).filter(Boolean).join(" ");
+    if (text && !text.startsWith("[earlier tool]") && !text.startsWith("<tool_result")) return withoutContext(text);
+  }
+  return "";
+}
+
+function messyReplyFor(name, result) {
+  const r = result?.result ?? result ?? {};
+  if (name === "escalate_to_human") return "Let me connect you with someone from our team.";
+  // Phase 5: times free for a service or table, and what can be booked.
+  if (name === "check_times" && r.ok) {
+    return r.times.length
+      ? `Free on ${r.day}: ${r.times.join(", ")}. It's ${r.total}${r.with ? ` with ${r.with.join(" or ")}` : ""}.`
+      : `${r.day} is full. Next free: ${(r.next_free || []).map((entry) => `${entry.day} ${entry.times.join(", ")}`).join("; ")}.`;
+  }
+  if (name === "list_services" && r.ok) return `We offer ${r.services.map((service) => `${service.name} (${service.length}, ${service.price})`).join(", ")}. Open ${r.opening_hours}. Deposit: ${r.rules.deposit}.`;
+  if (name === "create_appointment" && r.ok && !r.payment_link) return `Booked: ${r.service}, ${r.when} (${r.status}).`;
+  if (name === "get_prices") {
+    // Quotes the price list's lines as they come.
+    if (!(r.items || []).length) return `I'm not sure of that price — shall I ask the team for you?${r.sections ? ` (We list: ${r.sections.join(", ")}.)` : ""}`;
+    return `Our prices: ${r.items.map((item) => `${item.name}: ${item.price}`).join("; ")}.`;
+  }
+  if (name === "search_knowledge") {
+    const passage = (r.passages || [])[0];
+    if (!passage) return "I'm not sure about that one — shall I ask the team for you?";
+    return `From our ${passage.source}: ${passage.text.split("\n")[0].slice(0, 220)}${passage.link ? ` More: ${passage.link}` : ""}`;
+  }
+  if (r.ok && r.payment_link) {
+    const id = r.booking_id;
+    return [
+      `**Booked!** It's all set. Total: ${r.total ?? r.fee_display}.`,
+      `Pay here: /bookings?bookingId=${id}`,
+      `Or here: [Pay now](${r.payment_link})`,
+      "",
+      "What happens next:",
+      "• Log in and pay a 30% deposit.",
+      "• If card fails, send M-Pesa to 0799111222.",
+    ].join("\n");
+  }
+  return `Tool said: ${r.error ?? "ok"} ${r.hint ?? ""}`.trim();
+}
+
+let requestChars = 0;
+function reply(parts) {
+  const replyChars = JSON.stringify(parts).length;
+  return new Response(JSON.stringify({
+    candidates: [{ content: { role: "model", parts }, finishReason: "STOP" }],
+    usageMetadata: { promptTokenCount: Math.round(requestChars / 4), candidatesTokenCount: Math.round(replyChars / 4) },
+  }), { status: 200, headers: { "content-type": "application/json" } });
+}
+
+const sleep = (ms, signal) => new Promise((resolve, reject) => {
+  const timer = setTimeout(resolve, ms);
+  signal?.addEventListener("abort", () => {
+    clearTimeout(timer);
+    reject(signal.reason ?? Object.assign(new Error("aborted"), { name: "AbortError" }));
+  }, { once: true });
+});
+
+// ── A stand-in for WhatsApp's Cloud API (graph.facebook.com) ──────────
+// Tokens: FAKE_WHATSAPP_TOKEN is the one Meta accepts. Customers' numbers
+// choose what happens to messages sent to them:
+//   254700000047  text refused: the 24-hour window has closed (templates go through)
+//   254700000429  rate limited twice, then accepted
+//   254700000026  never deliverable
+// Every call is logged to FAKE_WHATSAPP_LOG.
+let whatsappSent = 0;
+const throttled = new Map();
+function graphAnswer(status, body) {
+  return new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+}
+function logWhatsapp(entry) {
+  if (process.env.FAKE_WHATSAPP_LOG) appendFileSync(process.env.FAKE_WHATSAPP_LOG, JSON.stringify({ at: new Date().toISOString(), ...entry }) + "\n");
+}
+async function fakeGraph(url, init) {
+  const { pathname, hostname } = new URL(url);
+  const token = /^Bearer (.+)$/.exec(init?.headers?.authorization ?? init?.headers?.Authorization ?? "")?.[1];
+  if (hostname === "lookaside.fbsbx.com") {
+    // A tiny JPEG, as Meta serves a customer's photo.
+    return new Response(Buffer.from("ffd8ffe000104a46494600010100000100010000ffd9", "hex"), { status: 200, headers: { "content-type": "image/jpeg" } });
+  }
+  // Embedded Signup: the sign-in's code for the business's token (the platform app's secret, no token).
+  if (pathname.endsWith("/oauth/access_token")) {
+    const query = new URL(url).searchParams;
+    const good = query.get("client_secret") === process.env.WHATSAPP_APP_SECRET && query.get("client_id") === process.env.WHATSAPP_APP_ID && query.get("code") === "good-signup-code";
+    logWhatsapp({ kind: "code-exchange", ok: good });
+    return good
+      ? graphAnswer(200, { access_token: process.env.FAKE_WHATSAPP_TOKEN || "EAAG-test-token-0000000000", token_type: "bearer" })
+      : graphAnswer(400, { error: { message: "Invalid verification code format.", type: "OAuthException", code: 100 } });
+  }
+  if (token !== (process.env.FAKE_WHATSAPP_TOKEN || "EAAG-test-token-0000000000")) {
+    logWhatsapp({ kind: "refused", path: pathname });
+    return graphAnswer(401, { error: { message: "Invalid OAuth access token - Cannot parse access token", type: "OAuthException", code: 190 } });
+  }
+  const parts = pathname.split("/").filter(Boolean); // [version, id, edge?]
+  const method = (init?.method ?? "GET").toUpperCase();
+  if (method === "GET" && parts.length === 2 && /^\d+$/.test(parts[1]) && parts[1].length > 12) {
+    // A media id is long; a phone number id shorter (in these tests).
+    return graphAnswer(200, { url: `https://lookaside.fbsbx.com/whatsapp_business/attachments/?mid=${parts[1]}`, mime_type: "image/jpeg", id: parts[1] });
+  }
+  if (method === "GET" && parts.length === 2) {
+    // Numbers added through "Connect with Facebook" (72000…) have a number of their own.
+    const embedded = parts[1].startsWith("72000");
+    return graphAnswer(200, { display_phone_number: embedded ? "+254 711 000 111" : "+254 700 123 456", verified_name: embedded ? "Coral Cove" : "Acme Guesthouse", quality_rating: "GREEN", id: parts[1] });
+  }
+  if (method === "GET" && parts[2] === "phone_numbers") {
+    // Every account the tests share holds these two numbers.
+    return graphAnswer(200, { data: [{ id: "7200001111", display_phone_number: "+254 711 000 111" }, { id: "7200002222", display_phone_number: "+254 711 000 222" }] });
+  }
+  if (method === "POST" && parts[2] === "register") {
+    const body = JSON.parse(init?.body ?? "{}");
+    // 7200002222 is already registered with a PIN of its own.
+    if (parts[1] === "7200002222") return graphAnswer(400, { error: { message: "(#133005) Two step verification PIN Mismatch", type: "OAuthException", code: 133005 } });
+    logWhatsapp({ kind: "registered", phoneNumberId: parts[1], pin: body.pin, product: body.messaging_product });
+    return graphAnswer(200, { success: true });
+  }
+  if (method === "POST" && parts[2] === "subscribed_apps") {
+    logWhatsapp({ kind: "subscribed", waba: parts[1] });
+    return graphAnswer(200, { success: true });
+  }
+  if (method === "POST" && parts[2] === "messages") {
+    const body = JSON.parse(init?.body ?? "{}");
+    if (body.status === "read") {
+      logWhatsapp({ kind: "read", phoneNumberId: parts[1], messageId: body.message_id, typing: Boolean(body.typing_indicator) });
+      return graphAnswer(200, { success: true });
+    }
+    const to = String(body.to ?? "");
+    if (to === "254700000047" && body.type === "text") {
+      logWhatsapp({ kind: "refused-window", to });
+      return graphAnswer(400, { error: { message: "(#131047) Re-engagement message", type: "OAuthException", code: 131047, error_data: { details: "Message failed to send because more than 24 hours have passed since the customer last replied to this number." } } });
+    }
+    if (to === "254700000429" && (throttled.get(to) ?? 0) < 2) {
+      throttled.set(to, (throttled.get(to) ?? 0) + 1);
+      logWhatsapp({ kind: "throttled", to });
+      return graphAnswer(400, { error: { message: "(#130429) Rate limit hit", type: "OAuthException", code: 130429 } });
+    }
+    if (to === "254700000026") {
+      logWhatsapp({ kind: "undeliverable", to });
+      return graphAnswer(400, { error: { message: "(#131026) Message undeliverable", type: "OAuthException", code: 131026 } });
+    }
+    whatsappSent += 1;
+    const id = `wamid.fake-${whatsappSent}`;
+    logWhatsapp({
+      kind: body.type,
+      phoneNumberId: parts[1],
+      to,
+      id,
+      text: body.text?.body ?? null,
+      template: body.template ? { name: body.template.name, language: body.template.language?.code, parameters: body.template.components?.[0]?.parameters?.map((p) => p.text) ?? [] } : null,
+    });
+    return graphAnswer(200, { messaging_product: "whatsapp", contacts: [{ input: to, wa_id: to }], messages: [{ id }] });
+  }
+  return graphAnswer(400, { error: { message: `Unsupported request ${method} ${pathname}`, code: 100 } });
+}
+
+// ── A stand-in for Paystack (api.paystack.co) ─────────────────────────
+// Secret keys sk_test_… are accepted, except sk_test_refused…; the platform's
+// subaccount ACCT_pilot0001 exists. A transaction is paid once the test
+// writes its reference to FAKE_PAYSTACK_PAID (one per line), as if the
+// customer finished on Paystack's page. Every call goes to FAKE_PAYSTACK_LOG.
+const paystackTransactions = new Map();
+function logPaystack(entry) {
+  if (process.env.FAKE_PAYSTACK_LOG) appendFileSync(process.env.FAKE_PAYSTACK_LOG, JSON.stringify({ at: new Date().toISOString(), ...entry }) + "\n");
+}
+function paidReferences() {
+  try {
+    return new Set(readFileSync(process.env.FAKE_PAYSTACK_PAID ?? "", "utf8").split("\n").map((line) => line.trim()).filter(Boolean));
+  } catch {
+    return new Set();
+  }
+}
+async function fakePaystack(url, init) {
+  const { pathname } = new URL(url);
+  const method = (init?.method ?? "GET").toUpperCase();
+  const key = /^Bearer (.+)$/.exec(init?.headers?.authorization ?? init?.headers?.Authorization ?? "")?.[1] ?? "";
+  const answer = (status, body) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+  if (!/^sk_test_[A-Za-z0-9]{10,}$/.test(key) || key.startsWith("sk_test_refused")) {
+    logPaystack({ kind: "refused", path: pathname });
+    return answer(401, { status: false, message: "Invalid key" });
+  }
+  if (method === "GET" && pathname === "/balance") return answer(200, { status: true, message: "Balances retrieved", data: [{ currency: "KES", balance: 0 }] });
+  const subaccount = /^\/subaccount\/(.+)$/.exec(pathname);
+  if (method === "GET" && subaccount) {
+    return subaccount[1] === "ACCT_pilot0001"
+      ? answer(200, { status: true, data: { subaccount_code: "ACCT_pilot0001", business_name: "Lakeview Lodge", active: true } })
+      : answer(404, { status: false, message: "Subaccount not found" });
+  }
+  if (method === "POST" && pathname === "/transaction/initialize") {
+    const body = JSON.parse(init?.body ?? "{}");
+    paystackTransactions.set(body.reference, { ...body, key });
+    logPaystack({ kind: "initialize", reference: body.reference, amount: body.amount, currency: body.currency, email: body.email, channels: body.channels, subaccount: body.subaccount ?? null, key: key.slice(0, 16), callback: body.callback_url });
+    return answer(200, { status: true, message: "Authorization URL created", data: { authorization_url: `https://checkout.paystack.com/fake_${body.reference}`, access_code: `ac_${body.reference}`, reference: body.reference } });
+  }
+  const verify = /^\/transaction\/verify\/(.+)$/.exec(pathname);
+  if (method === "GET" && verify) {
+    const reference = decodeURIComponent(verify[1]);
+    const transaction = paystackTransactions.get(reference);
+    if (!transaction || transaction.key !== key) return answer(404, { status: false, message: "Transaction reference not found" });
+    const paid = paidReferences().has(reference);
+    logPaystack({ kind: "verify", reference, paid });
+    return answer(200, { status: true, data: { id: 5000000 + paystackTransactions.size, status: paid ? "success" : "abandoned", reference, amount: transaction.amount, currency: transaction.currency, channel: "card", gateway_response: paid ? "Successful" : "The transaction was not completed" } });
+  }
+  return answer(400, { status: false, message: `Unsupported request ${method} ${pathname}` });
+}
+
+// ── A stand-in for M-Pesa's Daraja API (sandbox/api.safaricom.co.ke) ──
+// Consumer key and secret pilot-consumer-key / pilot-consumer-secret, passkey
+// pilot-passkey. A payment prompt is answered, and Safaricom's callback sent
+// to its address, shortly after. Phone numbers choose the outcome:
+//   254700000032  the customer cancels (result 1032)
+//   254700000044  paid, but the callback never arrives (only asking finds out)
+// Every call goes to FAKE_MPESA_LOG.
+const stkRequests = new Map();
+let stkCounter = 0;
+function logMpesa(entry) {
+  if (process.env.FAKE_MPESA_LOG) appendFileSync(process.env.FAKE_MPESA_LOG, JSON.stringify({ at: new Date().toISOString(), ...entry }) + "\n");
+}
+async function fakeDaraja(url, init) {
+  const { pathname, searchParams } = new URL(url);
+  const answer = (status, body) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+  const authorization = init?.headers?.authorization ?? init?.headers?.Authorization ?? "";
+  if (pathname === "/oauth/v1/generate" && searchParams.get("grant_type") === "client_credentials") {
+    const [consumerKey, consumerSecret] = Buffer.from(authorization.replace(/^Basic /, ""), "base64").toString("utf8").split(":");
+    if (consumerKey !== "pilot-consumer-key" || consumerSecret !== "pilot-consumer-secret") {
+      logMpesa({ kind: "refused" });
+      return answer(400, { requestId: "req-1", errorCode: "400.008.01", errorMessage: "Invalid Authentication passed" });
+    }
+    return answer(200, { access_token: "fake-mpesa-token", expires_in: "3599" });
+  }
+  if (authorization !== "Bearer fake-mpesa-token") return answer(401, { errorCode: "404.001.03", errorMessage: "Invalid Access Token" });
+  const body = JSON.parse(init?.body ?? "{}");
+  const expectedPassword = Buffer.from(`${body.BusinessShortCode}pilot-passkey${body.Timestamp}`).toString("base64");
+  if (body.Password !== expectedPassword || !/^\d{14}$/.test(String(body.Timestamp))) {
+    return answer(400, { errorCode: "400.002.02", errorMessage: "Bad Request - Invalid Password" });
+  }
+  if (pathname === "/mpesa/stkpush/v1/processrequest") {
+    stkCounter += 1;
+    const id = `ws_CO_${Date.now()}${stkCounter}`;
+    const phone = String(body.PhoneNumber);
+    const outcome = phone === "254700000032" ? "cancelled" : "paid";
+    stkRequests.set(id, { ...body, outcome });
+    logMpesa({ kind: "stk", checkoutRequestId: id, amount: body.Amount, phone, shortcode: body.BusinessShortCode, partyB: body.PartyB, type: body.TransactionType, reference: body.AccountReference });
+    if (phone !== "254700000044") {
+      setTimeout(() => {
+        const callback = outcome === "paid"
+          ? { Body: { stkCallback: { MerchantRequestID: `m-${id}`, CheckoutRequestID: id, ResultCode: 0, ResultDesc: "The service request is processed successfully.", CallbackMetadata: { Item: [{ Name: "Amount", Value: body.Amount }, { Name: "MpesaReceiptNumber", Value: `SJ${String(stkCounter).padStart(8, "0")}` }, { Name: "TransactionDate", Value: 20261001120000 }, { Name: "PhoneNumber", Value: Number(phone) }] } } } }
+          : { Body: { stkCallback: { MerchantRequestID: `m-${id}`, CheckoutRequestID: id, ResultCode: 1032, ResultDesc: "Request cancelled by user" } } };
+        realFetch(body.CallBackURL, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(callback) })
+          .then((response) => logMpesa({ kind: "callback", checkoutRequestId: id, status: response.status }))
+          .catch((error) => logMpesa({ kind: "callback-failed", checkoutRequestId: id, error: error.message }));
+      }, 300);
+    }
+    return answer(200, { MerchantRequestID: `m-${id}`, CheckoutRequestID: id, ResponseCode: "0", ResponseDescription: "Success. Request accepted for processing", CustomerMessage: "Success. Request accepted for processing" });
+  }
+  if (pathname === "/mpesa/stkpushquery/v1/query") {
+    const request = stkRequests.get(body.CheckoutRequestID);
+    logMpesa({ kind: "query", checkoutRequestId: body.CheckoutRequestID, outcome: request?.outcome ?? "unknown" });
+    if (!request) return answer(500, { errorCode: "500.001.1001", errorMessage: "The transaction is being processed" });
+    return request.outcome === "paid"
+      ? answer(200, { ResponseCode: "0", ResponseDescription: "The service request has been accepted successsfully", ResultCode: "0", ResultDesc: "The service request is processed successfully." })
+      : answer(200, { ResponseCode: "0", ResponseDescription: "The service request has been accepted successsfully", ResultCode: "1032", ResultDesc: "Request cancelled by user" });
+  }
+  return answer(404, { errorCode: "404.001.01", errorMessage: `Unsupported ${pathname}` });
+}
+
+// ── A stand-in for Google (sign-in and the Calendar API) ──
+// Client id 123-zaina.apps.googleusercontent.com, secret google-test-secret.
+// The code "consent-ok" signs in as owner@example.com. The account has the
+// calendars "primary" and "amina-calendar" (both writable) and "holidays"
+// (read only). Busy events come from the JSON file FAKE_GOOGLE_EVENTS
+// ({ "<calendar id>": [{ id, start, end, status?, transparency? }] }); events
+// the platform writes are kept here, and listed back like Google does. A
+// refresh token listed in FAKE_GOOGLE_REVOKED is refused (invalid_grant).
+// Every call goes to FAKE_GOOGLE_LOG.
+const googleWritten = new Map();
+let googleCounter = 0;
+function logGoogle(entry) {
+  if (process.env.FAKE_GOOGLE_LOG) appendFileSync(process.env.FAKE_GOOGLE_LOG, JSON.stringify({ at: new Date().toISOString(), ...entry }) + "\n");
+}
+function googleSeeded() {
+  try {
+    return JSON.parse(readFileSync(process.env.FAKE_GOOGLE_EVENTS ?? "", "utf8"));
+  } catch {
+    return {};
+  }
+}
+function googleRevoked() {
+  try {
+    return new Set(readFileSync(process.env.FAKE_GOOGLE_REVOKED ?? "", "utf8").split("\n").map((line) => line.trim()).filter(Boolean));
+  } catch {
+    return new Set();
+  }
+}
+const GOOGLE_CALENDARS = [
+  { id: "primary", summary: "owner@example.com", primary: true, accessRole: "owner" },
+  { id: "amina-calendar", summary: "Amina", accessRole: "writer" },
+  { id: "holidays", summary: "Holidays in Kenya", accessRole: "reader" },
+];
+async function fakeGoogle(url, init) {
+  const target = new URL(url);
+  const method = (init?.method ?? "GET").toUpperCase();
+  const answer = (status, body) => new Response(body === null ? null : JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
+  if (target.hostname === "oauth2.googleapis.com" && target.pathname === "/token") {
+    const body = new URLSearchParams(String(init?.body ?? ""));
+    if (body.get("client_id") !== "123-zaina.apps.googleusercontent.com" || body.get("client_secret") !== "google-test-secret") return answer(401, { error: "invalid_client" });
+    if (body.get("grant_type") === "authorization_code") {
+      logGoogle({ kind: "exchange", code: body.get("code"), redirect_uri: body.get("redirect_uri") });
+      if (body.get("code") !== "consent-ok") return answer(400, { error: "invalid_grant" });
+      googleCounter += 1;
+      const idToken = `e30.${Buffer.from(JSON.stringify({ email: "owner@example.com", sub: "1234" })).toString("base64url")}.sig`;
+      return answer(200, { access_token: `ya29.first-${googleCounter}`, refresh_token: `1//refresh-${googleCounter}`, expires_in: 3599, id_token: idToken, token_type: "Bearer" });
+    }
+    if (body.get("grant_type") === "refresh_token") {
+      const refresh = body.get("refresh_token");
+      if (googleRevoked().has(refresh)) {
+        logGoogle({ kind: "refresh_refused", refresh });
+        return answer(400, { error: "invalid_grant", error_description: "Token has been expired or revoked." });
+      }
+      logGoogle({ kind: "refresh", refresh });
+      return answer(200, { access_token: `ya29.${refresh}`, expires_in: 3599, token_type: "Bearer" });
+    }
+    return answer(400, { error: "unsupported_grant_type" });
+  }
+  if (target.hostname === "oauth2.googleapis.com" && target.pathname === "/revoke") {
+    logGoogle({ kind: "revoke", token: new URLSearchParams(String(init?.body ?? "")).get("token") });
+    return new Response("", { status: 200 });
+  }
+  const authorization = init?.headers?.authorization ?? init?.headers?.Authorization ?? "";
+  if (!/^Bearer ya29\./.test(authorization) || googleRevoked().has(authorization.replace(/^Bearer ya29\./, ""))) return answer(401, { error: { code: 401, message: "Invalid Credentials" } });
+  const path = target.pathname.replace(/^\/calendar\/v3/, "");
+  if (method === "GET" && path === "/users/me/calendarList") return answer(200, { items: GOOGLE_CALENDARS });
+  const match = /^\/calendars\/([^/]+)\/events(?:\/([^/]+))?$/.exec(path);
+  if (!match) return answer(404, { error: { code: 404, message: "Not Found" } });
+  const calendarId = decodeURIComponent(match[1]);
+  const eventId = match[2] ? decodeURIComponent(match[2]) : null;
+  if (!GOOGLE_CALENDARS.some((calendar) => calendar.id === calendarId)) return answer(404, { error: { code: 404, message: "Not Found" } });
+  const written = googleWritten.get(calendarId) ?? new Map();
+  googleWritten.set(calendarId, written);
+  const at = (point) => new Date(point?.dateTime ?? `${point?.date}T00:00:00Z`).getTime();
+  if (method === "GET" && !eventId) {
+    const from = new Date(target.searchParams.get("timeMin") ?? 0).getTime();
+    const to = new Date(target.searchParams.get("timeMax") ?? "2100-01-01").getTime();
+    const items = [...(googleSeeded()[calendarId] ?? []), ...written.values()].filter((item) => at(item.start) < to && at(item.end) > from);
+    logGoogle({ kind: "list", calendarId, count: items.length });
+    return answer(200, { items });
+  }
+  if (method === "POST" && !eventId) {
+    const body = JSON.parse(String(init?.body ?? "{}"));
+    const id = `evt${(googleCounter += 1)}`;
+    written.set(id, { ...body, id, status: body.status ?? "confirmed" });
+    logGoogle({ kind: "insert", calendarId, id, summary: body.summary, start: body.start, end: body.end, booking: body.extendedProperties?.private?.zaina_booking ?? null });
+    return answer(200, { ...body, id });
+  }
+  if (method === "PUT" && eventId) {
+    if (!written.has(eventId)) return answer(404, { error: { code: 404, message: "Not Found" } });
+    const body = JSON.parse(String(init?.body ?? "{}"));
+    written.set(eventId, { ...body, id: eventId });
+    logGoogle({ kind: "update", calendarId, id: eventId, summary: body.summary });
+    return answer(200, { ...body, id: eventId });
+  }
+  if (method === "DELETE" && eventId) {
+    const existed = written.delete(eventId);
+    logGoogle({ kind: "delete", calendarId, id: eventId, existed });
+    return existed ? new Response(null, { status: 204 }) : answer(410, { error: { code: 410, message: "Resource has been deleted" } });
+  }
+  return answer(400, { error: { code: 400, message: `Unsupported request ${method} ${path}` } });
+}
+
+// ── Calendar links (iCal) at https://ical.example/<name>.ics ──
+// Each is the file <name>.ics in FAKE_ICS_DIR. /moved.ics redirects to a
+// private address, which the platform must refuse to follow.
+async function fakeIcal(url) {
+  const target = new URL(url);
+  if (target.pathname === "/moved.ics") return new Response(null, { status: 302, headers: { location: "https://10.0.0.5/secret.ics" } });
+  const name = /^\/([a-z0-9-]+)\.ics$/.exec(target.pathname)?.[1];
+  const file = name && process.env.FAKE_ICS_DIR ? path.join(process.env.FAKE_ICS_DIR, `${name}.ics`) : null;
+  if (!file || !existsSync(file)) return new Response("Not found", { status: 404 });
+  return new Response(readFileSync(file, "utf8"), { status: 200, headers: { "content-type": "text/calendar" } });
+}
+
+// Names under .example resolve to a public address (as real calendar hosts
+// would), except private.example, which points into a private network.
+const realLookup = dns.promises.lookup.bind(dns.promises);
+dns.promises.lookup = async (hostname, options) => {
+  if (typeof hostname === "string" && hostname.endsWith(".example")) {
+    const address = hostname === "private.example" ? "10.0.0.5" : "93.184.216.34";
+    return options?.all ? [{ address, family: 4 }] : { address, family: 4 };
+  }
+  return realLookup(hostname, options);
+};
+
+// ── Websites at https://<name>.example/… (knowledge from a business's website) ──
+// Read through node:https (net/public-fetch.ts), so that is what's replaced
+// here. Each page is a file under FAKE_WEBSITE_DIR/<host>/: "/" is
+// index.html, "/rooms" is rooms.html (or rooms/index.html), robots.txt is
+// itself, and a file ending in .gz is sent gzip-compressed. _redirects.json
+// maps a path to where it redirects. The platform's own lookup runs first,
+// on the names above, so private.example is refused as a real one would be.
+const realHttpsRequest = https.request;
+https.request = function request(url, options, callback) {
+  if (!(url instanceof URL) || !url.hostname.endsWith(".example") || !process.env.FAKE_WEBSITE_DIR) return realHttpsRequest.apply(this, arguments);
+  const sent = new EventEmitter();
+  const respond = () => {
+    const dir = path.join(process.env.FAKE_WEBSITE_DIR, url.hostname);
+    const redirects = existsSync(path.join(dir, "_redirects.json")) ? JSON.parse(readFileSync(path.join(dir, "_redirects.json"), "utf8")) : {};
+    const reply = (status, headers, body) => {
+      const response = Readable.from(body ? [body] : []);
+      response.statusCode = status;
+      response.headers = headers;
+      if (process.env.FAKE_WEBSITE_LOG) appendFileSync(process.env.FAKE_WEBSITE_LOG, JSON.stringify({ at: new Date().toISOString(), url: url.toString(), status }) + "\n");
+      callback(response);
+    };
+    if (redirects[url.pathname]) return reply(301, { location: redirects[url.pathname] }, null);
+    const name = url.pathname === "/" ? "index.html" : url.pathname.replace(/^\/+|\/+$/g, "");
+    const candidates = [name, `${name}.html`, `${name}/index.html`, `${name}.html.gz`];
+    const file = candidates.map((candidate) => path.join(dir, candidate)).find((candidate) => candidate.startsWith(dir) && existsSync(candidate) && statSync(candidate).isFile());
+    if (!file) return reply(404, { "content-type": "text/html" }, Buffer.from("<html><body>Not found</body></html>"));
+    const type = file.endsWith(".txt") ? "text/plain" : "text/html; charset=utf-8";
+    return reply(200, { "content-type": type, ...(file.endsWith(".gz") ? { "content-encoding": "gzip" } : {}) }, readFileSync(file));
+  };
+  sent.end = () => {
+    const lookup = options?.lookup;
+    if (lookup) lookup(url.hostname, { all: true }, (error) => (error ? sent.emit("error", error) : respond()));
+    else respond();
+    return sent;
+  };
+  sent.destroy = () => sent;
+  return sent;
+};
+
+globalThis.fetch = async (input, init) => {
+  const url = typeof input === "string" ? input : input?.url ?? String(input);
+  if (url.startsWith("https://graph.facebook.com/") || url.startsWith("https://lookaside.fbsbx.com/")) return fakeGraph(url, init);
+  if (url.startsWith("https://api.paystack.co/")) return fakePaystack(url, init);
+  if (url.startsWith("https://oauth2.googleapis.com/") || url.startsWith("https://www.googleapis.com/calendar/")) return fakeGoogle(url, init);
+  if (url.startsWith("https://ical.example/")) return fakeIcal(url);
+  if (url.startsWith("https://sandbox.safaricom.co.ke/") || url.startsWith("https://api.safaricom.co.ke/")) return fakeDaraja(url, init);
+  if (url.startsWith("https://push.example/")) {
+    // A stand-in push service: an endpoint with "gone" in it has been dropped by the browser.
+    if (process.env.FAKE_PUSH_LOG) {
+      const headers = Object.fromEntries(Object.entries(init?.headers ?? {}).map(([name, value]) => [name.toLowerCase(), String(value)]));
+      appendFileSync(process.env.FAKE_PUSH_LOG, JSON.stringify({ at: new Date().toISOString(), endpoint: url, urgency: headers.urgency, ttl: headers.ttl, encrypted: headers["content-encoding"] === "aes128gcm", vapid: /^vapid t=/.test(headers.authorization ?? "") }) + "\n");
+    }
+    return new Response(null, { status: url.includes("gone") ? 410 : 201 });
+  }
+  // Simulated live exchange rate (the sandbox can't reach the real sources).
+  if (process.env.FAKE_USD_TO_KES && url.includes("api.frankfurter.app")) {
+    return new Response(JSON.stringify({ amount: 1, base: "USD", date: "2026-09-25", rates: { KES: Number(process.env.FAKE_USD_TO_KES) } }), {
+      status: 200, headers: { "content-type": "application/json" },
+    });
+  }
+  if (url.includes("api.resend.com")) {
+    // Simulated email provider: slow on purpose to expose blocking sends.
+    await new Promise((resolve) => setTimeout(resolve, Number(process.env.FAKE_EMAIL_DELAY_MS || 0)));
+    if (process.env.FAKE_EMAIL_LOG) {
+      const { subject, text, to } = JSON.parse(init?.body ?? "{}");
+      appendFileSync(process.env.FAKE_EMAIL_LOG, JSON.stringify({ at: new Date().toISOString(), to, subject, text }) + "\n");
+    }
+    return new Response(JSON.stringify({ id: "fake-email" }), { status: 200, headers: { "content-type": "application/json" } });
+  }
+  if (!url.includes("generativelanguage.googleapis.com")) return realFetch(input, init);
+
+  const body = JSON.parse(init?.body ?? "{}");
+  requestChars = String(init?.body ?? "").length;
+  if (DUMP_DIR) {
+    dumped += 1;
+    writeFileSync(path.join(DUMP_DIR, `${String(dumped).padStart(4, "0")}.json`), String(init?.body ?? "{}"));
+  }
+  const contents = body.contents || [];
+  const systemText = (body.systemInstruction?.parts || []).map((p) => p.text).join("");
+  const toolNames = (body.tools || []).flatMap((t) => (t.functionDeclarations || []).map((d) => d.name));
+  const last = contents[contents.length - 1] || {};
+  const fnResponses = (last.parts || []).filter((p) => p.functionResponse);
+  const customerText = latestCustomerText(contents);
+
+  let out;
+  if (/TEST:slow_reply/.test(customerText)) {
+    await sleep(Number(process.env.SCRIPTED_SLOW_REPLY_MS || 1500), init?.signal);
+    out = reply([{ text: "Here's that answer, a little slowly." }]);
+  } else if (/TEST:slow\b/.test(customerText)) {
+    // Slower than any turn budget: the engine must give up and answer.
+    await sleep(Number(process.env.SCRIPTED_SLOW_MS || 60000), init?.signal);
+    out = reply([{ text: "Too late." }]);
+  } else if (/TEST:model_error/.test(customerText)) {
+    out = new Response(JSON.stringify({ error: { code: 400, message: "Simulated invalid argument", status: "INVALID_ARGUMENT" } }), {
+      status: 400,
+      headers: { "content-type": "application/json" },
+    });
+  } else if (fnResponses.length > 0 && /TEST:crash_after_tool/.test(customerText)) {
+    // Simulates the model failing after a tool already succeeded.
+    out = new Response(JSON.stringify({ error: { code: 400, message: "Simulated invalid argument", status: "INVALID_ARGUMENT" } }), {
+      status: 400,
+      headers: { "content-type": "application/json" },
+    });
+  } else if (fnResponses.length > 0) {
+    const fr = fnResponses[0].functionResponse;
+    out = reply([{ text: messyReplyFor(fr.name, fr.response) }]);
+  } else if (/TEST:whoami/.test(customerText)) {
+    // Which business's instructions and tools this chat runs on.
+    out = reply([{ text: `${systemText.split("\n")[0]} Tools: ${toolNames.join(", ")}.` }]);
+  } else if (/TEST:say64\s+\S+/.test(customerText)) {
+    // Says exactly this (base64, so the text isn't in the customer's own message).
+    out = reply([{ text: Buffer.from(customerText.match(/TEST:say64\s+(\S+)/)[1], "base64").toString("utf8") }]);
+  } else {
+    const match = customerText.match(/TEST:(\w+)/);
+    const scenario = match && scenarios[match[1]];
+    out = scenario
+      ? reply([{ functionCall: scenario(customerText, contents), thoughtSignature: "fake-signature" }])
+      : reply([{ text: "Karibu! How can I help you today?" }]);
+  }
+
+  if (LOG) {
+    appendFileSync(LOG, JSON.stringify({
+      at: new Date().toISOString(),
+      customerText,
+      phase: fnResponses.length ? "after_tool" : "first",
+      systemChars: systemText.length,
+      toolsChars: JSON.stringify(body.tools ?? []).length,
+      contentsChars: JSON.stringify(contents).length,
+      contentsCount: contents.length,
+      toolNames,
+      // Phase 2: the instructions and tools must be the same for every call,
+      // and the turn's context must travel with the latest message.
+      systemHash: createHash("sha256").update(systemText).digest("hex").slice(0, 16),
+      toolsHash: createHash("sha256").update(JSON.stringify(body.tools ?? [])).digest("hex").slice(0, 16),
+      lastUserHasContext: [...contents].reverse().find((c) => c.role === "user" && (c.parts || []).some((p) => typeof p.text === "string" && !p.text.startsWith("<tool_result")))
+        ?.parts?.some((p) => typeof p.text === "string" && p.text.includes("<turn_context>")) ?? false,
+      mentions12: /12%/.test(systemText),
+      mentions30: /\b30%|"percent": 30|deposit_percent": 30/.test(systemText),
+      earlierToolFormat: contents.some((c) => (c.parts || []).some((p) => typeof p.text === "string" && p.text.startsWith("[earlier tool]"))) ? "legacy" : contents.some((c) => (c.parts || []).some((p) => typeof p.text === "string" && p.text.startsWith("<tool_result"))) ? "delimited" : "none",
+    }) + "\n");
+  }
+  return out;
+};

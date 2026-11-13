@@ -1,0 +1,253 @@
+// src/app.ts
+//
+// The HTTP app and the service's start-up: database, migrations check,
+// routes and the background jobs (unclaimed handoffs, retention, rate-limit
+// counters, bookings and payments, calendars, billing).
+
+import express, { type Express, type NextFunction, type Request, type Response } from "express";
+import type { Server } from "node:http";
+import { GoogleGenAI } from "@google/genai";
+import type { PlatformConfig } from "./config.ts";
+import { anyAllowedOrigins, setExtraAllowedOrigins } from "./businesses/registry.ts";
+import { loadSecretKeys, setSecretKeys } from "./businesses/secrets.ts";
+import type { WhatsappContext } from "./channels/whatsapp/context.ts";
+import { registerWhatsappRoutes, WEBHOOK_PATH } from "./channels/whatsapp/routes.ts";
+import { setWhatsappRuntime } from "./channels/whatsapp/runtime.ts";
+import { sweepWhatsapp } from "./channels/whatsapp/worker.ts";
+import { configureHandoffs, sweepUnclaimedHandoffs } from "./conversations/handoff.ts";
+import { deleteExpiredConversations } from "./conversations/retention.ts";
+import { registerStaffConversationRoutes } from "./conversations/staff-routes.ts";
+import { configureTeamAlerts } from "./conversations/team-alerts.ts";
+import { registerConsoleRoutes } from "./console/routes.ts";
+import { describeDatabaseUrl } from "./db/connection.ts";
+import { assertAppRole, closePlatformDb, explainConnectionError, initPlatformDb, ownerPool } from "./db/platform-db.ts";
+import { migrate, pendingMigrations } from "./db/migrate.ts";
+import type { EngineOptions } from "./engine/agent.ts";
+import { normalizeOrigin } from "./gateway/origin.ts";
+import { KNOWLEDGE_PATH, registerKnowledgeRoutes } from "./knowledge/routes.ts";
+import { PRICE_LIST_PATH, registerPriceListRoutes } from "./prices/routes.ts";
+import { pruneRateLimitCounters } from "./gateway/rate-limit.ts";
+import { registerGatewayRoutes } from "./gateway/routes.ts";
+import { registerPlatformRoutes } from "./platform/routes.ts";
+import { registerStaffAccountRoutes } from "./staff/routes.ts";
+import { expireHolds } from "./booking/bookings.ts";
+import { configureBookingNotices } from "./booking/notices.ts";
+import { registerSlotRoutes } from "./booking/slot-routes.ts";
+import { registerBookingRoutes } from "./booking/staff-routes.ts";
+import { configurePayments, sweepPendingPayments } from "./payments/checkout.ts";
+import { configureGoogle } from "./calendars/google.ts";
+import { configureMailer } from "./platform/mailer.ts";
+import { registerSignupRoutes } from "./signup/routes.ts";
+import { registerOnboardingRoutes } from "./onboarding/routes.ts";
+import { registerCalendarRoutes } from "./calendars/routes.ts";
+import { configureCalendarSync, syncAllCalendars } from "./calendars/sync.ts";
+import { PAYMENT_WEBHOOK_PATH, registerPaymentRoutes } from "./payments/routes.ts";
+import { configureBilling } from "./billing/config.ts";
+import { sweepInvoicePayments } from "./billing/payments.ts";
+import { planStep, registerBillingRoutes } from "./billing/routes.ts";
+import { sweepBilling } from "./billing/store.ts";
+import { setPlanCheck } from "./onboarding/checklist.ts";
+
+/** Browsers may call the API from any website a business allows. */
+function cors() {
+  return async (req: Request, res: Response, next: NextFunction) => {
+    const origin = req.header("origin");
+    if (origin) {
+      try {
+        const allowed = (await anyAllowedOrigins()).map(normalizeOrigin);
+        if (allowed.includes(normalizeOrigin(origin))) {
+          res.setHeader("Access-Control-Allow-Origin", origin);
+          res.setHeader("Vary", "Origin");
+          res.setHeader("Access-Control-Allow-Headers", "authorization, content-type, x-zaina-currency");
+          res.setHeader("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS");
+          res.setHeader("Access-Control-Max-Age", "600");
+        }
+      } catch (error) {
+        return next(error);
+      }
+    }
+    if (req.method === "OPTIONS") {
+      res.status(204).end();
+      return;
+    }
+    next();
+  };
+}
+
+/** The WhatsApp channel, when the platform's Meta app is configured. */
+export function whatsappContextFor(config: PlatformConfig, engine: EngineOptions): WhatsappContext | null {
+  return config.whatsapp
+    ? { whatsapp: config.whatsapp, engine, sessionSecret: config.sessionTokenSecret, limits: config.rateLimits }
+    : null;
+}
+
+export function createApp(config: PlatformConfig, engine: EngineOptions, whatsapp: WhatsappContext | null = whatsappContextFor(config, engine)): Express {
+  configureTeamAlerts(config);
+  configureHandoffs(config);
+  configureBookingNotices({ publicBaseUrl: config.publicBaseUrl, alertEmail: config.alertEmail });
+  configurePayments({ publicBaseUrl: config.publicBaseUrl, platformPaystackKey: config.platformPaystackKey });
+  configureGoogle(config.google && config.publicBaseUrl
+    ? { ...config.google, redirectUri: `${config.publicBaseUrl}/v1/calendar/google/callback`, stateSecret: config.sessionTokenSecret }
+    : null);
+  configureCalendarSync({ publicBaseUrl: config.publicBaseUrl });
+  configureMailer(config.alertEmail);
+  configureBilling({
+    graceDays: config.billingGraceDays,
+    publicBaseUrl: config.publicBaseUrl,
+    platformPaystackKey: config.platformPaystackKey,
+    paymentInstructions: config.billingPaymentInstructions,
+  });
+  // A business that signed up by itself chooses a plan before going live, once the platform offers plans.
+  setPlanCheck(planStep);
+  setWhatsappRuntime(whatsapp);
+
+  const app = express();
+  app.disable("x-powered-by");
+  app.set("trust proxy", config.trustProxy);
+  // Once a browser has reached the service over https, it never uses plain http for it again (HSTS, a year).
+  // Behind Railway's proxy, req.secure comes from X-Forwarded-Proto.
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    if (req.secure) res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
+    next();
+  });
+  // /api/zaina/* is the public name of the API (the widget and embeds use it);
+  // it is the same API as /v1/*, which webhooks and the dashboard keep using.
+  app.use((req: Request, _res: Response, next: NextFunction) => {
+    if (/^\/api\/zaina(?=\/|\?|$)/.test(req.url)) req.url = `/v1${req.url.slice("/api/zaina".length)}`;
+    next();
+  });
+  // Knowledge and price-list routes parse their own, bigger bodies (documents,
+  // pasted lists); the WhatsApp and Paystack webhooks need the raw body to
+  // check their signatures.
+  const json = express.json({ limit: "32kb" });
+  app.use((req: Request, res: Response, next: NextFunction) => (
+    KNOWLEDGE_PATH.test(req.path) || PRICE_LIST_PATH.test(req.path) || req.path === WEBHOOK_PATH || PAYMENT_WEBHOOK_PATH.test(req.path) ? next() : json(req, res, next)
+  ));
+  app.use(cors());
+
+  registerGatewayRoutes(app, config, engine);
+  registerStaffAccountRoutes(app, config);
+  registerStaffConversationRoutes(app, config);
+  registerKnowledgeRoutes(app, config.sessionTokenSecret);
+  registerPriceListRoutes(app, config.sessionTokenSecret);
+  registerPlatformRoutes(app, config);
+  registerWhatsappRoutes(app, config, whatsapp);
+  registerBookingRoutes(app, config);
+  registerSlotRoutes(app, config);
+  registerPaymentRoutes(app, config);
+  registerCalendarRoutes(app, config);
+  registerSignupRoutes(app, config);
+  registerOnboardingRoutes(app, config);
+  registerBillingRoutes(app, config);
+  registerConsoleRoutes(app, config);
+
+  app.use((_req: Request, res: Response) => {
+    res.status(404).json({ error: "not_found" });
+  });
+  app.use((error: unknown, _req: Request, res: Response, _next: NextFunction) => {
+    console.error("[platform] request failed:", error);
+    if (res.headersSent) return;
+    const type = (error as { type?: string })?.type;
+    if (type === "entity.too.large") return res.status(413).json({ error: "too_large" });
+    const status = type === "entity.parse.failed" ? 400 : 500;
+    res.status(status).json({ error: status === 400 ? "invalid_json" : "server_error" });
+  });
+  return app;
+}
+
+function every(label: string, ms: number, job: () => Promise<unknown>): NodeJS.Timeout {
+  let running = false;
+  return setInterval(async () => {
+    if (running) return;
+    running = true;
+    try {
+      await job();
+    } catch (error) {
+      console.error(`[platform] ${label} failed:`, error);
+    } finally {
+      running = false;
+    }
+  }, ms);
+}
+
+export async function startServer(config: PlatformConfig): Promise<{ server: Server; stop: () => Promise<void> }> {
+  initPlatformDb(config.platformDatabaseUrl, {
+    appConnectionString: config.platformAppDatabaseUrl,
+    ca: config.platformDatabaseCa,
+    max: config.databasePoolMax,
+  });
+  if (!config.platformAppDatabaseUrl && !describeDatabaseUrl(config.platformDatabaseUrl).local) {
+    console.warn("[platform] PLATFORM_APP_DATABASE_URL isn't set: business queries sign in as the owner and switch to zaina_app. Set it, so they sign in as zaina_app itself.");
+  }
+  try {
+    await ownerPool().query("select 1");
+  } catch (error) {
+    throw explainConnectionError(error);
+  }
+  if (config.migrateOnStart) {
+    const applied = await migrate(ownerPool(), { log: (message) => console.log(`[migrate] ${message}`) });
+    if (applied.length) console.log(`[migrate] applied ${applied.join(", ")}`);
+  } else {
+    const pending = await pendingMigrations(ownerPool());
+    if (pending.length) {
+      throw new Error(`Pending migrations: ${pending.map((migration) => migration.version).join(", ")}. Run npm run migrate first.`);
+    }
+  }
+  // Business data must only ever be read as the restricted role.
+  try {
+    await assertAppRole();
+  } catch (error) {
+    throw explainConnectionError(error);
+  }
+  setSecretKeys(loadSecretKeys());
+  setExtraAllowedOrigins((process.env.EXTRA_ALLOWED_ORIGINS ?? "").split(","));
+
+  const engine: EngineOptions = {
+    ai: new GoogleGenAI({ apiKey: config.geminiApiKey }),
+    model: config.model,
+    turnBudgetMs: config.turnBudgetMs,
+    prices: config.modelPriceUsdPerMillion,
+  };
+  const whatsapp = whatsappContextFor(config, engine);
+  const app = createApp(config, engine, whatsapp);
+  const server = await new Promise<Server>((resolve) => {
+    const listening = app.listen(config.port, () => resolve(listening));
+  });
+  console.log(`[platform] listening on ${config.port}`);
+
+  const sweepEveryMs = Number(process.env.HANDOFF_SWEEP_INTERVAL_MS ?? "") || 60_000;
+  const jobs = [
+    every("unclaimed handoffs", sweepEveryMs, async () => {
+      const handedBack = await sweepUnclaimedHandoffs();
+      if (handedBack.length) console.log(`[platform] handed back ${handedBack.length} unclaimed chat(s) to Zaina`);
+    }),
+    every("retention", 60 * 60_000, async () => {
+      const deleted = await deleteExpiredConversations();
+      if (deleted) console.log(`[platform] deleted ${deleted} expired conversation(s)`);
+    }),
+    every("rate-limit counters", 60 * 60_000, () => pruneRateLimitCounters()),
+    // Unpaid bookings let go of their rooms; payments a provider settled without telling us are asked about.
+    every("bookings and payments", Number(process.env.BOOKING_SWEEP_INTERVAL_MS ?? "") || 60_000, async () => {
+      const expired = await expireHolds();
+      if (expired.length) console.log(`[platform] ${expired.length} unpaid booking(s) let go of their rooms`);
+      await sweepPendingPayments();
+    }),
+    ...(whatsapp ? [every("whatsapp", Number(process.env.WHATSAPP_SWEEP_INTERVAL_MS ?? "") || 5_000, () => sweepWhatsapp(whatsapp))] : []),
+    // Busy times from connected calendars and iCal links in; confirmed bookings out to Google Calendar.
+    every("calendars", Number(process.env.CALENDAR_SYNC_INTERVAL_MS ?? "") || 10 * 60_000, () => syncAllCalendars()),
+    // Plans move on: invoices out a week ahead, overdue ones marked, unpaid businesses paused, ended plans closed.
+    every("billing", Number(process.env.BILLING_SWEEP_INTERVAL_MS ?? "") || 5 * 60_000, async () => {
+      const moved = await sweepBilling();
+      if (moved) console.log(`[platform] billing moved on for ${moved} business(es)`);
+      await sweepInvoicePayments();
+    }),
+  ];
+
+  const stop = async () => {
+    jobs.forEach(clearInterval);
+    setWhatsappRuntime(null);
+    await new Promise<void>((resolve) => server.close(() => resolve()));
+    await closePlatformDb();
+  };
+  return { server, stop };
+}

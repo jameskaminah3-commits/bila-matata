@@ -1,0 +1,45 @@
+{
+  "name": "bila-matata",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "bilamatata.co.ke: the Bila Matata studio site, Zaina (the AI sales and booking assistant) as a service, and the studio's payment page.",
+  "engines": {
+    "node": ">=20 <24"
+  },
+  "scripts": {
+    "dev": "tsx src/server.ts",
+    "start": "node dist/server.js",
+    "build": "node scripts/build.mjs",
+    "build:web": "node scripts/build.mjs --web",
+    "release": "node dist/release.js",
+    "migrate": "tsx src/db/migrate-cli.ts",
+    "check": "tsc -p tsconfig.json && tsc -p web/tsconfig.json",
+    "test": "tsx --test --test-concurrency=1 test/unit/*.test.ts",
+    "test:db": "tsx --test --test-concurrency=1 test/db/*.test.ts",
+    "test:e2e": "tsx --test --test-concurrency=1 test/e2e/*.test.ts",
+    "staff:create": "tsx src/cli/create-staff.ts",
+    "knowledge:import": "tsx src/cli/import-knowledge.ts"
+  },
+  "dependencies": {
+    "@google/genai": "^2.21.0",
+    "dotenv": "^17.3.1",
+    "drizzle-orm": "^0.39.1",
+    "express": "^4.21.2",
+    "pg": "^8.13.1",
+    "web-push": "^3.6.7"
+  },
+  "devDependencies": {
+    "@types/express": "4.17.21",
+    "@types/node": "20.16.11",
+    "@types/pg": "^8.11.6",
+    "@types/react": "^18.3.11",
+    "@types/react-dom": "^18.3.1",
+    "esbuild": "^0.25.0",
+    "pdfjs-dist": "^6.3.289",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "tsx": "^4.20.5",
+    "typescript": "5.6.3"
+  }
+}
