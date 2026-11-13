@@ -23,8 +23,22 @@ Railway's **Variables**. Don't paste them into chats, issues or commits.
 
    Use the session pooler (port 5432). The service refuses the transaction
    pooler (port 6543).
-3. **Project Settings → Database → SSL Configuration:** download the
-   certificate (its text goes into Railway below) and turn on **Enforce SSL**.
+3. **The database's SSL settings.** In the left sidebar click **Database**,
+   then **Settings** (or open
+   `https://supabase.com/dashboard/project/_/database/settings` and pick the
+   project; on older dashboards it is **Project Settings → Database**,
+   `https://supabase.com/dashboard/project/_/settings/database`). Scroll to
+   **SSL Configuration**:
+   - **SSL Certificate → Download certificate.** It saves a file such as
+     `prod-ca-2021.crt`. Open it in a text editor (Notepad, TextEdit) and
+     copy everything from `-----BEGIN CERTIFICATE-----` to
+     `-----END CERTIFICATE-----`: that text goes into Railway below.
+   - **Enforce SSL on incoming connections:** turn it on and confirm. The
+     database restarts once, for a few seconds.
+
+   Both are optional for a first staging deploy. Without the certificate the
+   connection is still encrypted; the release log warns that the server's
+   certificate isn't checked until `PLATFORM_DATABASE_CA` is set.
 4. **Project Settings → Data API:** turn it off. The service doesn't use it.
 
 The first release creates every table, the restricted `zaina_app` role, the
