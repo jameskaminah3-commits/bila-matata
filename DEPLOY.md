@@ -184,6 +184,27 @@ are indexable; invoices, the dashboard and the APIs are not.
    themselves, and the business gets exactly what its plan includes. Change
    a business's plan later with the **Plan** button in its row.
 
+## 8. Knowing it works
+
+- **The studio is emailed** when something stays wrong for two checks in a
+  row (database, Zaina's replies failing, a background job stuck or
+  failing), and again when it's back to normal. Set `STUDIO_NOTIFY_EMAIL`
+  (and email, section 4). The checks run every minute
+  (`HEALTH_CHECK_INTERVAL_MS`).
+- **An outside uptime monitor** catches the one thing the service can't
+  report itself: being down. Point any uptime monitor at
+  `https://<domain>/v1/status` every minute; it answers 503 when Zaina is
+  down. The public page is `https://<domain>/status`.
+- **Backups:** use a database plan with daily backups and point-in-time
+  recovery, and restore one into a scratch database once a month to prove
+  it works (docs/RUNBOOKS.md, "A deploy went wrong").
+- **Before a release:** `npm run build && npm run budget` (what phones
+  download stays small), and on staging `npm run load -- --business <test
+  business> --base https://<staging>` and `npm run eval` (docs/PILOTS.md).
+  Measured locally with the test model: 100 customers at once, 400
+  requests, none failed, slowest reply 1.25 s (the platform's own time;
+  the AI model's time comes on top).
+
 ## Optional, later
 
 | What | Variables |

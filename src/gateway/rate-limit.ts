@@ -4,7 +4,9 @@
 // the service sees the same numbers and a restart doesn't reset them. Each
 // rule is a fixed window: at most `limit` hits per `windowSeconds`.
 
+import type { NextFunction, Request, Response } from "express";
 import { appPool } from "../db/platform-db.ts";
+import { visitorKey } from "./visitor.ts";
 
 export type LimitRule = { key: string; limit: number; windowSeconds: number };
 
@@ -41,4 +43,27 @@ export async function consumeLimits(rules: LimitRule[], now: Date = new Date()):
 export async function pruneRateLimitCounters(now: Date = new Date()): Promise<number> {
   const result = await appPool().query("delete from rate_limit_counters where window_start < $1::timestamptz - interval '1 day'", [now.toISOString()]);
   return result.rowCount ?? 0;
+}
+
+/**
+ * A rate limit as route middleware: by default per visitor (a keyed hash of
+ * their address, never the address itself), or per whatever keyOf returns.
+ * Answers 429 with Retry-After when it's used up. If counting fails, the
+ * request goes through: a database hiccup never locks customers out.
+ */
+export function rateLimited(secret: string, prefix: string, limit: number, windowSeconds: number, keyOf?: (req: Request) => string) {
+  return async (req: Request, res: Response, next: NextFunction) => {
+    let verdict: LimitResult;
+    try {
+      verdict = await consumeLimits([{ key: `${prefix}:${keyOf ? keyOf(req) : visitorKey(secret, req.ip)}`, limit, windowSeconds }]);
+    } catch {
+      return next();
+    }
+    if (verdict.allowed) return next();
+    res.setHeader("Retry-After", String(verdict.retryAfterSeconds));
+    if (req.accepts(["html", "json"]) === "json" || req.path.startsWith("/v1/")) {
+      return res.status(429).json({ error: "rate_limited", message: "Too many requests. Please wait a moment and try again.", retry_after_seconds: verdict.retryAfterSeconds });
+    }
+    res.status(429).type("text/plain").send("Too many requests. Please wait a moment and try again.");
+  };
 }

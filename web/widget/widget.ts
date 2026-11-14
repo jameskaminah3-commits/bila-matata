@@ -145,7 +145,7 @@ const POLL_OPEN_MS = 30_000;
 .header .face::after { content: ""; position: absolute; right: -1px; bottom: -1px; width: 11px; height: 11px; border-radius: 50%; background: #22c55e; border: 2px solid var(--brand); }
 .header .who { flex: 1; min-width: 0; }
 .header .name { font-weight: 650; font-size: 16px; }
-.header .sub { font-size: 12.5px; opacity: .85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.header .sub { font-size: 12.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .close { background: transparent; border: none; color: inherit; cursor: pointer; width: 36px; height: 36px; border-radius: 8px; display: grid; place-items: center; }
 .close:hover { background: rgba(255,255,255,.15); }
 .log { flex: 1; overflow-y: auto; padding: 14px; display: flex; flex-direction: column; gap: 8px; overscroll-behavior: contain; }

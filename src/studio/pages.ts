@@ -39,7 +39,7 @@ export type SitePage = {
 const PROJECT_MESSAGE = "Hello Bila Matata, I'd like to start a project. Here's what I need:";
 const ZAINA_MESSAGE = "Hello Bila Matata, I'd like Zaina AI for my business.";
 
-function head(options: { title: string; description: string; path: string; baseUrl: string | null; index?: boolean; extra?: string }): string {
+function head(options: { title: string; description: string; path: string; baseUrl: string | null; index?: boolean; extra?: string; image?: string }): string {
   const canonical = options.baseUrl ? `${options.baseUrl}${options.path}` : null;
   return `<!doctype html>
 <html lang="en">
@@ -55,7 +55,7 @@ ${canonical ? `<link rel="canonical" href="${esc(canonical)}">` : ""}
 <meta property="og:title" content="${esc(options.title)}">
 <meta property="og:description" content="${esc(options.description)}">
 ${canonical ? `<meta property="og:url" content="${esc(canonical)}">` : ""}
-${options.baseUrl ? `<meta property="og:image" content="${esc(options.baseUrl)}/site/og.png">\n<meta name="twitter:card" content="summary_large_image">` : ""}
+${options.baseUrl ? `<meta property="og:image" content="${esc(options.baseUrl)}${esc(options.image ?? "/site/og.png")}">\n<meta name="twitter:card" content="summary_large_image">` : ""}
 <meta name="theme-color" content="#0f766e">
 <link rel="icon" href="/site/favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="/site/site.css">
@@ -284,6 +284,24 @@ ${renderCalculator({ starter: PLANS[0].monthlyMinor, full: PLANS[1].monthlyMinor
         <a class="plan-alt" href="${esc(whatsappLink(`${ZAINA_MESSAGE} I'm interested in the ${plan.name} plan.`))}" rel="noopener">or ask on WhatsApp</a>
       </article>`).join("\n      ")}
     </div>
+    <article class="plan-extra" aria-labelledby="system-title">
+      <div>
+        <span class="tag">Already have your own system?</span>
+        <h3 id="system-title">Zaina inside your own shop or booking system</h3>
+        <p>If you already sell online or take bookings in a system of your own, Zaina connects to it, so every answer is live and nothing is typed twice.</p>
+        <ul>
+          <li>Prices, stock and free dates come straight from your system</li>
+          <li>"Where's my order?" answered privately, only to the customer it belongs to</li>
+          <li>Ready to buy? Customers go to your own checkout, and the money goes to you</li>
+          <li>New leads and bookings arrive in your system as they happen</li>
+        </ul>
+      </div>
+      <div class="plan-extra-cta">
+        <p class="price">Quoted for your system</p>
+        <p class="setup">Added to either plan, after a free look at what you use today</p>
+        <a class="btn btn-primary" href="/start?service=zaina_system">Ask about connecting my system</a>
+      </div>
+    </article>
     <p class="fine">Prices are in Kenya shillings. Set-up is paid once and covers loading your catalogue and prices, tuning Zaina's answers with you, and installation. Monthly plans are billed in advance and you can cancel at any time; see the <a href="/terms">terms</a>. Already a client? <a href="/app/">Sign in</a> or <a href="/pay">pay an invoice</a>.</p>
     <div class="snippet" role="img" aria-label="The one line of code that adds Zaina to a website">&lt;script src="https://bilamatata.co.ke/zaina.js" data-business="your-business" async&gt;&lt;/script&gt;</div>
     <p class="fine">That one line adds Zaina to any website: WordPress, Shopify, Wix or custom-built.</p>

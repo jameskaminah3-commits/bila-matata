@@ -13,6 +13,7 @@
 // the browser from exactly these pictures. Saving the details is a setting
 // (PATCH settings: cardDetails).
 
+import { rateLimited } from "../gateway/rate-limit.ts";
 import type { Express, NextFunction, Request, Response } from "express";
 import type { PlatformConfig } from "../config.ts";
 import { billingOf } from "../billing/store.ts";
@@ -44,7 +45,9 @@ const BLANK: CardDetails = { design: "signature", personName: null, personTitle:
 export function registerCardRoutes(app: Express, config: PlatformConfig): void {
   const staff = requireStaff(config.sessionTokenSecret);
 
-  app.post("/v1/staff/businesses/:businessId/business-card", staff, requireBusinessRole("viewer"), async (req: Request, res: Response, next: NextFunction) => {
+  // Drawing a card is real work: plenty for a team designing theirs, not for a loop.
+  const drawing = rateLimited(config.sessionTokenSecret, "cards", 120, 3600, (req) => String(req.params.businessId));
+  app.post("/v1/staff/businesses/:businessId/business-card", staff, requireBusinessRole("viewer"), drawing, async (req: Request, res: Response, next: NextFunction) => {
     try {
       const business = staffOf(req).business!;
       const allowed = await cardsAvailable(business);

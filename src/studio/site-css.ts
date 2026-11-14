@@ -175,6 +175,17 @@ table.compare { width: 100%; min-width: 640px; border-collapse: collapse; font-s
 .plan .price { margin-top: 14px; font-size: 2.3rem; font-weight: 800; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; line-height: 1.1; }
 .plan .price small { font-size: 1rem; font-weight: 600; color: var(--muted); letter-spacing: 0; }
 .plan .setup { margin-top: 4px; color: var(--muted); font-size: 0.95rem; }
+.plan-extra { margin-top: 18px; background: var(--surface); border: 1px solid var(--line); border-radius: 20px; padding: 28px; display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: 24px 36px; align-items: center; }
+.plan-extra > div { min-width: 0; }
+.plan-extra .tag { display: inline-block; font-size: 0.74rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding: 5px 10px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); margin-bottom: 14px; }
+.plan-extra h3 { text-wrap: balance; }
+.plan-extra p { color: var(--muted); margin-top: 8px; }
+.plan-extra ul { margin: 16px 0 0; padding: 0; list-style: none; display: grid; gap: 10px; }
+.plan-extra li { position: relative; padding-left: 26px; font-size: 0.97rem; }
+.plan-extra li::before { content: ""; position: absolute; left: 3px; top: 0.5em; width: 12px; height: 7px; border-left: 2px solid var(--accent); border-bottom: 2px solid var(--accent); transform: rotate(-45deg); }
+.plan-extra .price { margin-top: 0; font-size: 1.6rem; font-weight: 800; letter-spacing: -0.02em; color: var(--ink); }
+.plan-extra .setup { margin: 4px 0 16px; }
+@media (max-width: 760px) { .plan-extra { grid-template-columns: minmax(0, 1fr); } }
 .plan .for { margin-top: 14px; color: var(--muted); font-size: 0.98rem; }
 .plan ul { margin: 18px 0 24px; padding: 0; list-style: none; display: grid; gap: 10px; flex: 1; }
 .plan li { position: relative; padding-left: 26px; font-size: 0.97rem; }

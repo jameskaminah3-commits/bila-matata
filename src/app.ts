@@ -59,6 +59,7 @@ import { registerLeadExtras, sweepCallbacks } from "./leads/extra-tools.ts";
 import { registerIntegrationRoutes } from "./integrations/routes.ts";
 import { registerReviewRoutes } from "./review/routes.ts";
 import { registerOnboardingTrackerRoutes } from "./onboarding/tracker.ts";
+import { jobFinished, jobStarted, monitorHealth, registerHealthRoutes } from "./ops/health.ts";
 import { registerIntegrationExtras } from "./integrations/tools.ts";
 import { syncWebsites } from "./knowledge/website-import.ts";
 import { STUDIO } from "./studio/brand.ts";
@@ -178,6 +179,7 @@ export function createApp(config: PlatformConfig, engine: EngineOptions, whatsap
   registerIntegrationRoutes(app, config);
   registerReviewRoutes(app, config);
   registerOnboardingTrackerRoutes(app, config);
+  registerHealthRoutes(app, config);
   registerConsoleRoutes(app, config);
 
   app.use((_req: Request, res: Response) => {
@@ -205,15 +207,22 @@ function registerExtrasOnce(): void {
 
 function every(label: string, ms: number, job: () => Promise<unknown>): NodeJS.Timeout {
   let running = false;
+  jobStarted(label, ms);
+  jobFinished(label, null);
   return setInterval(async () => {
     if (running) return;
     running = true;
+    jobStarted(label, ms);
+    let failure: unknown = null;
     try {
       await job();
     } catch (error) {
+      failure = error ?? new Error("failed");
       console.error(`[platform] ${label} failed:`, error);
     } finally {
       running = false;
+      // The health check sees a job that stops finishing, or keeps failing (src/ops/health.ts).
+      jobFinished(label, failure);
     }
   }, ms);
 }
@@ -298,6 +307,9 @@ export async function startServer(config: PlatformConfig): Promise<{ server: Ser
     // The studio's own invoices: payments Paystack settled without the payer coming back.
     every("studio invoices", Number(process.env.BOOKING_SWEEP_INTERVAL_MS ?? "") || 60_000, () => sweepStudio()),
   ];
+  // Is everything working? Checked every minute; the studio is emailed when something stays wrong, and when it's fixed.
+  const health = setInterval(() => void monitorHealth(config.studioNotifyEmail).catch((error) => console.error("[health] check failed:", error)), Number(process.env.HEALTH_CHECK_INTERVAL_MS ?? "") || 60_000);
+  jobs.push(health);
 
   const stop = async () => {
     jobs.forEach(clearInterval);

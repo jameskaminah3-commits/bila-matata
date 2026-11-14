@@ -102,3 +102,5 @@ Zaina makes sure every enquiry is answered and followed up. How many leads and s
 ## Getting started
 
 Message us on WhatsApp at +254 707 255 598 and tell us about your business, or leave your name and number in this chat and the team will contact you.
+
+**Zaina inside your own system.** A business that already runs its own online shop or booking system can have Zaina connected to it, so prices, stock and free dates come straight from that system, customers can ask where their order is (answered only for the customer it belongs to), customers are sent to the business's own checkout to pay, and new leads and bookings arrive in the business's system as they happen. It is added to either plan and quoted for each system after a free look at what the business uses today; ask the studio through the Get started form or on WhatsApp.

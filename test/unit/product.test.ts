@@ -66,7 +66,7 @@ test("the website's starting prices are the ones on the studio's price list", ()
   for (const [name, amount] of [["Website and mobile app development", 2500000], ["AI automation and workflow systems", 1500000], ["Data analysis and business intelligence", 1000000], ["Strategic research and professional writing", 500000]] as const) {
     assert.match(seeded, new RegExp(`'Studio services', '${name}', '[^']+', ${amount}, 'KES', 'and up'`), name);
   }
-  assert.deepEqual(REQUEST_TOPICS.map((topic) => topic.id), ["zaina_starter", "zaina_full", "software", "automation", "data", "research", "other"]);
+  assert.deepEqual(REQUEST_TOPICS.map((topic) => topic.id), ["zaina_starter", "zaina_full", "zaina_system", "software", "automation", "data", "research", "other"]);
 });
 
 test("a request needs a name, a way to reach the person, what they want and a few words about it", () => {

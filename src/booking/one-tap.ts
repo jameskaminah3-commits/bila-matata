@@ -23,6 +23,7 @@ import { inBusiness } from "../db/tenant.ts";
 import { acceptBooking, declineBooking, getBooking } from "./bookings.ts";
 import { formatMoney } from "./money.ts";
 import { bookingWhen, tellCustomer } from "./notices.ts";
+import { rateLimited } from "../gateway/rate-limit.ts";
 
 type Action = "accept" | "decline";
 type Claims = { b: string; k: string; u: string; a: Action; e: number };
@@ -86,6 +87,8 @@ const ACTION_CSP = ["default-src 'none'", "style-src 'self'", "form-action 'self
 export function registerOneTapRoutes(app: Express, config: PlatformConfig): void {
   configureOneTap({ secret: config.sessionTokenSecret, publicBaseUrl: config.publicBaseUrl });
   const form = express.urlencoded({ extended: false, limit: "4kb" });
+  // Links are unguessable; this only stops a flood.
+  const limit = rateLimited(config.sessionTokenSecret, "act", 60, 600);
 
   app.get("/act-assets/act.css", (_req: Request, res: Response) => {
     res.setHeader("Cache-Control", "public, max-age=300");
@@ -128,7 +131,7 @@ ${booking.guests ? `<dt>Guests</dt><dd>${booking.guests}</dd>` : ""}
 <dt>Reference</dt><dd>${esc(booking.reference)}</dd>
 </dl>`;
 
-  app.get("/act/:token", async (req: Request, res: Response, next: NextFunction) => {
+  app.get("/act/:token", limit, async (req: Request, res: Response, next: NextFunction) => {
     try {
       const found = await resolve(req, res);
       if (!found) return;
@@ -145,7 +148,7 @@ ${booking.guests ? `<dt>Guests</dt><dd>${booking.guests}</dd>` : ""}
     }
   });
 
-  app.post("/act/:token", form, async (req: Request, res: Response, next: NextFunction) => {
+  app.post("/act/:token", limit, form, async (req: Request, res: Response, next: NextFunction) => {
     try {
       const found = await resolve(req, res);
       if (!found) return;

@@ -4,7 +4,7 @@
 //
 //   GET  /                         the home page (with the studio's own Zaina)
 //   GET  /terms                    terms of service and privacy
-//   GET  /site/site.css, /site/site.js, /site/favicon.svg, /site/og.png
+//   GET  /site/site.css, /site/site.js, /site/favicon.svg, /site/og.png, /site/og-zaina.png
 //   GET  /robots.txt, /sitemap.xml
 //
 //   GET  /pay                      find an invoice by its reference
@@ -87,8 +87,8 @@ function pageHeaders(res: Response, options: { cache: boolean; index: boolean })
 }
 
 /** The share image (assets/og.png, next to dist/ when bundled, or two levels up from src/studio/). */
-function shareImage(): Buffer | null {
-  for (const relative of ["../assets/og.png", "../../assets/og.png"]) {
+function shareImage(name = "og.png"): Buffer | null {
+  for (const relative of [`../assets/${name}`, `../../assets/${name}`]) {
     const file = fileURLToPath(new URL(relative, import.meta.url));
     if (existsSync(file)) return readFileSync(file);
   }
@@ -124,6 +124,7 @@ export function registerStudioRoutes(app: Express, config: PlatformConfig): void
   const baseUrlOf = (req: Request) => config.publicBaseUrl ?? `${req.protocol}://${req.get("host") ?? "localhost"}`;
   const pageOf = (_req: Request): SitePage => ({ baseUrl: config.publicBaseUrl });
   const og = shareImage();
+  const ogZaina = shareImage("og-zaina.png");
 
   const text = (type: string, body: string, maxAge = 3600) => (_req: Request, res: Response) => {
     res.setHeader("Content-Type", `${type}; charset=utf-8`);
@@ -151,6 +152,12 @@ export function registerStudioRoutes(app: Express, config: PlatformConfig): void
     res.setHeader("Content-Type", "image/png");
     res.setHeader("Cache-Control", "public, max-age=86400");
     res.send(og);
+  });
+  app.get("/site/og-zaina.png", (_req: Request, res: Response) => {
+    if (!ogZaina) return res.status(404).end();
+    res.setHeader("Content-Type", "image/png");
+    res.setHeader("Cache-Control", "public, max-age=86400");
+    res.send(ogZaina);
   });
   app.get("/robots.txt", (_req: Request, res: Response) => {
     res.setHeader("Cache-Control", "public, max-age=3600");

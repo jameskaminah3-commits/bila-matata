@@ -22,6 +22,7 @@
 // settings (PATCH settings: brandTagline, chatAvatar, frontDoor,
 // qrDestination, cardDetails).
 
+import { rateLimited } from "../gateway/rate-limit.ts";
 import express, { type Express, type NextFunction, type Request, type Response } from "express";
 import type { PlatformConfig } from "../config.ts";
 import { BRAND_MAX_BYTES, brandAssetUrl, brandAssetsOf, checkBrandImage, isBrandKind, readBrandAsset, removeBrandAsset, saveBrandAsset } from "../brand/assets.ts";
@@ -112,6 +113,8 @@ export function registerFrontDoorRoutes(app: Express, config: PlatformConfig): v
     res.type("text/css").send(DOOR_CSS);
   });
 
+  // A busy counter is many phones; one phone reloading in a loop is not.
+  const doorLimit = rateLimited(config.sessionTokenSecret, "door", 120, 60);
   app.get("/c/:business/brand.css", async (req: Request, res: Response, next: NextFunction) => {
     try {
       // Colours aren't secret, and a paused business's customers still reach its payment page.
@@ -172,10 +175,10 @@ export function registerFrontDoorRoutes(app: Express, config: PlatformConfig): v
       next(error);
     }
   };
-  app.get("/q/:business", scan("qr"));
-  app.get("/k/:business", scan("card"));
+  app.get("/q/:business", doorLimit, scan("qr"));
+  app.get("/k/:business", doorLimit, scan("card"));
 
-  app.get("/c/:business", async (req: Request, res: Response, next: NextFunction) => {
+  app.get("/c/:business", doorLimit, async (req: Request, res: Response, next: NextFunction) => {
     try {
       res.setHeader("Content-Security-Policy", DOOR_CSP);
       res.setHeader("X-Frame-Options", "DENY");

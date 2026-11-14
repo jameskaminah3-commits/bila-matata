@@ -9,12 +9,13 @@ import { esc, siteParts, type SitePage } from "./pages.ts";
 import type { ProjectRequest, RequestProblems } from "./requests.ts";
 import { REQUEST_TOPICS, requestTopic, STUDIO_SERVICES } from "./services.ts";
 
-const shell = (page: SitePage, options: { title: string; path: string; index: boolean; body: string }) => `${siteParts.head({
+const shell = (page: SitePage, options: { title: string; path: string; index: boolean; body: string; image?: string }) => `${siteParts.head({
   title: options.title,
   description: "Start a project with Bila Matata or get Zaina AI for your business: tell us what you need and we'll reply with a free written quote.",
   path: options.path,
   baseUrl: page.baseUrl,
   index: options.index,
+  image: options.image,
 })}
 <body>
 ${siteParts.header("start")}
@@ -50,6 +51,8 @@ export function renderStart(page: SitePage, options: { request: ProjectRequest; 
     title: "Start a Project | Bila Matata",
     path: "/start",
     index: !anyProblem && !request.name,
+    // A link to get Zaina shows Zaina when it's shared.
+    image: request.topic.startsWith("zaina") ? "/site/og-zaina.png" : undefined,
     body: `    <div class="start-grid">
       <div>
         <h1>${request.topic.startsWith("zaina") ? "Get Zaina for your business" : "Book a free consultation"}</h1>
