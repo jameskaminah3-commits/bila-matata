@@ -116,10 +116,10 @@ test("support takes a subject and a message, and nothing oversized", () => {
   assert.equal(validateMessage({}), null);
 });
 
-test("the demonstration shows both sides of four conversations, is all in the page, and says it's a demonstration", () => {
+test("the demonstration shows both sides of six conversations, is all in the page, and says it's a demonstration", () => {
   const html = renderDemo();
   const words = text(html);
-  assert.deepEqual(DEMO_SCENES.map((scene) => [scene.id, scene.plan]), [["salon", "Full"], ["restaurant", "Full"], ["shop", "Starter"], ["takeover", "Every"]]);
+  assert.deepEqual(DEMO_SCENES.map((scene) => [scene.id, scene.plan]), [["hotel", "Full"], ["soldout", "Full"], ["salon", "Full"], ["restaurant", "Full"], ["shop", "Starter"], ["takeover", "Every"]]);
   for (const scene of DEMO_SCENES) {
     const block = new RegExp(`<div class="demo-scene" id="demo-${scene.id}"[\\s\\S]*?(?=<div class="demo-scene"|<p class="fine demo-fine">)`).exec(html)![0];
     // Every step is in the HTML, in order, so the page is complete without script; both sides are there.
@@ -133,7 +133,7 @@ test("the demonstration shows both sides of four conversations, is all in the pa
     // Only the conversation's last status shows without script.
     assert.equal((block.match(/<span class="demo-chip (ok|warn|info)" data-at="\d+" data-wait="\d+">/g) ?? []).length, 1, scene.id);
   }
-  // The Starter conversation ends in a lead, never a booking; a person takes over in the fourth.
+  // The Starter conversation ends in a lead, never a booking; a person takes over in the last.
   const shop = /id="demo-shop"[\s\S]*?id="demo-takeover"/.exec(html)![0];
   assert.match(shop, /<span class="demo-kind">Lead<\/span>/);
   assert.doesNotMatch(shop, /<span class="demo-kind">Booking<\/span>/);
@@ -141,7 +141,15 @@ test("the demonstration shows both sides of four conversations, is all in the pa
   // Zaina in the demonstration does what the real one does: she says when she doesn't know.
   assert.match(words, /I don't have the instalment terms, so I won't guess\./);
   assert.match(words, /A demonstration with example businesses: the names, prices and times are examples\./);
-  assert.doesNotMatch(words, /paystack|testimonial|guarantee|\b(tours?|safaris?|hotels?|villas?|holidays?|travel\w*)\b/i);
+  // Hotels and stays are a target industry now; tours, safaris, car hire and travel agencies still are not.
+  assert.doesNotMatch(words, /paystack|testimonial|guarantee|\b(tours?|safaris?|car hire|holidays?|travel\w*)\b/i);
+  // The hotel scenes do the sums the tools would: nights x rate, and the deposit is a stated share of it.
+  assert.match(words, /3 nights it is KSh 42,000 in total/);
+  assert.match(words, /Pay KSh 12,600/);
+  assert.match(words, /Pay KSh 8,100/);
+  // Each scene names the role Zaina holds there, and shows her face in the chat.
+  assert.match(html, /Zaina · Guest experience host/);
+  assert.ok((html.match(/class="chat-face"/g) ?? []).length >= DEMO_SCENES.length, "her face heads every conversation");
   // Nothing inline: the page's policy allows only its own script and styles.
   assert.doesNotMatch(html, / style="| on[a-z]+="|<script/);
   assert.doesNotMatch(DEMO_JS, /innerHTML|eval\(|setAttribute\("style"/);

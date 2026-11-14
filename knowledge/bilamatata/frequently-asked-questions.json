@@ -70,5 +70,17 @@
   {
     "question": "Is my data safe?",
     "answer": "Each business's conversations, leads and bookings are kept separate from every other business's. Data is encrypted in transit, and conversations are deleted after the retention period. We handle personal data under Kenya's Data Protection Act, 2019. Details are at https://bilamatata.co.ke/terms"
+  },
+  {
+    "question": "Who is Zaina? Is she a real person?",
+    "answer": "Zaina is a digital team member: she is an AI, and she never pretends otherwise. From the day she starts with your business she works as one of your team, with a role such as guest experience host or client care host, speaks as \"we\", and uses your business's own information. If a customer sincerely asks whether they are talking to a person, she says so honestly and the people on your team are right behind her."
+  },
+  {
+    "question": "Can we choose who gets the notification emails?",
+    "answer": "Yes. In your dashboard, under Settings and Notifications, the owner or a manager adds the email addresses that should be told when a customer is waiting for a person, wants a callback, leaves their details or books. For each address you choose whether it gets alerts with a link to take over the chat, the written-out conversation, or both. Starter allows up to 2 addresses and Full allows up to 5."
+  },
+  {
+    "question": "Does Zaina work for hotels, lodges and other places to stay?",
+    "answer": "Yes, they are one of the businesses she is built for. On the Full plan she checks your up-to-date calendar, quotes the exact total from your own rates, holds the room, takes the deposit into your own account, and offers the nearest available option when the dates a guest wants are taken. The example conversations on our home page show a stay being booked and a sold-out date being turned into a booking."
   }
 ]

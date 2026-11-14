@@ -71,6 +71,8 @@ export type PlanInput = {
   sortOrder?: number;
   tier?: BusinessTier;
   setupFeeMinor?: number;
+  /** How many notification emails the plan allows; null: the tier's own number. */
+  notificationEmails?: number | null;
 };
 
 const whole = (value: unknown, min: number, max: number) => Number.isSafeInteger(value) && (value as number) >= min && (value as number) <= max;
@@ -121,6 +123,10 @@ export function validatePlan(input: unknown, creating: boolean): { ok: true; val
   if ("tier" in body) {
     if (!businessTiers.includes(body.tier as BusinessTier)) return { ok: false, error: "tier is starter or full" };
     value.tier = body.tier as BusinessTier;
+  }
+  if ("notification_emails" in body) {
+    if (body.notification_emails !== null && !whole(body.notification_emails, 0, 50)) return { ok: false, error: "notification_emails is 0 to 50, or null for the tier's own number" };
+    value.notificationEmails = body.notification_emails as number | null;
   }
   if ("setup_fee_minor" in body) {
     if (!whole(body.setup_fee_minor, 0, 100_000_000_000)) return { ok: false, error: "setup_fee_minor is the one-off set-up fee in cents (0 for none)" };

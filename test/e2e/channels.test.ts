@@ -476,7 +476,7 @@ test("the website widget's settings: look, greeting, and only the business's own
   const config = await fetch(`${platform.base}/v1/widget/config?key=${key}`, { headers: { origin: ACME_ORIGIN } });
   assert.equal(config.status, 200);
   const expected = {
-    name: "Acme Guesthouse", assistant_name: "Zaina", color: "#1d4ed8", position: "left",
+    name: "Acme Guesthouse", assistant_name: "Zaina", assistant_role: "guest experience host", color: "#1d4ed8", position: "left",
     greeting: "Karibu Acme! Ask me anything about your stay.", currency: "USD",
     // WhatsApp is connected: the chat offers the number too.
     whatsapp: "https://wa.me/254700123456",

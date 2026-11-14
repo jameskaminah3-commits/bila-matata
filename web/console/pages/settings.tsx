@@ -4,6 +4,8 @@
 // it, how customers reach it), the website widget and the websites it runs
 // on, the WhatsApp connection, the team's hours, and its plan and billing.
 
+import { NotificationEmails } from "./notifications.tsx";
+import { ZAINA_FACE_DATA_URI } from "../../../src/brand/zaina-face.ts";
 import { useEffect, useState } from "react";
 import { api, businessPath } from "../api.ts";
 import { WEEKDAYS } from "../format.ts";
@@ -13,8 +15,8 @@ import { BillingSettings } from "./billing.tsx";
 import { BookingSettings } from "./booking-settings.tsx";
 import { Calendars } from "./calendars.tsx";
 
-type Tab = "profile" | "widget" | "whatsapp" | "hours" | "bookings" | "calendars" | "billing";
-const TABS: Tab[] = ["profile", "widget", "whatsapp", "hours", "bookings", "calendars", "billing"];
+type Tab = "profile" | "notifications" | "widget" | "whatsapp" | "hours" | "bookings" | "calendars" | "billing";
+const TABS: Tab[] = ["profile", "notifications", "widget", "whatsapp", "hours", "bookings", "calendars", "billing"];
 
 /**
  * The tab in the address (#/b/<business>/settings/<tab>?…), and what a
@@ -40,6 +42,7 @@ export function SettingsPage(props: { businessId: string; role: Role; me: Me; bu
         tabs={[
           { id: "profile", label: "Business" },
           ...(stays ? [{ id: "bookings" as const, label: "Bookings & payments" }, { id: "calendars" as const, label: "Calendars" }] : []),
+          { id: "notifications", label: "Notifications" },
           { id: "widget", label: "Website widget" },
           { id: "whatsapp", label: "WhatsApp" },
           { id: "hours", label: "Hours" },
@@ -49,6 +52,7 @@ export function SettingsPage(props: { businessId: string; role: Role; me: Me; bu
       {tab === "bookings" && stays ? <BookingSettings businessId={props.businessId} role={props.role} slots={props.businessType !== "guesthouse"} /> : null}
       {tab === "calendars" && stays ? <Calendars businessId={props.businessId} role={props.role} businessType={props.businessType ?? null} outcome={initial.tab === "calendars" ? initial.outcome : null} /> : null}
       {tab === "profile" ? <Profile businessId={props.businessId} /> : null}
+      {tab === "notifications" ? <NotificationEmails businessId={props.businessId} role={props.role} /> : null}
       {tab === "widget" ? <Widget businessId={props.businessId} role={props.role} me={props.me} /> : null}
       {tab === "whatsapp" ? <Whatsapp businessId={props.businessId} role={props.role} /> : null}
       {tab === "hours" ? <Hours businessId={props.businessId} /> : null}
@@ -77,6 +81,7 @@ function Profile(props: { businessId: string }) {
           const result = await api<{ settings: Settings }>("PATCH", businessPath(props.businessId, "/settings"), {
             displayName: form.displayName,
             assistantName: form.assistantName,
+            personaRole: form.personaRole?.trim() || null,
             about: form.about,
             contactPhone: form.contactPhone?.trim() || null,
             contactPhoneDisplay: form.contactPhoneDisplay?.trim() || null,
@@ -89,9 +94,17 @@ function Profile(props: { businessId: string }) {
         }, "Saved. Zaina uses the new details from the next message.");
       }}
     >
+      <div className="persona-card">
+        <span className="persona-face"><img src={ZAINA_FACE_DATA_URI} alt="" width={72} height={72} /></span>
+        <div>
+          <strong>{form.assistantName || "Zaina"}</strong>
+          <p className="muted small">{(form.personaRole?.trim() || "your customer care host")} at {form.displayName}. She joins your team the day she starts: she says "we" and "our", knows your information by heart, and brings in a person when one is needed.</p>
+        </div>
+      </div>
       <div className="form-row">
         <Field label="Business name"><input required maxLength={200} value={form.displayName} onChange={(event) => set("displayName", event.target.value)} /></Field>
-        <Field label="Assistant's name"><input required maxLength={200} value={form.assistantName} onChange={(event) => set("assistantName", event.target.value)} /></Field>
+        <Field label="Her name"><input required maxLength={200} value={form.assistantName} onChange={(event) => set("assistantName", event.target.value)} /></Field>
+        <Field label="Her role on your team" hint="For example: guest experience host, client care host, reservations host. Empty: one that fits your business."><input maxLength={60} placeholder="guest experience host" value={form.personaRole ?? ""} onChange={(event) => set("personaRole", event.target.value)} /></Field>
       </div>
       <Field label="About the business" hint="A short description Zaina always knows: what you offer, where you are. Details belong in Knowledge." wide>
         <textarea rows={5} maxLength={4000} value={form.about} onChange={(event) => set("about", event.target.value)} />
@@ -172,7 +185,7 @@ function Widget(props: { businessId: string; role: Role; me: Me }) {
           </Field>
           <div className="widget-preview" aria-hidden="true"><span className="preview-launcher" ref={(node) => node?.style.setProperty("--preview", look.color)} /></div>
         </div>
-        <Field label="First message" hint={`Shown when a visitor opens the chat. Leave empty for: "Hi! I'm ${loaded.data?.assistantName ?? "Zaina"}, ${loaded.data?.displayName ?? "your"}'s assistant. How can I help?"`} wide>
+        <Field label="First message" hint={`Shown when a visitor opens the chat. Leave empty for: "Hi, I'm ${loaded.data?.assistantName ?? "Zaina"}, the ${loaded.data?.personaRole?.trim() || "customer care host"} at ${loaded.data?.displayName ?? "your business"}. How can I help you today?"`} wide>
           <textarea rows={2} maxLength={300} value={look.greeting} onChange={(event) => setLook({ ...look, greeting: event.target.value })} />
         </Field>
         {number ? (

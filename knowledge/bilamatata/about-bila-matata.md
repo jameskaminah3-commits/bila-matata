@@ -18,7 +18,7 @@ Bila Matata ("without the hassle") is an AI, software development, data analysis
 
 ## Who we work with
 
-Small and medium businesses, organisations and founders across Kenya, and clients abroad who work with us remotely. Typical clients are service businesses that get many enquiries: salons, clinics, restaurants, shops, schools, property managers, consultants and online sellers.
+Small and medium businesses, organisations and founders across Kenya, and clients abroad who work with us remotely. Typical clients are service businesses that get many enquiries: hotels, lodges and villas, salons, clinics, restaurants, shops, schools, property managers, consultants and online sellers.
 
 ## How to reach us
 

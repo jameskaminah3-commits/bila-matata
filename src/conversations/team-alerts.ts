@@ -31,6 +31,7 @@ import { deletePushSubscription, markPushSubscriptionUsed } from "../db/platform
 import type { Business } from "../db/schema.ts";
 import { inBusiness } from "../db/tenant.ts";
 import { getBusinessSettings } from "../businesses/settings.ts";
+import { notifyRecipients, type RecipientAlert } from "../notifications/dispatch.ts";
 
 export type AlertEvent =
   | TeamEvent
@@ -41,7 +42,9 @@ export type AlertEvent =
   /** Something about a booking needs the team, or is worth knowing. */
   | { kind: "booking"; what: "request" | "confirmed" | "conflict" | "code"; bookingId: string; sessionId: string | null; summary: string }
   /** Someone left their details for the team to get back to them. */
-  | { kind: "lead"; leadId: number; sessionId: string | null; summary: string };
+  | { kind: "lead"; leadId: number; sessionId: string | null; summary: string }
+  /** The team closed a chat: the addresses that asked for transcripts get it. */
+  | { kind: "chat-closed"; sessionId: string };
 
 type Settings = { webPush: WebPushConfig | null; alertEmail: AlertEmailConfig | null; publicBaseUrl: string | null };
 let settings: Settings = { webPush: null, alertEmail: null, publicBaseUrl: null };
@@ -81,6 +84,17 @@ async function sessionHandler(businessId: string, sessionId: string): Promise<st
     );
     return row?.handler ?? null;
   }, businessId);
+}
+
+/** What the added addresses are told for an event; null: nothing (system trouble and budgets are for the team). */
+function recipientAlert(event: AlertEvent, alert: Alert | null): RecipientAlert | null {
+  if (event.kind === "chat-closed") return { title: "Conversation closed", body: "The team closed this conversation. Here is how it went.", sessionId: event.sessionId, takeover: false };
+  if (!alert) return null;
+  if (event.kind === "handoff" || event.kind === "handoff-unclaimed") return { title: alert.title, body: alert.body, sessionId: alert.sessionId, takeover: true };
+  if (event.kind === "callback" || event.kind === "lead" || (event.kind === "booking" && event.what !== "conflict")) {
+    return { title: alert.title, body: alert.body, sessionId: alert.sessionId, bookingId: alert.bookingId, leadId: alert.leadId, takeover: false };
+  }
+  return null;
 }
 
 function consoleLink(businessId: string, alert: Pick<Alert, "sessionId" | "bookingId" | "leadId">): string {
@@ -257,7 +271,7 @@ async function sendEmails(businessId: string, people: Person[], alert: Alert, bu
 
 /** Alerts the business's people (and its connector) about an event. Never throws. */
 export async function alertTeam(business: Business, event: AlertEvent): Promise<void> {
-  const connectorEvent = event.kind !== "handoff-unclaimed" && event.kind !== "customer-replied" && event.kind !== "booking" && event.kind !== "lead";
+  const connectorEvent = event.kind !== "handoff-unclaimed" && event.kind !== "customer-replied" && event.kind !== "booking" && event.kind !== "lead" && event.kind !== "chat-closed";
   await Promise.all([
     connectorEvent
       ? connectorFor(business)
@@ -267,8 +281,14 @@ export async function alertTeam(business: Business, event: AlertEvent): Promise<
     (async () => {
       try {
         const target = await plan(business, event);
+        const businessSettings = await getBusinessSettings(business.id);
+        const name = businessSettings?.displayName ?? business.name;
+        // The addresses the business added (Settings → Notifications), each with what it chose.
+        const forRecipients = recipientAlert(event, target?.alert ?? null);
+        if (forRecipients) {
+          await notifyRecipients(business, name, businessSettings?.assistantName ?? "Zaina", forRecipients, forRecipients.sessionId || forRecipients.bookingId || forRecipients.leadId ? consoleLink(business.id, forRecipients) : null);
+        }
         if (!target || target.people.length === 0) return;
-        const name = (await getBusinessSettings(business.id))?.displayName ?? business.name;
         await Promise.all([
           sendPushes(business.id, target.people, target.alert, name),
           target.email ? sendEmails(business.id, target.people, target.alert, name) : Promise.resolve(0),

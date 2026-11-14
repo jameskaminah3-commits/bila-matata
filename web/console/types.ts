@@ -118,6 +118,8 @@ export type Report = {
 export type Settings = {
   displayName: string;
   assistantName: string;
+  /** Her role on the team; empty means one that fits the business. */
+  personaRole: string | null;
   about: string;
   contactPhone: string | null;
   contactPhoneDisplay: string | null;
@@ -395,6 +397,8 @@ export type Plan = {
   sort_order: number;
   /** What the plan includes, and its one-off set-up fee. */
   tier: "starter" | "full";
+  /** How many notification emails the plan lets a business add. */
+  notification_emails: number;
   setup_fee_minor: number;
   price_text: string;
 };

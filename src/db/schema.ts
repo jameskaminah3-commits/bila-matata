@@ -234,6 +234,8 @@ export const businessSettings = pgTable("business_settings", {
   widgetColor: text("widget_color").notNull().default("#0f766e"),
   widgetPosition: text("widget_position").$type<"right" | "left">().notNull().default("right"),
   widgetGreeting: text("widget_greeting"),
+  /** Zaina's role on the business's team (migration 0018); empty: one that fits the business. */
+  personaRole: text("persona_role"),
   widgetWhatsapp: boolean("widget_whatsapp").notNull().default(true),
   updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
   updatedBy: uuid("updated_by"),
@@ -636,6 +638,8 @@ export const plans = pgTable("plans", {
   sortOrder: integer("sort_order").notNull().default(0),
   /** What the plan includes (migration 0017): choosing it sets the business's tier. */
   tier: text("tier").$type<BusinessTier>().notNull().default("full"),
+  /** How many notification emails the plan lets a business add (migration 0018); empty: the tier's own number. */
+  notificationEmails: integer("notification_emails"),
   /** The one-off set-up fee that goes with the plan, billed as a studio invoice. */
   setupFeeMinor: bigint("setup_fee_minor", { mode: "number" }).notNull().default(0),
   createdAt: createdAt(),

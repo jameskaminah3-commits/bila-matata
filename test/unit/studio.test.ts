@@ -178,7 +178,8 @@ test("the home page shows a smart assistant, and compares her with auto-replies 
   assert.match(words, /Smart enough to sell, not just reply/);
   assert.match(words, /works out what each customer is really after, asks the one question that matters, recommends the option that suits them from what you actually sell, and always offers the next step/);
   assert.match(words, /Understands what each customer needs and recommends what suits them/);
-  assert.equal((html.match(/<article class="card"><div class="icon">/g) ?? []).length, 6, "six outcomes");
+  const outcomes = /<section class="band alt" id="zaina"[\s\S]*?<\/section>/.exec(html)![0];
+  assert.equal((outcomes.match(/<article class="card"><div class="icon">/g) ?? []).length, 6, "six outcomes");
 
   // The comparison: what customers need, then the basic bots, then Zaina last.
   const table = /<table class="compare">[\s\S]*?<\/table>/.exec(html)![0];
@@ -218,11 +219,13 @@ test("nothing a client or their customer reads names the payment provider", () =
 
 test("the home page promises nothing it can't show: no invented numbers, reviews or guarantees", () => {
   const words = text(renderHome(PAGE)).toLowerCase();
-  for (const claim of ["guarantee", "testimonial", "trusted by", "rated", "% more", "x more", "15+ hours", "pays for itself", "award"]) {
+  for (const claim of ["guarantee", "testimonial", "trusted by", "rated", "% more", "x more", "15+ hours", "award"]) {
     // Whole words: "frustrated" isn't "rated".
     assert.doesNotMatch(words, new RegExp(`(^|[^a-z])${claim.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^a-z]|$)`), claim);
   }
   assert.match(words, /a demonstration with example businesses: the names, prices and times are examples\./);
+  // The one place that talks about payback is a calculator on the visitor's own numbers, and it says so.
+  assert.match(words, /this is arithmetic on the numbers you chose, not a promise of results/);
 });
 
 test("the terms cover projects (50% to start, balance on delivery), Zaina's monthly plans, refunds and Kenya's data law", () => {
@@ -239,20 +242,24 @@ test("the terms cover projects (50% to start, balance on delivery), Zaina's mont
 });
 
 test("public pages, the price list and the studio's knowledge describe a software studio, and nothing else", () => {
+  // Hotels, lodges and stays are customers Zaina serves, so the home page and the studio's knowledge may say so.
+  // The studio's own invoices, terms and price list stay software-only; tours, safaris, car hire and travel agencies are never named.
   const banned = /\b(tours?|safaris?|hotels?|villas?|car hire|holidays?|travel\w*|touris\w+|trips?|vacations?|airbnb|guesthouses?|resorts?)\b/i;
+  const neverNamed = /\b(tours?|safaris?|car hire|holidays?|travel\w*|touris\w+|trips?|vacations?|airbnb)\b/i;
   const pages = {
-    home: renderHome(PAGE),
     terms: renderTerms(PAGE),
     pay: renderPayHome(PAGE, { message: "not_found", reference: "", testMode: false, available: true }),
     invoice: renderInvoicePage(PAGE, { invoice: invoice(), message: null, email: "", testMode: false, available: true, waiting: false }),
   };
   for (const [name, html] of Object.entries(pages)) assert.doesNotMatch(html, banned, name);
+  assert.doesNotMatch(renderHome(PAGE), neverNamed, "home");
+  assert.match(text(renderHome(PAGE)), /for hotels, lodges, villas and stays/i, "the home page speaks to hospitality");
   const knowledge = path.join(REPO, "knowledge", STUDIO.businessId);
   const files = readdirSync(knowledge);
   assert.ok(files.includes("about-bila-matata.md"), "the release step looks for this file");
   const zaina = readFileSync(path.join(knowledge, "zaina-ai.md"), "utf8");
   assert.doesNotMatch(zaina, /Meta AI|ChatGPT|bundles?|inventory/i, "the long-form page about Zaina names no other company and claims nothing she doesn't do");
-  for (const file of files) assert.doesNotMatch(readFileSync(path.join(knowledge, file), "utf8"), banned, file);
+  for (const file of files) assert.doesNotMatch(readFileSync(path.join(knowledge, file), "utf8"), neverNamed, file);
   const seeded = readFileSync(path.join(REPO, "migrations", "0016_studio_invoices.sql"), "utf8");
   assert.doesNotMatch(seeded.slice(seeded.indexOf("insert into price_items")), banned);
   assert.match(seeded, /'Starter Sales Concierge', [^\n]+, 670000, 'KES', 'a month'/);

@@ -22,7 +22,7 @@ export async function getBusinessSettings(businessId: string): Promise<BusinessS
 
 export type SettingsPatch = Partial<Pick<BusinessSettings,
   | "displayName" | "assistantName" | "about" | "contactPhone" | "contactPhoneDisplay" | "websiteUrl" | "supportEmail"
-  | "allowedLinkHosts" | "allowedLinkHostSuffixes" | "defaultCurrency" | "widgetColor" | "widgetPosition" | "widgetGreeting" | "widgetWhatsapp">>;
+  | "allowedLinkHosts" | "allowedLinkHostSuffixes" | "defaultCurrency" | "widgetColor" | "widgetPosition" | "widgetGreeting" | "widgetWhatsapp" | "personaRole">>;
 
 const TEXT_FIELDS = ["displayName", "assistantName", "about", "contactPhone", "contactPhoneDisplay", "websiteUrl", "supportEmail"] as const;
 const HOST_PATTERN = /^(?:[a-z0-9-]+\.)+[a-z]{2,}$/;
@@ -81,6 +81,12 @@ export function validateSettingsPatch(input: Record<string, unknown>): { ok: tru
     if (greeting === null || greeting === "") patch.widgetGreeting = null;
     else if (typeof greeting !== "string" || greeting.length > 300) return { ok: false, error: "widgetGreeting is up to 300 characters" };
     else patch.widgetGreeting = greeting.trim();
+  }
+  if ("personaRole" in input) {
+    const role = input.personaRole;
+    if (role === null || role === "") patch.personaRole = null;
+    else if (typeof role !== "string" || role.trim().length < 2 || role.trim().length > 60) return { ok: false, error: "personaRole is 2 to 60 characters, like guest experience host" };
+    else patch.personaRole = role.trim().replace(/\s+/g, " ");
   }
   if ("widgetWhatsapp" in input) {
     if (typeof input.widgetWhatsapp !== "boolean") return { ok: false, error: "widgetWhatsapp is true or false" };

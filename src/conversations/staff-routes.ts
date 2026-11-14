@@ -27,6 +27,7 @@ import { claimSession, closeSession, releaseSession } from "./handoff.ts";
 import { availablePeople, setPresence } from "./routing.ts";
 import { appendEvent, getSession } from "./store.ts";
 import { unreadForBusiness } from "../support/store.ts";
+import { alertTeam } from "./team-alerts.ts";
 
 /** The acting person, as recorded on the chat. */
 function agentId(req: Request): string {
@@ -219,6 +220,8 @@ export function registerStaffConversationRoutes(app: Express, config: PlatformCo
     try {
       const session = await closeSession(req.params.id);
       if (!session) return res.status(404).json({ error: "session_not_found" });
+      // The addresses that asked for transcripts get the conversation.
+      void alertTeam(staffOf(req).business!, { kind: "chat-closed", sessionId: session.id }).catch((error) => console.error("[alerts] close notice failed:", error));
       res.json({ session });
     } catch (error) {
       next(error);

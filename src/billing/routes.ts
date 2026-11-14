@@ -29,6 +29,7 @@ import type { Business, Invoice, Plan, StaffRole, Subscription } from "../db/sch
 import { inBusiness } from "../db/tenant.ts";
 import { consumeLimits } from "../gateway/rate-limit.ts";
 import { requireBusinessRole, requirePlatformAdmin, requireStaff, staffOf } from "../staff/auth.ts";
+import { TIER_NOTIFICATION_EMAILS } from "../notifications/store.ts";
 import { billingConfig, paysOnline } from "./config.ts";
 import { dayText } from "./emails.ts";
 import { checkInvoiceReturn, INVOICE_REFERENCE, startInvoicePayment } from "./payments.ts";
@@ -63,6 +64,7 @@ export function planView(plan: Plan) {
     status: plan.status,
     sort_order: plan.sortOrder,
     tier: plan.tier,
+    notification_emails: plan.notificationEmails ?? TIER_NOTIFICATION_EMAILS[plan.tier],
     setup_fee_minor: plan.setupFeeMinor,
     price_text: priceText(plan),
   };

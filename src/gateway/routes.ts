@@ -12,6 +12,7 @@
 //   GET  /v1/widget/config       ?business=<id> (or ?key=<public key>): the widget's name, colour, position,
 //                                greeting, and its WhatsApp link when it offers one
 
+import { personaRole } from "../engine/persona.ts";
 import type { Express, NextFunction, Request, Response } from "express";
 import type { PlatformConfig } from "../config.ts";
 import type { Business } from "../db/schema.ts";
@@ -202,6 +203,8 @@ export function registerGatewayRoutes(app: Express, config: PlatformConfig, engi
       res.json({
         name: settings?.displayName ?? business.name,
         assistant_name: settings?.assistantName ?? "Zaina",
+        // Her role on the team, and what she says first: she is part of the team, not "an assistant".
+        assistant_role: personaRole(business, settings),
         color: settings?.widgetColor ?? "#0f766e",
         position: settings?.widgetPosition ?? "right",
         greeting: settings?.widgetGreeting ?? null,

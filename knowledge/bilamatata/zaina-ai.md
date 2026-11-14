@@ -6,9 +6,16 @@ url: https://bilamatata.co.ke/#zaina
 
 # Zaina AI: a 24/7 AI sales and booking concierge
 
-Zaina is an AI assistant that Bila Matata sets up for a business. She answers the business's customers on its website and WhatsApp at any hour, helps them find what they need, and turns conversations into leads and bookings.
+Zaina is the digital team member that Bila Matata sets up for a business. From the day she starts she works as one of its people, with a role on its team (a guest experience host at a place to stay, a client care host at a salon, a reservations host at a restaurant, and so on). She answers the business's customers on its website and WhatsApp at any hour, helps them find what they need, and turns conversations into leads and bookings.
 
 You are talking to a Zaina right now: this one is set up for Bila Matata itself.
+
+## Who Zaina is on a business's team
+
+- **She is a team member, not a generic bot.** She speaks for the business as one of its people: "our rooms", "we open at 8". She introduces herself by name and role, for example "Hi, I'm Zaina, the guest experience host at Palm Cove Stays."
+- **She has a face and a name.** Customers see her picture on the chat button and in the chat, so the business has a friendly, recognisable host on its website.
+- **The business chooses her role.** In Settings the business can name her role (for example "front desk host") and see how it looks to customers.
+- **She is honest about what she is.** She never pretends to be a human. If a customer sincerely asks whether they are talking to a person or a bot, she says warmly that she is the team's digital team member (an AI) and that the people on the team are right behind her if they would like one.
 
 ## How Zaina works
 
@@ -43,10 +50,20 @@ Availability, exact booking totals, booking and checkout come with the Full Book
 
 Zaina also speaks English and Swahili, and Bila Matata sets her up: the business does not have to build anything.
 
+## Notification emails
+
+A business decides who is told about its chats. In the dashboard (Settings, then Notifications) the owner or a manager adds the email addresses that should hear when a customer is waiting for a person, wants a callback, leaves their details or books. For each address the business chooses what it gets: an alert with a link to open the chat and take over, the conversation written out, or both. Addresses can be changed, tested and removed at any time.
+
+How many addresses a business can add depends on its plan: Starter allows up to 2, and Full allows up to 5.
+
+## Hotels, lodges, villas and stays
+
+Hotels, lodges, villas and other places to stay are a key kind of business for Zaina. On the Full plan she answers guests' questions from the property's own information, checks the property's up-to-date calendar (including calendars imported from other booking channels), quotes the exact total from the property's own rates (nightly rates, seasonal rates, extra-guest charges and fees), holds the room, takes the deposit by M-Pesa or card into the property's own account, and passes the booking to the team. When the dates a guest wants are taken, she offers the nearest option the property really has instead of losing the guest. A late-night enquiry can be a confirmed, paid booking by morning.
+
 ## The two plans
 
-- **Starter Sales Concierge**: answers customers 24/7 from the catalogue and price list, captures leads and hands them to the team on WhatsApp or in the dashboard.
-- **Full Booking & Quote Engine**: everything in Starter, plus up-to-date calendar checks, exact totals from the business's own rates (dates, number of people and fees), bookings created from start to finish, and the M-Pesa or card checkout.
+- **Starter Sales Concierge**: answers customers 24/7 from the catalogue and price list, captures leads and hands them to the team on WhatsApp or in the dashboard. Up to 2 notification emails.
+- **Full Booking & Quote Engine**: everything in Starter, plus up-to-date calendar checks, exact totals from the business's own rates (dates, number of people and fees), bookings created from start to finish, and the M-Pesa or card checkout. Up to 5 notification emails.
 
 Each plan has a monthly price and a one-off set-up fee. Use the price list for the current amounts.
 

@@ -94,6 +94,22 @@ plan's one-off set-up fee is billed as a studio invoice) or by hand. On
 Starter, Zaina has no booking tools and the team can't add rooms, services
 or bookings (`src/billing/tier-gate.ts`, `workingType` in `src/db/schema.ts`).
 
+## Zaina on a team, and who hears about chats
+
+- **Persona.** Zaina joins each business as a team member with a role (a
+  default that fits its type, or one the business sets in Settings). Her
+  voice and identity rules are in `src/engine/concierge.ts` and
+  `src/engine/persona.ts`: she says "we", never calls herself a generic bot,
+  never claims to be human, and answers honestly if sincerely asked. Her face
+  is one original illustration (`src/brand/zaina-face.ts`) used by the site,
+  the chat widget and the dashboard.
+- **Notification emails.** Settings → Notifications lets a business add the
+  addresses that are told about its chats: alerts with a take-over link,
+  written-out conversations, or both. The number allowed follows the plan
+  (Starter 2, Full 5; a plan's `notification_emails` overrides it). They are
+  sent through the same email setup as everything else (Resend), so without
+  `RESEND_API_KEY` nothing is sent (`src/notifications/`).
+
 ## Support
 
 A business's team asks for help from its dashboard (Help & support); the

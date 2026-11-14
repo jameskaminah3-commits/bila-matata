@@ -49,6 +49,7 @@ import { sweepBilling } from "./billing/store.ts";
 import { setPlanCheck } from "./onboarding/checklist.ts";
 import { fullTierOnly } from "./billing/tier-gate.ts";
 import { registerSupportRoutes } from "./support/routes.ts";
+import { registerNotificationRoutes } from "./notifications/routes.ts";
 import { STUDIO } from "./studio/brand.ts";
 import { configureStudioPay, sweepStudio } from "./studio/pay.ts";
 import { registerStudioRoutes } from "./studio/routes.ts";
@@ -154,6 +155,7 @@ export function createApp(config: PlatformConfig, engine: EngineOptions, whatsap
   registerOnboardingRoutes(app, config);
   registerBillingRoutes(app, config);
   registerSupportRoutes(app, config);
+  registerNotificationRoutes(app, config);
   registerConsoleRoutes(app, config);
 
   app.use((_req: Request, res: Response) => {

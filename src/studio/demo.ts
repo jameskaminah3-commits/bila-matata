@@ -33,6 +33,8 @@ type Scene = {
   tab: string;
   plan: "Starter" | "Full" | "Every";
   business: string;
+  /** Her role on that business's team. */
+  role: string;
   what: string;
   customer: string;
   time: string;
@@ -42,10 +44,77 @@ type Scene = {
 
 const SCENES: Scene[] = [
   {
+    id: "hotel",
+    tab: "Hotel or stay",
+    plan: "Full",
+    business: "Palm Cove Stays",
+    role: "Guest experience host",
+    what: "A late-night enquiry becomes a confirmed, paid stay",
+    customer: "Grace",
+    time: "Friday, 11:20 pm",
+    result: "Booked and paid at 11 pm. Your team found it confirmed, with the deposit in, when they woke up.",
+    steps: [
+      { pane: "status", text: "Zaina is answering", tone: "info" },
+      { pane: "chat", from: "customer", text: "Hello, do you have a room for 4 from 12th to 15th December? Two adults and two kids." },
+      { pane: "work", text: "Found “Sea-view family room” on your rooms: sleeps 4, KSh 14,000 a night" },
+      { pane: "work", text: "Checked 12–15 December against your bookings and your other calendars: free" },
+      { pane: "chat", from: "zaina", text: "Hi, welcome to Palm Cove! Yes, our sea-view family room is free 12–15 December and sleeps four. For 3 nights it is KSh 42,000 in total, breakfast included. Shall I hold it for you?" },
+      { pane: "chat", from: "customer", text: "Yes please. Is there parking? And what time is check-in?" },
+      { pane: "work", text: "Found in your information: free parking, check-in from 2 pm" },
+      { pane: "chat", from: "zaina", text: "There's free parking, and check-in is from 2 pm. May I have your name and a number to hold the room?" },
+      { pane: "chat", from: "customer", text: "Grace Wambui, 0700 000 321" },
+      { pane: "work", text: "Held the family room for 30 minutes (12–15 December)" },
+      { pane: "work", text: "Sent the checkout for your 30% deposit: KSh 12,600" },
+      { pane: "chat", from: "zaina", text: "Thank you, Grace. The room is held for you. Pay the deposit to confirm it:", pay: "Pay KSh 12,600 · M-Pesa or card" },
+      { pane: "chat", from: "note", text: "Grace paid KSh 12,600 by M-Pesa" },
+      { pane: "status", text: "Booked", tone: "ok" },
+      { pane: "alert", title: "New booking confirmed", text: "Grace Wambui · 12–15 Dec · Sea-view family room · KSh 12,600 deposit paid" },
+      { pane: "chat", from: "zaina", text: "Payment received: you're confirmed for 12–15 December. We look forward to hosting you, Grace!" },
+      {
+        pane: "record", kind: "Booking", title: "Sea-view family room · 12–15 Dec", status: "Confirmed", tone: "ok",
+        lines: [["Guest", "Grace Wambui · 0700 000 321"], ["Party", "2 adults, 2 children · 3 nights"], ["Total", "KSh 42,000"], ["Deposit", "KSh 12,600 paid by M-Pesa"], ["Balance", "KSh 29,400 on arrival"]],
+        foot: "The room is blocked on your calendar. Paid into your own account.",
+      },
+    ],
+  },
+  {
+    id: "soldout",
+    tab: "Sold-out dates",
+    plan: "Full",
+    business: "Baobab Ridge Lodge",
+    role: "Guest experience host",
+    what: "The room is taken, and the guest still books",
+    customer: "Daniel",
+    time: "Sunday, 9:05 pm",
+    result: "A sold-out date didn't lose the guest: Zaina offered what you really had, and he booked it.",
+    steps: [
+      { pane: "status", text: "Zaina is answering", tone: "info" },
+      { pane: "chat", from: "customer", text: "Is the garden suite free 24 to 27 December? Two adults." },
+      { pane: "work", text: "Checked 24–27 December: the garden suite is booked" },
+      { pane: "work", text: "Looked for the nearest fit: courtyard room free 24–27 December (KSh 9,000 a night); garden suite free from 27 December" },
+      { pane: "chat", from: "zaina", text: "That's a popular week: the garden suite is taken 24–27 December. I can offer our courtyard room for the same dates at KSh 9,000 a night, KSh 27,000 for 3 nights, or the garden suite from 27 December. Which would you prefer?" },
+      { pane: "chat", from: "customer", text: "The courtyard room is fine." },
+      { pane: "chat", from: "zaina", text: "Lovely choice. May I have your name and a number to hold it?" },
+      { pane: "chat", from: "customer", text: "Daniel Mwangi, 0700 000 654" },
+      { pane: "work", text: "Held the courtyard room (24–27 December) and sent the checkout for the KSh 8,100 deposit" },
+      { pane: "chat", from: "zaina", text: "Thank you, Daniel. It's held for you. Pay the deposit to confirm:", pay: "Pay KSh 8,100 · M-Pesa or card" },
+      { pane: "chat", from: "note", text: "Daniel paid KSh 8,100 by card" },
+      { pane: "status", text: "Booked", tone: "ok" },
+      { pane: "alert", title: "New booking confirmed", text: "Daniel Mwangi · 24–27 Dec · Courtyard room · KSh 8,100 deposit paid" },
+      { pane: "chat", from: "zaina", text: "You're confirmed, Daniel: courtyard room, 24–27 December. See you then!" },
+      {
+        pane: "record", kind: "Booking", title: "Courtyard room · 24–27 Dec", status: "Confirmed", tone: "ok",
+        lines: [["Guest", "Daniel Mwangi · 0700 000 654"], ["Party", "2 adults · 3 nights"], ["Total", "KSh 27,000"], ["Deposit", "KSh 8,100 paid by card"]],
+        foot: "Instead of a lost guest: a booking on your calendar.",
+      },
+    ],
+  },
+  {
     id: "salon",
     tab: "Salon booking",
     plan: "Full",
     business: "Amani Hair Studio",
+    role: "Client care host",
     what: "A late-night enquiry becomes a paid booking",
     customer: "Wanjiru",
     time: "Saturday, 11:42 pm",
@@ -79,6 +148,7 @@ const SCENES: Scene[] = [
     tab: "Restaurant table",
     plan: "Full",
     business: "Tamarind Grill",
+    role: "Reservations host",
     what: "A group table, with a menu question answered on the way",
     customer: "Kevin",
     time: "Thursday, 3:15 pm",
@@ -109,6 +179,7 @@ const SCENES: Scene[] = [
     tab: "Shop enquiry",
     plan: "Starter",
     business: "Pwani Furniture",
+    role: "Sales host",
     what: "A price question becomes a lead your team can close",
     customer: "Brian",
     time: "Sunday, 8:05 am",
@@ -139,6 +210,7 @@ const SCENES: Scene[] = [
     tab: "A person takes over",
     plan: "Every",
     business: "Baraka Dental Clinic",
+    role: "Patient care host",
     what: "When a customer needs a person, your team steps in with the whole chat",
     customer: "Aisha",
     time: "Tuesday, 10:20 am",
@@ -221,7 +293,7 @@ function renderScene(scene: Scene, first: boolean): string {
         <figure class="demo-phone" aria-label="What the customer sees">
           <figcaption>What your customer sees</figcaption>
           <div class="demo-screen">
-            <div class="chat-head"><span class="chat-dot" aria-hidden="true">${esc(scene.business[0])}</span><div><strong>${esc(scene.business)}</strong><span>Zaina · ${esc(scene.time)}</span></div></div>
+            <div class="chat-head"><span class="chat-face" aria-hidden="true"><img src="/site/zaina.svg" alt="" width="40" height="40" loading="lazy"></span><div><strong>Zaina · ${esc(scene.role)}</strong><span>${esc(scene.business)} · ${esc(scene.time)}</span></div></div>
             <div class="demo-chat" data-scroll>
               ${chat.join("\n              ")}
             </div>
@@ -288,6 +360,9 @@ export const DEMO_CSS = String.raw`
 /* ── The two-sided demonstration ──────────────────────────────────── */
 .demo-bar { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; justify-content: space-between; margin-top: 30px; }
 .demo-tabs { display: flex; flex-wrap: wrap; gap: 8px; }
+@media (max-width: 760px) { .demo-tabs { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin-inline: -4px; padding: 2px 4px; max-width: 100%; } .demo-tabs::-webkit-scrollbar { display: none; } .demo-tabs button { flex: none; } .demo-bar { gap: 8px; } }
+.chat-face { width: 40px; height: 40px; border-radius: 50%; overflow: hidden; flex: none; border: 2px solid var(--accent-soft); }
+.chat-face img { width: 100%; height: 100%; display: block; }
 .demo-tabs button, .demo-controls button { min-height: 42px; padding: 0 16px; border-radius: 999px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); font: inherit; font-size: 0.93rem; font-weight: 600; cursor: pointer; }
 .demo-tabs button[aria-selected="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
 .demo-controls { display: flex; gap: 8px; }

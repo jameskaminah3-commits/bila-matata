@@ -133,7 +133,8 @@ same address, and redeploy. The test notice disappears.
 2. Set `RESEND_API_KEY` and `ALERT_FROM_EMAIL=Bila Matata <hello@bilamatata.co.ke>`.
 
 Without email the site and payments still work; receipts and "Forgot your
-password?" are off.
+password?" are off, and so are the notification emails a business adds in
+Settings (alerts with take-over links, conversation transcripts).
 
 ## 5. The domain
 

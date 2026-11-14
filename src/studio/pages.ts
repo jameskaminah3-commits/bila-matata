@@ -7,6 +7,7 @@
 
 import { formatMoney, STUDIO, whatsappLink } from "./brand.ts";
 import { renderDemo } from "./demo.ts";
+import { breakEvenBookings, CALC_PRESETS, renderCalculator, renderHeroCard, renderHospitality, renderIndustryPicker, renderMeetZaina, renderStickyCta, renderValueTable } from "./home-sections.ts";
 import { STUDIO_SERVICES, type StudioServiceId } from "./services.ts";
 
 export const esc = (value: unknown) => String(value ?? "").replace(/[&<>"']/g, (char) => (
@@ -112,8 +113,9 @@ const PLANS = [
       "Captures each lead's name, number and what they want",
       "Suggests the extras and upgrades you really offer, at your listed prices, without being pushy",
       "Alerts your team on their phones and hands over the whole conversation, ready to close",
+      "Up to 2 notification emails, each with a takeover link and, if you like, the conversation written out",
       "Chat on your website with one line of code",
-      "Conversations, leads and reports in your dashboard",
+      "Dashboard with every chat, lead and report, and help from our team",
     ],
     featured: false,
   },
@@ -128,6 +130,7 @@ const PLANS = [
       "Works out exact totals from your own rates: dates, number of people and fees included",
       "Helps each customer find the right option, then books it from start to finish",
       "Sends the M-Pesa or card checkout 24/7, paid straight into your own payment account",
+      "Up to 5 notification emails, with takeover links and conversation transcripts",
       "Calendar sync and booking notices for your team",
     ],
     featured: true,
@@ -191,7 +194,7 @@ ${header("home")}
 <main id="main">
 
 <section class="hero">
-  <div class="wrap hero-solo">
+  <div class="wrap hero-grid">
     <div>
       <p class="eyebrow">AI · Software · Data · Research, from Mombasa</p>
       <h1>Run Your Business <em>Without the Hassle.</em></h1>
@@ -200,7 +203,8 @@ ${header("home")}
         <a class="btn btn-primary" href="#zaina" data-open-zaina>${ICONS.chat}Try Zaina AI Live</a>
         <a class="btn btn-ghost" href="${projectLink}" rel="noopener">${ICONS.whatsapp}Start a Project on WhatsApp</a>
       </div>
-      <p class="hero-note">Ask Zaina anything about our services and prices: she is the same assistant we set up for your business. Or <a href="#demo">watch how she works</a>.</p>
+      ${renderIndustryPicker()}
+      <p class="hero-note">Meet Zaina, the team member we set up for your business: she answers every enquiry in seconds, and books the sale while you sleep.</p>
       <ul class="chips" aria-label="At a glance">
         <li>Replies in seconds, day and night</li>
         <li>Answers only from your business</li>
@@ -209,12 +213,17 @@ ${header("home")}
         <li>Website and WhatsApp</li>
       </ul>
     </div>
+    ${renderHeroCard()}
   </div>
 </section>
 
 ${renderDemo()}
 
-<section class="band" id="zaina" aria-labelledby="zaina-title">
+${renderMeetZaina(ICONS)}
+
+${renderHospitality(ICONS)}
+
+<section class="band alt" id="zaina" aria-labelledby="zaina-title">
   <div class="wrap">
     <div class="section-head">
       <p class="eyebrow">Zaina AI</p>
@@ -231,7 +240,7 @@ ${renderDemo()}
   </div>
 </section>
 
-<section class="band alt" id="compare" aria-labelledby="compare-title">
+<section class="band" id="compare" aria-labelledby="compare-title">
   <div class="wrap">
     <div class="section-head">
       <p class="eyebrow">Why Zaina</p>
@@ -250,7 +259,11 @@ ${renderDemo()}
   </div>
 </section>
 
-<section class="band" id="pricing" aria-labelledby="pricing-title">
+${renderValueTable({ starter: PLANS[0], full: PLANS[1] })}
+
+${renderCalculator({ starter: PLANS[0].monthlyMinor, full: PLANS[1].monthlyMinor })}
+
+<section class="band alt" id="pricing" aria-labelledby="pricing-title">
   <div class="wrap">
     <div class="section-head">
       <p class="eyebrow">Pricing</p>
@@ -263,6 +276,7 @@ ${renderDemo()}
         <h3>${esc(plan.name)}</h3>
         <p class="price">${esc(formatMoney(plan.monthlyMinor, "KES"))} <small>/ month</small></p>
         <p class="setup">+ ${esc(formatMoney(plan.setupMinor, "KES"))} one-off set-up</p>
+        <p class="breakeven" data-breakeven="${plan.monthlyMinor}">Covered by just <strong>${breakEvenBookings(plan.monthlyMinor, CALC_PRESETS.hotel.valueKes)} booking${breakEvenBookings(plan.monthlyMinor, CALC_PRESETS.hotel.valueKes) === 1 ? "" : "s"}</strong> worth <span data-breakeven-value>${esc(formatMoney(CALC_PRESETS.hotel.valueKes * 100, "KES"))}</span>. <a href="#worth">Use your own numbers</a></p>
         <p class="for">${esc(plan.for)}</p>
         <ul>${plan.features.map((feature) => `<li>${esc(feature)}</li>`).join("")}</ul>
         <a class="btn ${plan.featured ? "btn-primary" : "btn-ghost"}" href="/start?service=${plan.featured ? "zaina_full" : "zaina_starter"}">Get ${esc(plan.name.split(" ")[0])} for my business</a>
@@ -275,7 +289,7 @@ ${renderDemo()}
   </div>
 </section>
 
-<section class="band alt" id="services" aria-labelledby="services-title">
+<section class="band" id="services" aria-labelledby="services-title">
   <div class="wrap">
     <div class="section-head">
       <p class="eyebrow">Services</p>
@@ -288,7 +302,7 @@ ${renderDemo()}
   </div>
 </section>
 
-<section class="band" id="how" aria-labelledby="how-title">
+<section class="band alt" id="how" aria-labelledby="how-title">
   <div class="wrap">
     <div class="section-head">
       <p class="eyebrow">How it works</p>
@@ -324,6 +338,7 @@ ${renderDemo()}
 
 </main>
 ${footer()}
+${renderStickyCta()}
 <script src="/site/site.js" defer></script>
 ${ZAINA_EMBED}
 </body>

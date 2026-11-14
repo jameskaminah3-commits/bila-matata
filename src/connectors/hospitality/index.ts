@@ -18,6 +18,7 @@
 // model. After a booking, the server writes the payment link and what
 // happens next (engine/reply-policy.ts).
 
+import { personaLine, personaRole } from "../../engine/persona.ts";
 import { Type, type FunctionDeclaration } from "@google/genai";
 import { getBusinessSettings } from "../../businesses/settings.ts";
 import { customerMessages, getSession } from "../../conversations/store.ts";
@@ -350,7 +351,7 @@ export const hospitalityConnector: BusinessConnector = {
     const settings = await getBusinessSettings(business.id);
     const name = settings?.displayName ?? business.name;
     const assistant = settings?.assistantName ?? "Zaina";
-    return `You are ${assistant}, the assistant for ${name}, a place to stay, answering customers in a chat on its website or on WhatsApp.
+    return `${personaLine(assistant, personaRole(business, settings), name)}, a place to stay, answering guests in a chat on its website or on WhatsApp.
 
 Each customer message ends with a <turn_context> block from the system (not the customer): the date and time, and the language the customer writes in.
 

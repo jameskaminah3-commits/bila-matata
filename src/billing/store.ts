@@ -90,7 +90,7 @@ export async function createPlan(input: PlanInput): Promise<Plan | "exists"> {
       id: input.id!, name: input.name!, description: input.description ?? "", priceMinor: input.priceMinor!, currency: input.currency!,
       billingInterval: input.billingInterval ?? "month", trialDays: input.trialDays ?? 0, conversationsPerMonth: input.conversationsPerMonth ?? null,
       status: input.status ?? "active", sortOrder: input.sortOrder ?? 0,
-      tier: input.tier ?? "full", setupFeeMinor: input.setupFeeMinor ?? 0,
+      tier: input.tier ?? "full", setupFeeMinor: input.setupFeeMinor ?? 0, notificationEmails: input.notificationEmails ?? null,
     }).returning();
     return row;
   } catch (error) {

@@ -18,7 +18,9 @@
 // browser for 30 days), and while the team has the chat, their replies appear
 // as they come.
 
-type Config = { name: string; assistant_name: string; color: string; position: "right" | "left"; greeting: string | null; currency: "USD" | "KES"; whatsapp?: string | null };
+import { ZAINA_FACE_DATA_URI } from "../../src/brand/zaina-face.ts";
+
+type Config = { name: string; assistant_name: string; assistant_role?: string; color: string; position: "right" | "left"; greeting: string | null; currency: "USD" | "KES"; whatsapp?: string | null };
 type Message = { id: number; from: "customer" | "zaina" | "team"; text: string; author?: string };
 type Stored = { token: string; sessionId: string };
 
@@ -111,8 +113,13 @@ const POLL_OPEN_MS = 30_000;
 @media (prefers-color-scheme: dark) {
   .root { --surface: #111827; --text: #f9fafb; --muted: #9ca3af; --line: #374151; --bubble: #1f2937; --team: #3f3212; }
 }
-.launcher { width: 60px; height: 60px; border-radius: 50%; border: none; cursor: pointer; background: var(--brand); color: var(--on-brand);
-  box-shadow: 0 6px 20px rgba(0,0,0,.25); display: grid; place-items: center; position: relative; }
+.launcher { width: 64px; height: 64px; border-radius: 50%; border: 3px solid var(--brand); padding: 0; cursor: pointer; background: var(--brand); color: var(--on-brand);
+  box-shadow: 0 6px 20px rgba(0,0,0,.25); display: grid; place-items: center; position: relative; transition: transform .15s ease; }
+.launcher:hover { transform: scale(1.06); }
+.launcher img { width: 100%; height: 100%; border-radius: 50%; display: block; }
+.launcher .chat-badge { position: absolute; right: -6px; top: -4px; width: 24px; height: 24px; border-radius: 50%; background: var(--brand); color: var(--on-brand); display: grid; place-items: center; border: 2px solid var(--surface); }
+.launcher .chat-badge svg { width: 13px; height: 13px; }
+@media (prefers-reduced-motion: reduce) { .launcher { transition: none; } .launcher:hover { transform: none; } }
 .launcher:focus-visible, button:focus-visible, textarea:focus-visible { outline: 3px solid #2563eb; outline-offset: 2px; }
 .launcher svg { width: 28px; height: 28px; }
 .dot { position: absolute; top: 4px; right: 4px; width: 14px; height: 14px; border-radius: 50%; background: #dc2626; border: 2px solid #fff; display: none; }
@@ -121,6 +128,9 @@ const POLL_OPEN_MS = 30_000;
   border-radius: 16px; box-shadow: 0 12px 40px rgba(0,0,0,.28); display: none; flex-direction: column; overflow: hidden; border: 1px solid var(--line); }
 .panel.open { display: flex; }
 .header { background: var(--brand); color: var(--on-brand); padding: 14px 16px; display: flex; align-items: center; gap: 10px; }
+.header .face { width: 44px; height: 44px; border-radius: 50%; flex: none; border: 2px solid rgba(255,255,255,.6); position: relative; }
+.header .face img { width: 100%; height: 100%; border-radius: 50%; display: block; }
+.header .face::after { content: ""; position: absolute; right: -1px; bottom: -1px; width: 11px; height: 11px; border-radius: 50%; background: #22c55e; border: 2px solid var(--brand); }
 .header .who { flex: 1; min-width: 0; }
 .header .name { font-weight: 650; font-size: 16px; }
 .header .sub { font-size: 12.5px; opacity: .85; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -204,6 +214,8 @@ textarea { flex: 1; resize: none; border: 1px solid var(--line); border-radius: 
   let launcher!: HTMLButtonElement;
   let dot!: HTMLSpanElement;
 
+  const capitalise = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
+
   function build(root: ShadowRoot) {
     const sheet = css(config.color, config.position);
     if ("adoptedStyleSheets" in Document.prototype && "replaceSync" in CSSStyleSheet.prototype) {
@@ -220,13 +232,18 @@ textarea { flex: 1; resize: none; border: 1px solid var(--line); border-radius: 
 
     const header = element("div", "header");
     const who = element("div", "who");
-    who.append(element("div", "name", config.assistant_name), element("div", "sub", config.name));
+    const face = element("span", "face");
+    const faceImage = document.createElement("img");
+    faceImage.src = ZAINA_FACE_DATA_URI;
+    faceImage.alt = "";
+    face.append(faceImage);
+    who.append(element("div", "name", config.assistant_name), element("div", "sub", `${config.assistant_role ? `${capitalise(config.assistant_role)} · ` : ""}${config.name}`));
     const closeButton = element("button", "close");
     closeButton.type = "button";
     closeButton.setAttribute("aria-label", "Close chat");
     closeButton.innerHTML = icons.close;
     closeButton.addEventListener("click", () => setOpen(false));
-    header.append(who, closeButton);
+    header.append(face, who, closeButton);
 
     log = element("div", "log");
     log.setAttribute("role", "log");
@@ -282,7 +299,12 @@ textarea { flex: 1; resize: none; border: 1px solid var(--line); border-radius: 
     launcher.type = "button";
     launcher.setAttribute("aria-label", `Chat with ${config.assistant_name}`);
     launcher.setAttribute("aria-expanded", "false");
-    launcher.innerHTML = icons.chat;
+    const launcherFace = document.createElement("img");
+    launcherFace.src = ZAINA_FACE_DATA_URI;
+    launcherFace.alt = "";
+    const chatBadge = element("span", "chat-badge");
+    chatBadge.innerHTML = icons.chat;
+    launcher.append(launcherFace, chatBadge);
     dot = element("span", "dot");
     launcher.append(dot);
     launcher.addEventListener("click", () => setOpen(!open));
@@ -314,7 +336,7 @@ textarea { flex: 1; resize: none; border: 1px solid var(--line); border-radius: 
 
   function greet() {
     if (log.querySelector(".row")) return;
-    addRow("zaina", config.greeting ?? `Hi! I'm ${config.assistant_name}, ${config.name}'s assistant. How can I help?`);
+    addRow("zaina", config.greeting ?? `Hi, I'm ${config.assistant_name}, the ${config.assistant_role ?? "customer care host"} at ${config.name}. How can I help you today?`);
   }
 
   /** Adds messages not shown yet; quiet for history loaded on a new visit (no unread dot). */

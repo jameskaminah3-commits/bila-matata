@@ -129,7 +129,9 @@ test("a salon sets itself up: hours, stylists, services, its own deposit and pay
 test("Zaina books a haircut: times from the tool, the deposit held, paid by M-Pesa, confirmed", async () => {
   const chat = await openChat("studio");
   const whoami = await say(chat, "TEST:whoami");
-  assert.match(whoami, /Studio Nywele, a salon/);
+  // She is introduced as a member of the team, with a role, not as an outside assistant.
+  assert.match(whoami, /You are Zaina, the client care host on the Studio Nywele team: a member of the team, not an outside assistant\./);
+  assert.match(whoami, /Studio Nywele as one of its people, a salon/);
   assert.match(whoami, /list_services, check_times, create_appointment, get_booking, create_lead/);
   const menu = await say(chat, raw64("list_services", {}));
   assert.match(menu, /Haircut \(1 h, KSh 1,500\)/);

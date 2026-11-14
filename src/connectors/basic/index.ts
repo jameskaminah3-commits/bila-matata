@@ -8,6 +8,7 @@
 // The instructions never change between calls: the clock and the customer's
 // language come with each message.
 
+import { personaLine, personaRole } from "../../engine/persona.ts";
 import { Type, type FunctionDeclaration } from "@google/genai";
 import { getBusinessSettings } from "../../businesses/settings.ts";
 import { customerMessages } from "../../conversations/store.ts";
@@ -79,7 +80,7 @@ export const basicConnector: BusinessConnector = {
     const settings = await getBusinessSettings(business.id);
     const name = settings?.displayName ?? business.name;
     const assistant = settings?.assistantName ?? "Zaina";
-    return `You are ${assistant}, the assistant for ${name}, answering customers in a chat on its website.
+    return `${personaLine(assistant, personaRole(business, settings), name)}, answering customers in a chat on its website.
 
 Each customer message ends with a <turn_context> block from the system (not the customer): the date and time, and the language the customer writes in.
 
