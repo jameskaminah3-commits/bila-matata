@@ -12,6 +12,7 @@
 //   GET  /v1/widget/config       ?business=<id> (or ?key=<public key>): the widget's name, colour, position,
 //                                greeting, and its WhatsApp link when it offers one
 
+import { attachVerifiedCustomer } from "../integrations/identity.ts";
 import { personaRole } from "../engine/persona.ts";
 import { brandAssetUrl, brandAssetsOf } from "../brand/assets.ts";
 import { doorSource, recordDoorChat } from "../frontdoor/stats.ts";
@@ -127,6 +128,8 @@ export function registerGatewayRoutes(app: Express, config: PlatformConfig, engi
         displayCurrency: currencyOf(req.body?.display_currency) ?? "USD",
         visitorKey: visitor,
       });
+      // A customer signed in on the business's own site, vouched for by its system (docs/INTEGRATION.md).
+      const verified = req.body?.customer_token ? await attachVerifiedCustomer(business.id, session.id, req.body.customer_token).catch(() => false) : false;
       // A chat opened from the business's own page on this service: counted, by how the visitor arrived (its QR code, or the link).
       if ((req.body?.via === "qr" || req.body?.via === "link" || req.body?.via === "card") && isOriginAllowed(req.header("origin"), consoleOrigin) && req.header("origin")) {
         void recordDoorChat(business.id, doorSource(req.body.via));
@@ -135,6 +138,7 @@ export function registerGatewayRoutes(app: Express, config: PlatformConfig, engi
         session_id: session.id,
         token: issueSessionToken(secret, { sessionId: session.id, businessId: business.id }),
         display_currency: session.displayCurrency,
+        ...(req.body?.customer_token ? { signed_in: verified } : {}),
       });
     } catch (error) {
       next(error);

@@ -42,7 +42,7 @@ import { businessDay, claimCapAlert, isOverCap, modelForUsage, recordUsage, usag
 import { runSearchKnowledge, SEARCH_KNOWLEDGE } from "../knowledge/tool.ts";
 import { GET_PRICES, runGetPrices } from "../prices/tool.ts";
 import { withConciergeGuidance } from "./concierge.ts";
-import { extrasFor } from "./extras.ts";
+import { extrasFor, linksIn } from "./extras.ts";
 import { afterFailedTurn } from "./failure-policy.ts";
 import { buildHistory, MAX_EVENTS } from "./history.ts";
 import { withServerIdempotencyKey } from "./idempotency.ts";
@@ -303,8 +303,16 @@ async function runLockedTurn(input: TurnInput, connector: BusinessConnector, rec
   const budget = createTurnBudget(options.turnBudgetMs);
   // The connector says where facts come from; the shared guidance says how to help well with them.
   // Then the business's own additions: its industry's playbook, and any extra tools.
-  const extras = await extrasFor(business);
+  const extras = await extrasFor(business, sessionId);
   const extraTools = new Map(extras.tools.map((tool) => [tool.declaration.name!, tool]));
+  // Links the business's own system returned this turn may be passed on as they are.
+  const systemLinks: string[] = [];
+  const runExtra = async (name: string, args: unknown) => {
+    const tool = extraTools.get(name)!;
+    const result = await tool.run(args, { business, sessionId, language });
+    if (tool.trustsLinks) linksIn(result, systemLinks);
+    return result;
+  };
   const systemInstruction = withConciergeGuidance(await connector.systemPrompt(business)) + extras.prompt;
   const tools = [{ functionDeclarations: [...toolDeclarationsFor(business, connector), ...extras.tools.map((tool) => tool.declaration)] }];
 
@@ -350,7 +358,7 @@ async function runLockedTurn(input: TurnInput, connector: BusinessConnector, rec
           : call.name === GET_PRICES && !TYPES_WITH_OWN_CONNECTOR.has(business.businessType)
             ? await runGetPrices(toolArgs, { businessId: business.id, sessionId })
             : extraTools.has(call.name)
-              ? await extraTools.get(call.name)!.run(toolArgs, { business, sessionId, language })
+              ? await runExtra(call.name, toolArgs)
               : await connector.executeTool(call.name, toolArgs, { business, sessionId });
       recorder.addTool(call.name, Date.now() - startedAt);
       return { call, toolResponseData };
@@ -444,7 +452,7 @@ async function runLockedTurn(input: TurnInput, connector: BusinessConnector, rec
     if (finalText === null) finalText = texts(language).noAnswer;
     finalText = replaceMediaUrls(finalText, customerLinks.at(-1)?.url);
     if (!finalTextIsServerWritten) {
-      finalText = sanitizeModelText(finalText, { customerTexts, ...replyRulesFor(await getBusinessSettings(business.id)) });
+      finalText = sanitizeModelText(finalText, { customerTexts, ...replyRulesFor(await getBusinessSettings(business.id)), allowedUrls: systemLinks });
     }
     finalText = composeCustomerReply(finalText, turnPayments, language);
     const linkContext = /listing|property|photos?|view|see|pay|booking/i.test(message) ? customerLinks : turnCustomerLinks;

@@ -9,7 +9,7 @@ import { ZAINA_FACE_DATA_URI } from "../../../src/brand/zaina-face.ts";
 import { useEffect, useState } from "react";
 import { api, businessPath } from "../api.ts";
 import { WEEKDAYS } from "../format.ts";
-import type { Me, Operations, Role, Settings, WhatsappState } from "../types.ts";
+import { atLeast, type Me, type Operations, type Role, type Settings, type WhatsappState } from "../types.ts";
 import { Brand } from "./brand.tsx";
 import { FrontDoor } from "./front-door.tsx";
 import { BusinessCards } from "./business-cards.tsx";
@@ -17,9 +17,10 @@ import { Button, ErrorLine, Field, Message, Tabs, Toggle, useAction, useLoad } f
 import { BillingSettings } from "./billing.tsx";
 import { BookingSettings } from "./booking-settings.tsx";
 import { Calendars } from "./calendars.tsx";
+import { Integration } from "./integration.tsx";
 
-type Tab = "profile" | "brand" | "door" | "cards" | "notifications" | "widget" | "whatsapp" | "hours" | "bookings" | "calendars" | "billing";
-const TABS: Tab[] = ["profile", "brand", "door", "cards", "notifications", "widget", "whatsapp", "hours", "bookings", "calendars", "billing"];
+type Tab = "profile" | "brand" | "door" | "cards" | "notifications" | "widget" | "whatsapp" | "system" | "hours" | "bookings" | "calendars" | "billing";
+const TABS: Tab[] = ["profile", "brand", "door", "cards", "notifications", "widget", "whatsapp", "system", "hours", "bookings", "calendars", "billing"];
 
 /**
  * The tab in the address (#/b/<business>/settings/<tab>?…), and what a
@@ -51,6 +52,7 @@ export function SettingsPage(props: { businessId: string; role: Role; me: Me; bu
           { id: "notifications", label: "Notifications" },
           { id: "widget", label: "Website widget" },
           { id: "whatsapp", label: "WhatsApp" },
+          ...(atLeast(props.role, "manager") ? [{ id: "system" as const, label: "Your system" }] : []),
           { id: "hours", label: "Hours" },
           { id: "billing", label: "Plan & billing" },
         ]}
@@ -64,6 +66,7 @@ export function SettingsPage(props: { businessId: string; role: Role; me: Me; bu
       {tab === "notifications" ? <NotificationEmails businessId={props.businessId} role={props.role} /> : null}
       {tab === "widget" ? <Widget businessId={props.businessId} role={props.role} me={props.me} /> : null}
       {tab === "whatsapp" ? <Whatsapp businessId={props.businessId} role={props.role} /> : null}
+      {tab === "system" && atLeast(props.role, "manager") ? <Integration businessId={props.businessId} role={props.role} /> : null}
       {tab === "hours" ? <Hours businessId={props.businessId} /> : null}
       {tab === "billing" ? <BillingSettings businessId={props.businessId} outcome={initial.tab === "billing" ? initial.outcome : null} onChanged={props.onBusinessChanged} /> : null}
     </div>

@@ -56,6 +56,8 @@ import { registerInterviewRoutes } from "./onboarding/interview-routes.ts";
 import { registerOneTapRoutes } from "./booking/one-tap.ts";
 import { registerMarkFullRoutes } from "./booking/mark-full.ts";
 import { registerLeadExtras, sweepCallbacks } from "./leads/extra-tools.ts";
+import { registerIntegrationRoutes } from "./integrations/routes.ts";
+import { registerIntegrationExtras } from "./integrations/tools.ts";
 import { syncWebsites } from "./knowledge/website-import.ts";
 import { STUDIO } from "./studio/brand.ts";
 import { configureStudioPay, sweepStudio } from "./studio/pay.ts";
@@ -171,6 +173,7 @@ export function createApp(config: PlatformConfig, engine: EngineOptions, whatsap
   registerInterviewRoutes(app, config);
   registerOneTapRoutes(app, config);
   registerMarkFullRoutes(app, config);
+  registerIntegrationRoutes(app, config);
   registerConsoleRoutes(app, config);
 
   app.use((_req: Request, res: Response) => {
@@ -193,6 +196,7 @@ function registerExtrasOnce(): void {
   if (extrasRegistered) return;
   extrasRegistered = true;
   registerLeadExtras();
+  registerIntegrationExtras();
 }
 
 function every(label: string, ms: number, job: () => Promise<unknown>): NodeJS.Timeout {

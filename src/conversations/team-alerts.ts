@@ -32,6 +32,7 @@ import type { Business } from "../db/schema.ts";
 import { inBusiness } from "../db/tenant.ts";
 import { getBusinessSettings } from "../businesses/settings.ts";
 import { oneTapLinks } from "../booking/one-tap.ts";
+import { sendIntegrationEvent } from "../integrations/events.ts";
 import { notifyRecipients, type RecipientAlert } from "../notifications/dispatch.ts";
 
 export type AlertEvent =
@@ -281,6 +282,8 @@ async function sendEmails(businessId: string, people: Person[], alert: Alert, bu
 
 /** Alerts the business's people (and its connector) about an event. Never throws. */
 export async function alertTeam(business: Business, event: AlertEvent): Promise<void> {
+  // The business's own system hears about it too, if it asked (Phase 4 events).
+  void sendIntegrationEvent(business, event);
   const connectorEvent = event.kind !== "handoff-unclaimed" && event.kind !== "customer-replied" && event.kind !== "booking" && event.kind !== "lead" && event.kind !== "chat-closed";
   await Promise.all([
     connectorEvent

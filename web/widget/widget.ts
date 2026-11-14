@@ -52,6 +52,11 @@ const POLL_OPEN_MS = 30_000;
   const storageKey = `zaina:${business}`;
   // On the business's own page the chat is the page: always open, no launcher.
   const pageMode = script.dataset.mode === "page";
+  // A customer signed in on the business's own site: a short-lived token its server made (docs/INTEGRATION.md),
+  // on the script tag or set later with window.Zaina.signIn(token) before the chat opens.
+  let signedIn: string | null = script.dataset.customerToken?.trim() || null;
+  const customerToken = () => (signedIn && signedIn.length <= 2000 ? signedIn : null);
+  (window as any).Zaina = { ...((window as any).Zaina ?? {}), signIn: (token: unknown) => { signedIn = typeof token === "string" ? token.trim() || null : null; } };
   const via = script.dataset.via === "qr" || script.dataset.via === "link" || script.dataset.via === "card" ? script.dataset.via : null;
 
   let config: Config;
@@ -393,7 +398,7 @@ textarea { flex: 1; resize: none; border: 1px solid var(--line); border-radius: 
   }
 
   async function openSession(): Promise<boolean> {
-    const result = await call("/api/zaina/sessions", { method: "POST", json: { business, display_currency: currency ?? config.currency, ...(pageMode && via ? { via } : {}) } });
+    const result = await call("/api/zaina/sessions", { method: "POST", json: { business, display_currency: currency ?? config.currency, ...(pageMode && via ? { via } : {}), ...(customerToken() ? { customer_token: customerToken() } : {}) } });
     if (result.status !== 201) {
       notice(result.body?.message ?? "The chat isn't available right now. Please try again later.", true);
       return false;

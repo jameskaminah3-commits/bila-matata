@@ -628,3 +628,15 @@ table.lines tr.total th, table.lines tr.total td { font-weight: 700; border-top:
 .quick-choice { min-height: 48px; border-radius: var(--radius); border: 1px solid var(--line-strong); background: var(--surface); color: var(--text); font: inherit; font-weight: 600; cursor: pointer; }
 .quick-choice.on { border-color: var(--brand); background: var(--brand-soft); color: var(--text); box-shadow: 0 0 0 1px var(--brand); }
 .quick-choice:focus-visible { outline: 2px solid var(--brand); outline-offset: 2px; }
+
+/* ── Settings → Your system (connecting the business's own system) ───────── */
+.chip.warn { background: var(--danger-soft); color: var(--danger); max-width: 28ch; overflow: hidden; text-overflow: ellipsis; }
+.integration-status { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 6px; }
+.integration-offer .ticks { margin: 8px 0 14px; padding-left: 20px; display: grid; gap: 6px; }
+.secret-once { display: grid; gap: 8px; margin-bottom: 10px; }
+.secret-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.secret-row code { flex: 1 1 260px; min-width: 0; overflow-wrap: anywhere; padding: 8px 10px; border-radius: 8px; background: var(--surface-2); font-size: 13px; }
+.confirm-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 8px; }
+.confirm-row > span { flex: 1 1 220px; }
+.table-scroll { overflow-x: auto; }
+.table .num { text-align: right; font-variant-numeric: tabular-nums; }

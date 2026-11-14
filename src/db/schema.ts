@@ -102,6 +102,8 @@ export const chatSessions = pgTable("chat_sessions", {
   preview: boolean("preview").notNull().default(false),
   customerAddress: text("customer_address"),
   customerName: text("customer_name"),
+  /** Signed in on the business's own site, as its system vouched (Phase 4 identity token). */
+  verifiedCustomer: jsonb("verified_customer").$type<VerifiedCustomer | null>(),
   customerLastMessageAt: at("customer_last_message_at"),
   deliveredEventId: bigint("delivered_event_id", { mode: "number" }).notNull().default(0),
   deliveryLockUntil: at("delivery_lock_until"),
@@ -220,6 +222,7 @@ export const staffPushSubscriptions = pgTable("staff_push_subscriptions", {
   createdAt: createdAt(),
   lastUsedAt: at("last_used_at"),
 });
+export type VerifiedCustomer = { id: string; name?: string; email?: string; phone?: string };
 
 import type { Industry } from "../engine/playbooks.ts";
 export type WebsiteSync = { url: string; maxPages: number; weekly: boolean; lastReadAt: string | null; lastPages: number; lastSkipped: number; lastError: string | null };

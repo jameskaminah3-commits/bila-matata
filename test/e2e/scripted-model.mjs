@@ -19,6 +19,7 @@
 import { appendFileSync, existsSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import dns from "node:dns";
 import { EventEmitter } from "node:events";
+import http from "node:http";
 import https from "node:https";
 import { Readable } from "node:stream";
 import { createHash, randomUUID } from "node:crypto";
@@ -95,6 +96,8 @@ function messyReplyFor(name, result) {
       "• If card fails, send M-Pesa to 0799111222.",
     ].join("\n");
   }
+  // A business's own system (Phase 4): the whole result, so tests can read what Zaina was given.
+  if (name.startsWith("store_") || name === "order_status") return `System said: ${JSON.stringify(r)}`;
   return `Tool said: ${r.error ?? "ok"} ${r.hint ?? ""}`.trim();
 }
 
@@ -480,6 +483,34 @@ https.request = function request(url, options, callback) {
     const lookup = options?.lookup;
     if (lookup) lookup(url.hostname, { all: true }, (error) => (error ? sent.emit("error", error) : respond()));
     else respond();
+    return sent;
+  };
+  sent.destroy = () => sent;
+  return sent;
+};
+
+// ── A business's own system at https://<name>.store.example (Phase 4 connector) ──
+// Forwarded, headers and body as sent, to the fake store the test runs at
+// FAKE_STORE_URL (plain http on this machine). The platform's own lookup
+// still runs first, so private.store.example is refused like a real one.
+const websiteRequest = https.request;
+https.request = function request(url, options, callback) {
+  if (!(url instanceof URL) || !url.hostname.endsWith(".store.example") || !process.env.FAKE_STORE_URL) return websiteRequest.apply(this, arguments);
+  const sent = new EventEmitter();
+  const chunks = [];
+  sent.write = (chunk) => { chunks.push(Buffer.from(chunk)); return true; };
+  sent.end = (chunk) => {
+    if (chunk) chunks.push(Buffer.from(chunk));
+    const forward = () => {
+      const target = new URL(url.pathname + url.search, process.env.FAKE_STORE_URL);
+      const relayed = http.request(target, { method: options?.method ?? "GET", headers: { ...(options?.headers ?? {}), "x-forwarded-host": url.hostname } }, (response) => callback(response));
+      relayed.on("error", (error) => sent.emit("error", error));
+      options?.signal?.addEventListener("abort", () => relayed.destroy(Object.assign(new Error("aborted"), { name: "AbortError" })));
+      relayed.end(Buffer.concat(chunks));
+    };
+    const lookup = options?.lookup;
+    if (lookup) lookup(url.hostname, { all: true }, (error) => (error ? sent.emit("error", error) : forward()));
+    else forward();
     return sent;
   };
   sent.destroy = () => sent;

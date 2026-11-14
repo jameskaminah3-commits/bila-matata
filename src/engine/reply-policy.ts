@@ -89,6 +89,8 @@ export type SanitizeContext = {
   allowedHosts?: string[];
   allowedHostSuffixes?: string[];
   officialPhones?: string[];
+  /** Exact links the business's own system returned in this turn (its checkout, tracking or payment pages). */
+  allowedUrls?: string[];
 };
 
 function normalizeHost(host: string): string {
@@ -127,6 +129,10 @@ export function isAllowedCustomerUrl(rawUrl: string, context: SanitizeContext): 
     return false;
   }
   if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return false;
+  if (context.allowedUrls?.length) {
+    const target = comparableUrl(url);
+    if (target && context.allowedUrls.some((allowed) => comparableUrl(allowed) === target)) return true;
+  }
   const host = normalizeHost(parsed.hostname);
   if (context.allowedHosts) {
     const hosts = context.allowedHosts.map(normalizeHost);
