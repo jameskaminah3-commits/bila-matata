@@ -46,6 +46,22 @@ export async function api<T = any>(method: string, path: string, body?: unknown)
   return data as T;
 }
 
+/** Sends a file as the request's body (a logo, a cover picture). */
+export async function apiUpload<T = any>(method: string, path: string, file: File): Promise<T> {
+  let response: Response;
+  try {
+    response = await fetch(path, { method, credentials: "same-origin", headers: { "x-zaina-console": "1", "content-type": file.type || "application/octet-stream" }, body: file });
+  } catch {
+    throw new ApiError(0, "network", "Can't reach Zaina. Check your connection.");
+  }
+  if (response.status === 401) window.dispatchEvent(new CustomEvent("zaina:signed-out"));
+  const data = await response.json().catch(() => null);
+  if (!response.ok) {
+    throw new ApiError(response.status, data?.error ?? null, data?.message ?? (response.status === 413 ? "That picture is too big." : fallbackMessages[response.status]) ?? "Something went wrong. Please try again.");
+  }
+  return data as T;
+}
+
 /** A file (a customer's photo) as a local object URL. */
 export async function apiFile(path: string): Promise<{ url: string; type: string }> {
   const response = await send("GET", path);

@@ -32,6 +32,8 @@ export const PAGE_MESSAGES: Record<string, { kind: "error" | "info" | "ok"; text
 
 export type PageView = {
   businessName: string;
+  /** The business's own look: its colours' stylesheet and its logo, when it has them. */
+  brand?: { cssUrl: string; logoUrl: string | null };
   offeringName: string;
   booking: Booking;
   settings: Pick<BookingSettings, "checkInTime" | "checkOutTime" | "cancellationPolicy">;
@@ -189,14 +191,18 @@ ${booking.guests > 1 ? `<div><dt>People</dt><dd>${booking.guests}</dd></div>` : 
 ${waiting ? '<meta http-equiv="refresh" content="4">' : ""}
 <title>Booking ${escapeHtml(booking.reference)} · ${escapeHtml(view.businessName)}</title>
 <link rel="stylesheet" href="/pay-assets/pay.css">
+${view.brand ? `<link rel="stylesheet" href="${escapeHtml(view.brand.cssUrl)}">` : ""}
 <link rel="icon" href="data:,">
 </head>
 <body>
 <main class="pay">
-<header>
+<header${view.brand?.logoUrl ? ' class="with-logo"' : ""}>
+${view.brand?.logoUrl ? `<img class="logo" src="${escapeHtml(view.brand.logoUrl)}" alt="" width="56" height="56">` : ""}
+<div>
 <p class="business">${escapeHtml(view.businessName)}</p>
 <h1>Your booking</h1>
 <p class="ref">Reference <strong>${escapeHtml(booking.reference)}</strong></p>
+</div>
 </header>
 ${message ? `<section class="notice ${message.kind}" role="${message.kind === "error" ? "alert" : "status"}"><p>${escapeHtml(message.text)}</p></section>` : ""}
 ${pendingNotice(view)}

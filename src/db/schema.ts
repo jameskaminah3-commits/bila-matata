@@ -55,6 +55,8 @@ export const businesses = pgTable("businesses", {
   businessType: text("business_type").$type<BusinessType>().notNull().default("general"),
   /** The plan tier Zaina and the dashboard obey (migration 0017): starter answers and takes leads; full also books. */
   tier: text("tier").$type<BusinessTier>().notNull().default("full"),
+  /** Whether this business may be paid through a subaccount of the platform's account (migration 0019). Off unless the studio turns it on: customers pay the business's own account. */
+  platformPayments: boolean("platform_payments").notNull().default(false),
   publicKey: text("public_key").notNull(),
   allowedOrigins: text("allowed_origins").array().notNull().default([]),
   timeZone: text("time_zone").notNull().default("Africa/Nairobi"),
@@ -237,6 +239,12 @@ export const businessSettings = pgTable("business_settings", {
   /** Zaina's role on the business's team (migration 0018); empty: one that fits the business. */
   personaRole: text("persona_role"),
   widgetWhatsapp: boolean("widget_whatsapp").notNull().default(true),
+  /** A line under the business's name wherever Zaina speaks for it (migration 0019). */
+  brandTagline: text("brand_tagline"),
+  /** Whose picture the chat shows: Zaina's face, or the business's logo. */
+  chatAvatar: text("chat_avatar").$type<"zaina" | "logo">().notNull().default("zaina"),
+  /** Whether the business's own page on this service (/c/<business>, behind its QR code) is open. */
+  frontDoor: boolean("front_door").notNull().default(true),
   updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
   updatedBy: uuid("updated_by"),
 });

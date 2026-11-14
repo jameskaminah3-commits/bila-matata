@@ -22,7 +22,7 @@ export async function getBusinessSettings(businessId: string): Promise<BusinessS
 
 export type SettingsPatch = Partial<Pick<BusinessSettings,
   | "displayName" | "assistantName" | "about" | "contactPhone" | "contactPhoneDisplay" | "websiteUrl" | "supportEmail"
-  | "allowedLinkHosts" | "allowedLinkHostSuffixes" | "defaultCurrency" | "widgetColor" | "widgetPosition" | "widgetGreeting" | "widgetWhatsapp" | "personaRole">>;
+  | "allowedLinkHosts" | "allowedLinkHostSuffixes" | "defaultCurrency" | "widgetColor" | "widgetPosition" | "widgetGreeting" | "widgetWhatsapp" | "personaRole" | "brandTagline" | "chatAvatar" | "frontDoor">>;
 
 const TEXT_FIELDS = ["displayName", "assistantName", "about", "contactPhone", "contactPhoneDisplay", "websiteUrl", "supportEmail"] as const;
 const HOST_PATTERN = /^(?:[a-z0-9-]+\.)+[a-z]{2,}$/;
@@ -87,6 +87,21 @@ export function validateSettingsPatch(input: Record<string, unknown>): { ok: tru
     if (role === null || role === "") patch.personaRole = null;
     else if (typeof role !== "string" || role.trim().length < 2 || role.trim().length > 60) return { ok: false, error: "personaRole is 2 to 60 characters, like guest experience host" };
     else patch.personaRole = role.trim().replace(/\s+/g, " ");
+  }
+  // The business's brand wherever Zaina speaks for it, and its own page on this service.
+  if ("brandTagline" in input) {
+    const tagline = input.brandTagline;
+    if (tagline === null || tagline === "") patch.brandTagline = null;
+    else if (typeof tagline !== "string" || tagline.trim().length < 2 || tagline.trim().length > 120) return { ok: false, error: "brandTagline is 2 to 120 characters" };
+    else patch.brandTagline = tagline.trim().replace(/\s+/g, " ");
+  }
+  if ("chatAvatar" in input) {
+    if (input.chatAvatar !== "zaina" && input.chatAvatar !== "logo") return { ok: false, error: "chatAvatar is zaina or logo" };
+    patch.chatAvatar = input.chatAvatar;
+  }
+  if ("frontDoor" in input) {
+    if (typeof input.frontDoor !== "boolean") return { ok: false, error: "frontDoor is true or false" };
+    patch.frontDoor = input.frontDoor;
   }
   if ("widgetWhatsapp" in input) {
     if (typeof input.widgetWhatsapp !== "boolean") return { ok: false, error: "widgetWhatsapp is true or false" };

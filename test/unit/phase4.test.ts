@@ -113,7 +113,7 @@ test("booking dates and holds read naturally, in the business's time", () => {
 });
 
 test("the payment page escapes what customers typed, and shows only fixed messages", () => {
-  const html = renderPayPage({
+  const pageView: Parameters<typeof renderPayPage>[0] = {
     businessName: "Coral <Cove>",
     offeringName: "Ocean \"double\"",
     booking: {
@@ -134,7 +134,14 @@ test("the payment page escapes what customers typed, and shows only fixed messag
     now: new Date(),
     host: "zaina.example",
     token: "t".repeat(24),
-  });
+  };
+  const html = renderPayPage(pageView);
+  // Without a brand the page is the plain one; with one it carries the business's colours and logo, and nothing inline.
+  assert.ok(!html.includes("brand.css") && !html.includes('class="logo"'));
+  const branded = renderPayPage({ ...pageView, brand: { cssUrl: "/c/coral/brand.css?v=7c3aed", logoUrl: "/brand/coral/logo?v=abcdef123456" } });
+  assert.ok(branded.includes('<link rel="stylesheet" href="/c/coral/brand.css?v=7c3aed">'));
+  assert.ok(branded.includes('<img class="logo" src="/brand/coral/logo?v=abcdef123456" alt="" width="56" height="56">'));
+  assert.ok(!/ style="|<style/.test(branded));
   assert.ok(!html.includes("<script>"), "no markup from the customer");
   assert.ok(html.includes("&lt;script&gt;alert(1)&lt;/script&gt;"));
   assert.ok(html.includes("No refunds &lt;b&gt;ever&lt;/b&gt;"));

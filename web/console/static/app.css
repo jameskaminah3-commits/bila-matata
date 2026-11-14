@@ -468,3 +468,90 @@ table.lines tr.total th, table.lines tr.total td { font-weight: 700; border-top:
 .recipient-toggles { display: grid; gap: 6px; }
 .recipient-actions { display: flex; gap: 6px; flex-wrap: wrap; }
 @media (max-width: 860px) { .recipient { grid-template-columns: minmax(0, 1fr); } }
+
+/* ── Brand (Settings → Brand) ─────────────────────────────────────────── */
+.brand-preview { --preview: var(--brand); display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 300px); gap: 14px; padding: 14px; border-radius: var(--radius); background: color-mix(in srgb, var(--preview) 9%, var(--surface-2)); border: 1px solid var(--line); margin-top: 10px; }
+.brand-preview-door { position: relative; display: flex; align-items: flex-end; min-height: 150px; padding: 14px; border-radius: 12px; overflow: hidden; background: var(--surface); border: 1px solid var(--line); }
+.brand-preview-cover { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.brand-preview-door.has-cover::after { content: ""; position: absolute; inset: 0; background: linear-gradient(to top, rgba(0, 0, 0, .7), rgba(0, 0, 0, .05) 70%); }
+.brand-preview-brand { position: relative; z-index: 1; display: flex; align-items: center; gap: 10px; min-width: 0; }
+.brand-preview-brand div, .brand-preview-head div { display: grid; min-width: 0; }
+.brand-preview-brand strong { font-size: 16px; overflow-wrap: anywhere; }
+.brand-preview-brand span:not(.brand-preview-logo) { font-size: 12.5px; color: var(--muted); overflow-wrap: anywhere; }
+.brand-preview-door.has-cover .brand-preview-brand strong, .brand-preview-door.has-cover .brand-preview-brand div span { color: #ffffff; }
+.brand-preview-logo { width: 46px; height: 46px; flex: none; border-radius: 13px; overflow: hidden; background: #ffffff; border: 1px solid var(--line); display: grid; place-items: center; font-weight: 700; }
+.brand-preview-logo.letters { background: var(--preview); color: #ffffff; border-color: transparent; }
+.brand-preview-logo img, .brand-preview-face img { width: 100%; height: 100%; display: block; object-fit: contain; }
+.brand-preview-chat { border-radius: 12px; overflow: hidden; background: var(--surface); border: 1px solid var(--line); display: grid; gap: 8px; padding-bottom: 12px; align-content: start; }
+.brand-preview-head { display: flex; align-items: center; gap: 9px; padding: 10px 12px; background: var(--preview); color: #ffffff; }
+.brand-preview-head strong { font-size: 14px; }
+.brand-preview-head div span { font-size: 11.5px; opacity: .88; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.brand-preview-face { width: 36px; height: 36px; flex: none; border-radius: 50%; overflow: hidden; border: 2px solid rgba(255, 255, 255, .6); }
+.brand-preview-face.logo { background: #ffffff; }
+.brand-preview-bubble { margin: 0 12px; padding: 8px 11px; border-radius: 13px; border-bottom-left-radius: 4px; background: var(--surface-2); font-size: 13px; max-width: 88%; justify-self: start; }
+.brand-preview-bubble.mine { justify-self: end; background: var(--preview); color: #ffffff; border-radius: 13px; border-bottom-right-radius: 4px; }
+.brand-pictures { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+.brand-picture { display: flex; gap: 14px; align-items: flex-start; min-width: 0; }
+.brand-picture h3 { margin: 0 0 2px; font-size: 15px; }
+.brand-picture p { margin: 0 0 8px; }
+.brand-thumb { flex: none; display: grid; place-items: center; overflow: hidden; background: var(--surface-2); border: 1px solid var(--line); color: var(--muted); font-size: 12px; }
+.brand-thumb.logo { width: 76px; height: 76px; border-radius: 18px; }
+.brand-thumb.cover { width: 132px; height: 76px; border-radius: 12px; }
+.brand-thumb img { width: 100%; height: 100%; display: block; }
+.brand-thumb.logo img { object-fit: contain; background: #ffffff; }
+.brand-thumb.cover img { object-fit: cover; }
+.brand-thumb.empty { border-style: dashed; }
+.actions.start { justify-content: flex-start; }
+.choice { border: 0; margin: 0; padding: 0; display: grid; gap: 8px; }
+.choice legend { padding: 0; margin-bottom: 6px; font-weight: 600; font-size: 14px; }
+@media (max-width: 720px) { .brand-preview { grid-template-columns: 1fr; } }
+
+/* ── QR code & link (Settings → QR code & link) ───────────────────────── */
+.door-grid { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 20px; align-items: start; margin-top: 12px; }
+.door-qr { padding: 10px; border-radius: 16px; background: #ffffff; border: 1px solid var(--line); line-height: 0; }
+.door-qr img { width: 220px; height: 220px; display: block; image-rendering: pixelated; }
+.door-side { display: grid; gap: 10px; min-width: 0; }
+.door-link { margin: 0; font-size: 17px; font-weight: 600; overflow-wrap: anywhere; }
+.print-choices { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px; }
+.print-choice { border: 1px solid var(--line); border-radius: var(--radius); padding: 14px; display: grid; gap: 6px; align-content: start; justify-items: start; }
+.print-choice h3 { margin: 0; font-size: 15px; }
+.print-choice p { margin: 0 0 4px; }
+@media (max-width: 620px) { .door-grid { grid-template-columns: 1fr; justify-items: center; } .door-side { justify-items: start; width: 100%; } .door-qr img { width: 200px; height: 200px; } }
+
+/* What goes to the printer: on screen it is out of sight; on paper it is all there is. */
+.print-root { position: absolute; left: -10000px; top: 0; width: 210mm; --print-brand: #0f766e; color: #111827; background: #ffffff; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+.print-root p { margin: 0; }
+.print-qr { display: block; image-rendering: pixelated; }
+.print-logo { display: grid; place-items: center; flex: none; overflow: hidden; background: #ffffff; font-weight: 700; }
+.print-logo img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.print-logo.letters { background: var(--print-brand); color: #ffffff; }
+.print-poster { width: 210mm; height: 296mm; display: flex; flex-direction: column; align-items: center; text-align: center; padding-bottom: 14mm; }
+.print-band { width: 100%; display: flex; align-items: center; gap: 7mm; padding: 13mm 16mm; background: var(--print-brand); color: #ffffff; text-align: left; }
+.print-band .print-logo { width: 26mm; height: 26mm; border-radius: 6mm; font-size: 11mm; }
+.print-band .print-logo.letters { background: #ffffff; color: var(--print-brand); }
+.print-band .print-name { font-size: 11mm; font-weight: 750; line-height: 1.1; }
+.print-tagline { font-size: 5mm; opacity: .92; margin-top: 2mm !important; }
+.print-headline { font-size: 17mm; font-weight: 800; letter-spacing: -.02em; margin-top: 16mm !important; line-height: 1.05; }
+.print-sub { font-size: 5.6mm; color: #374151; max-width: 150mm; margin-top: 5mm !important; line-height: 1.4; }
+.print-poster .print-qr { width: 118mm; height: 118mm; margin-top: 11mm; border: 1.2mm solid var(--print-brand); border-radius: 6mm; padding: 3mm; }
+.print-steps { font-size: 4.4mm; color: #374151; margin-top: 9mm !important; }
+.print-address { font-size: 5.2mm; font-weight: 650; margin-top: auto !important; color: var(--print-brand); }
+.print-cards { width: 210mm; height: 296mm; display: grid; grid-template-rows: 1fr 1fr; }
+.print-card { display: flex; align-items: center; justify-content: space-between; gap: 10mm; padding: 16mm 18mm; border-bottom: .3mm dashed #9ca3af; border-top: 4mm solid var(--print-brand); }
+.print-card:last-child { border-bottom: 0; }
+.print-card-text { display: grid; gap: 4mm; justify-items: start; max-width: 88mm; }
+.print-card .print-logo { width: 20mm; height: 20mm; border-radius: 5mm; font-size: 8mm; border: .3mm solid #e5e7eb; }
+.print-card .print-name { font-size: 7.5mm; font-weight: 750; line-height: 1.15; }
+.print-call { font-size: 10.5mm; font-weight: 800; line-height: 1.05; color: var(--print-brand); }
+.print-small { font-size: 4.3mm; color: #374151; line-height: 1.4; }
+.print-card .print-qr { width: 78mm; height: 78mm; flex: none; }
+.print-stickers { width: 210mm; height: 296mm; padding: 12mm; display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(4, 1fr); gap: 5mm; }
+.print-sticker { display: grid; justify-items: center; align-content: center; gap: 2mm; border: .3mm dashed #9ca3af; border-radius: 5mm; padding: 3mm; text-align: center; }
+.print-sticker .print-qr { width: 42mm; height: 42mm; }
+.print-sticker p { font-size: 3.3mm; font-weight: 650; line-height: 1.2; }
+@media print {
+  @page { size: A4; margin: 0; }
+  html, body { background: #ffffff !important; margin: 0 !important; }
+  #root { display: none !important; }
+  .print-root { position: static; left: auto; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}

@@ -90,7 +90,7 @@ export function renderHospitality(icons: Icons): string {
   const features: Array<[string, string, string]> = [
     [icons.calendar, "Real availability for the guest's dates", "She checks your own bookings and the calendars you connect (any calendar with an iCal link) before she says a room is free."],
     [icons.chart, "Prices the stay from your rates", "Nightly rates, seasons, weekends, extra guests and fees: the total comes from your own rules, to the shilling."],
-    [icons.inbox, "Holds the room and takes the deposit", "She holds the room, sends the M-Pesa or card checkout, and confirms when it is paid. The money goes into your own account."],
+    [icons.inbox, "Holds the room and sends your payment link", "She holds the room and sends your guest your own M-Pesa or card payment link. The money goes straight to you: Zaina never collects or holds it."],
     [icons.spark, "Never a dead end when you're full", "Sold out on their dates? She offers the nearest room or dates you actually have, so the guest books with you anyway."],
     [icons.doc, "Answers the questions that fill your inbox", "Check-in time, parking, breakfast, pets, directions: answered from your information, every time, in English or Swahili."],
     [icons.people, "Hands over for the personal touch", "Weddings, groups and special requests go to your team with the whole chat, and your team can take over any conversation."],
@@ -123,11 +123,13 @@ const VALUE_ROWS: Array<{ feature: string; gain: string; starter: Cell; full: Ce
   { feature: "Leads captured and handed over", gain: "Your team starts with the name, the number and exactly what they want.", starter: true, full: true },
   { feature: "Your team takes over any chat", gain: "Step in for a VIP or a tricky question without losing the thread.", starter: true, full: true },
   { feature: "Notification emails, with takeover links and transcripts", gain: "The owner, reception and a manager each hear about it, wherever they are.", starter: "Up to 2", full: "Up to 5" },
+  { feature: "Your own QR code and page, with a poster, table cards and stickers", gain: "No website? Customers scan the code on your counter and reach you in seconds.", starter: true, full: true },
+  { feature: "Your brand: logo, colours and welcome line", gain: "The chat, your page and your payment page look like your business, not ours.", starter: true, full: true },
   { feature: "Dashboard: chat history, leads and reports", gain: "See every conversation, what was asked and what it led to.", starter: true, full: true },
   { feature: "Help and support from our team", gain: "A real person answers when you're stuck.", starter: true, full: true },
   { feature: "Live availability from your calendars", gain: "No double bookings, and no “let me check and get back to you”.", starter: false, full: true },
   { feature: "Exact totals from your rates", gain: "Dates, guests and fees worked out for you, so staff never do the sums.", starter: false, full: true },
-  { feature: "Bookings with M-Pesa and card deposits", gain: "The sale closes while you sleep, and the money lands in your own account.", starter: false, full: true },
+  { feature: "Bookings, with your own M-Pesa or card payment link", gain: "The sale closes while you sleep. Customers pay you directly: Zaina never holds your money.", starter: false, full: true },
   { feature: "Calendar sync and booking alerts", gain: "Your calendars and Zaina always agree, and your team knows at once.", starter: false, full: true },
 ];
 

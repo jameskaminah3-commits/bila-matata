@@ -43,6 +43,7 @@ import {
 } from "./checkout.ts";
 import { mpesaCode } from "./mpesa.ts";
 import { PAY_CSS } from "./page-css.ts";
+import { brandAssetUrl, brandAssetsOf } from "../brand/assets.ts";
 import { PAGE_MESSAGES, renderPayPage } from "./page.ts";
 
 /** Paystack's webhooks need their raw body: the JSON parser leaves these paths alone. */
@@ -149,6 +150,10 @@ export function registerPaymentRoutes(app: Express, config: PlatformConfig): voi
     const message = typeof req.query.m === "string" && req.query.m in PAGE_MESSAGES ? req.query.m : null;
     res.type("html").send(renderPayPage({
       businessName: settings?.displayName ?? business.name,
+      brand: {
+        cssUrl: `/c/${encodeURIComponent(business.id)}/brand.css?v=${(settings?.widgetColor ?? "0f766e").replace("#", "")}`,
+        logoUrl: brandAssetUrl("", business.id, (await brandAssetsOf(business.id)).logo),
+      },
       offeringName: await offeringName(business, current),
       booking: current,
       settings: policy,

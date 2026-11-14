@@ -8,7 +8,7 @@ import express, { type Express, type NextFunction, type Request, type Response }
 import type { Server } from "node:http";
 import { GoogleGenAI } from "@google/genai";
 import type { PlatformConfig } from "./config.ts";
-import { anyAllowedOrigins, setExtraAllowedOrigins, setOwnSiteOrigins } from "./businesses/registry.ts";
+import { anyAllowedOrigins, setExtraAllowedOrigins, setFrontDoorOrigins, setOwnSiteOrigins } from "./businesses/registry.ts";
 import { loadSecretKeys, setSecretKeys } from "./businesses/secrets.ts";
 import type { WhatsappContext } from "./channels/whatsapp/context.ts";
 import { registerWhatsappRoutes, WEBHOOK_PATH } from "./channels/whatsapp/routes.ts";
@@ -50,6 +50,7 @@ import { setPlanCheck } from "./onboarding/checklist.ts";
 import { fullTierOnly } from "./billing/tier-gate.ts";
 import { registerSupportRoutes } from "./support/routes.ts";
 import { registerNotificationRoutes } from "./notifications/routes.ts";
+import { registerFrontDoorRoutes } from "./frontdoor/routes.ts";
 import { STUDIO } from "./studio/brand.ts";
 import { configureStudioPay, sweepStudio } from "./studio/pay.ts";
 import { registerStudioRoutes } from "./studio/routes.ts";
@@ -106,6 +107,8 @@ export function createApp(config: PlatformConfig, engine: EngineOptions, whatsap
   configureStudioPay({ paystackKey: config.platformPaystackKey, publicBaseUrl: config.publicBaseUrl, notifyEmail: config.studioNotifyEmail });
   // The studio's own Zaina is on the service's own home page, wherever the service is (staging included).
   setOwnSiteOrigins(STUDIO.businessId, [config.publicBaseUrl]);
+  // Every business has a page of its own on the service (/c/<business>, behind its QR code).
+  setFrontDoorOrigins([config.publicBaseUrl]);
   // A business that signed up by itself chooses a plan before going live, once the platform offers plans.
   setPlanCheck(planStep);
   setWhatsappRuntime(whatsapp);
@@ -156,6 +159,7 @@ export function createApp(config: PlatformConfig, engine: EngineOptions, whatsap
   registerBillingRoutes(app, config);
   registerSupportRoutes(app, config);
   registerNotificationRoutes(app, config);
+  registerFrontDoorRoutes(app, config);
   registerConsoleRoutes(app, config);
 
   app.use((_req: Request, res: Response) => {

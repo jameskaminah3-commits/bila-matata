@@ -5,7 +5,7 @@
   },
   {
     "question": "Do I need a website to use Zaina?",
-    "answer": "No. Zaina can work on your WhatsApp number alone. If you have a website, the chat is added with one line of code. If you want a website, the studio builds those too."
+    "answer": "No. Every business gets its own page and QR code: print the code as a poster, a table card or a sticker, and customers who scan it chat with Zaina straight away. She can also work on your WhatsApp number. If you have a website, the chat is added with one line of code. If you want a website, the studio builds those too."
   },
   {
     "question": "Will Zaina work on my WordPress, Shopify or Wix site?",
@@ -81,6 +81,14 @@
   },
   {
     "question": "Does Zaina work for hotels, lodges and other places to stay?",
-    "answer": "Yes, they are one of the businesses she is built for. On the Full plan she checks your up-to-date calendar, quotes the exact total from your own rates, holds the room, takes the deposit into your own account, and offers the nearest available option when the dates a guest wants are taken. The example conversations on our home page show a stay being booked and a sold-out date being turned into a booking."
+    "answer": "Yes, they are one of the businesses she is built for. On the Full plan she checks your up-to-date calendar, quotes the exact total from your own rates, holds the room, sends your own payment link so the deposit is paid straight to you, and offers the nearest available option when the dates a guest wants are taken. The example conversations on our home page show a stay being booked and a sold-out date being turned into a booking."
+  },
+  {
+    "question": "Does Zaina collect payments for my business?",
+    "answer": "No. Zaina is your receptionist, not your cashier: she never collects or holds money. When a deposit or payment is due, she sends your customer your own payment link (your M-Pesa or card payment account), and the money goes straight to you. She never asks customers for card numbers or PINs."
+  },
+  {
+    "question": "Can the chat look like my business?",
+    "answer": "Yes. In your dashboard, under Settings and Brand, you add your logo, a cover picture, your colour and a welcome line, and choose whether the chat shows Zaina's face or your logo. Your brand then appears on the chat, on your own page behind your QR code, and on the page where customers pay you."
   }
 ]

@@ -24,7 +24,7 @@ You are talking to a Zaina right now: this one is set up for Bila Matata itself.
 - **She does not invent prices.** Every price Zaina quotes comes straight from the business's own price list. If a price is not in the list, she says so and asks the team.
 - **She does not guess.** If the answer is not in the business's information, Zaina says so, offers to take the customer's details and alerts the team.
 - **She checks the up-to-date calendar.** Before offering a time or a date, Zaina checks what is actually free.
-- **She helps customers find and book.** Zaina helps each customer find the option that suits them, then makes the booking and takes the deposit.
+- **She helps customers find and book.** Zaina helps each customer find the option that suits them, then makes the booking and sends the business's own payment link for the deposit.
 - **A person can always step in.** The team sees every conversation and can take over any chat.
 
 ## What a business gets from Zaina
@@ -32,7 +32,7 @@ You are talking to a Zaina right now: this one is set up for Bila Matata itself.
 - **No more missed enquiries.** Zaina replies in seconds, day and night, including weekends and late at night.
 - **Answers the business can stand behind.** Nothing is made up: answers and prices come from the business itself.
 - **Leads that are ready to close.** Zaina collects the customer's name, phone number and what they want, and alerts the team.
-- **Bookings without the back-and-forth.** On the Full plan, Zaina checks the up-to-date calendar, quotes the exact price, creates the booking and takes the deposit by M-Pesa or card.
+- **Bookings without the back-and-forth.** On the Full plan, Zaina checks the up-to-date calendar, quotes the exact price, creates the booking and sends the business's own M-Pesa or card payment link.
 - **A team free for real work.** Repeat questions are answered automatically. When a customer needs a person, Zaina hands the whole conversation to the team.
 
 ## How Zaina compares with auto-responders and basic chatbots
@@ -50,6 +50,14 @@ Availability, exact booking totals, booking and checkout come with the Full Book
 
 Zaina also speaks English and Swahili, and Bila Matata sets her up: the business does not have to build anything.
 
+## A QR code and page for every business
+
+A business does not need a website to use Zaina. Every business gets its own page with its name, logo and colours, where customers chat with Zaina, and a QR code that opens it. From the dashboard (Settings, then QR code & link) the business prints the code as a poster, table cards or stickers, downloads it, or shares the link on WhatsApp and social media. The dashboard shows how many people scanned the code and how many started a chat.
+
+## The business's own brand
+
+In the dashboard (Settings, then Brand) a business adds its logo, a cover picture, its colour and a welcome line, and chooses whether the chat shows Zaina's face or its logo. The brand appears on the chat, on the business's page behind its QR code, and on the page where its customers pay.
+
 ## Notification emails
 
 A business decides who is told about its chats. In the dashboard (Settings, then Notifications) the owner or a manager adds the email addresses that should hear when a customer is waiting for a person, wants a callback, leaves their details or books. For each address the business chooses what it gets: an alert with a link to open the chat and take over, the conversation written out, or both. Addresses can be changed, tested and removed at any time.
@@ -58,7 +66,7 @@ How many addresses a business can add depends on its plan: Starter allows up to 
 
 ## Hotels, lodges, villas and stays
 
-Hotels, lodges, villas and other places to stay are a key kind of business for Zaina. On the Full plan she answers guests' questions from the property's own information, checks the property's up-to-date calendar (including calendars imported from other booking channels), quotes the exact total from the property's own rates (nightly rates, seasonal rates, extra-guest charges and fees), holds the room, takes the deposit by M-Pesa or card into the property's own account, and passes the booking to the team. When the dates a guest wants are taken, she offers the nearest option the property really has instead of losing the guest. A late-night enquiry can be a confirmed, paid booking by morning.
+Hotels, lodges, villas and other places to stay are a key kind of business for Zaina. On the Full plan she answers guests' questions from the property's own information, checks the property's up-to-date calendar (including calendars imported from other booking channels), quotes the exact total from the property's own rates (nightly rates, seasonal rates, extra-guest charges and fees), holds the room, sends the property's own M-Pesa or card payment link so the deposit is paid straight to the property, and passes the booking to the team. When the dates a guest wants are taken, she offers the nearest option the property really has instead of losing the guest. A late-night enquiry can be a confirmed, paid booking by morning.
 
 ## The two plans
 
@@ -77,7 +85,7 @@ Clients sign in at https://bilamatata.co.ke/app/ to read conversations, reply to
 
 ## Customer payments
 
-When Zaina takes a deposit from a business's customer, the money goes straight into that business's own payment account (M-Pesa or card). Bila Matata does not hold a client's customer payments.
+Zaina never collects or holds money for a business. When a deposit is due, she sends the customer the business's own payment link, and the money goes straight into that business's own payment account (M-Pesa or card). Bila Matata does not hold a client's customer payments.
 
 ## Results
 

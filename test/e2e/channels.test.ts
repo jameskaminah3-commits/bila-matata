@@ -478,6 +478,8 @@ test("the website widget's settings: look, greeting, and only the business's own
   const expected = {
     name: "Acme Guesthouse", assistant_name: "Zaina", assistant_role: "guest experience host", color: "#1d4ed8", position: "left",
     greeting: "Karibu Acme! Ask me anything about your stay.", currency: "USD",
+    // No brand set yet: Zaina's own face, no logo or welcome line.
+    tagline: null, logo: null, avatar: "zaina",
     // WhatsApp is connected: the chat offers the number too.
     whatsapp: "https://wa.me/254700123456",
   };

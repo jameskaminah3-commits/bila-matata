@@ -168,7 +168,8 @@ export function registerBookingRoutes(app: Express, config: PlatformConfig): voi
       webhooks: {
         paystack: settings.paystackMode === "subaccount" ? `${origin}/v1/payments/paystack` : `${origin}/v1/payments/paystack/${business.id}`,
       },
-      platform_paystack: platformPaystackKey() !== null,
+      // Offered only to a business the studio turned it on for: customers otherwise pay the business's own account.
+      platform_paystack: platformPaystackKey() !== null && business.platformPayments,
     };
   }
 
@@ -199,6 +200,9 @@ export function registerBookingRoutes(app: Express, config: PlatformConfig): voi
       return res.json({ ...(await settingsView(business)), live: checked.live });
     }
     if (mode === "subaccount") {
+      if (!business.platformPayments) {
+        return res.status(403).json({ error: "not_offered", message: "Your customers pay into your own account: connect your own keys. Being paid through the Bila Matata account is only set up by the team for a business that needs it." });
+      }
       const code = typeof req.body?.subaccount === "string" ? req.body.subaccount.trim() : "";
       const platformKey = platformPaystackKey();
       if (!platformKey) return res.status(400).json({ error: "platform_paystack_off", message: "This platform has no Paystack account of its own: connect the business's own keys instead." });

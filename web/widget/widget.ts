@@ -6,7 +6,9 @@
 //
 // (Older snippets load /widget.js with data-key="pk_…": the same script.)
 // Optional attributes: data-currency="KES" (prices in shillings), and
-// data-open="true" (open on load). The page can also call
+// data-open="true" (open on load). On the business's own page on this service
+// (/c/<business>) the chat fills the page instead of floating:
+// data-mode="page" with data-mount="<selector>", and data-via="qr" | "link". The page can also call
 // window.Zaina.open(), .close() and .setCurrency("USD" | "KES").
 //
 // When the business has WhatsApp connected (and offers it), the chat also
@@ -20,7 +22,7 @@
 
 import { ZAINA_FACE_DATA_URI } from "../../src/brand/zaina-face.ts";
 
-type Config = { name: string; assistant_name: string; assistant_role?: string; color: string; position: "right" | "left"; greeting: string | null; currency: "USD" | "KES"; whatsapp?: string | null };
+type Config = { name: string; assistant_name: string; assistant_role?: string; color: string; position: "right" | "left"; greeting: string | null; currency: "USD" | "KES"; whatsapp?: string | null; tagline?: string | null; logo?: string | null; avatar?: "zaina" | "logo" };
 type Message = { id: number; from: "customer" | "zaina" | "team"; text: string; author?: string };
 type Stored = { token: string; sessionId: string };
 
@@ -47,6 +49,9 @@ const POLL_OPEN_MS = 30_000;
   window.__zainaWidgetLoaded = true;
   const api = new URL(script.src, location.href).origin;
   const storageKey = `zaina:${business}`;
+  // On the business's own page the chat is the page: always open, no launcher.
+  const pageMode = script.dataset.mode === "page";
+  const via = script.dataset.via === "qr" || script.dataset.via === "link" ? script.dataset.via : null;
 
   let config: Config;
   let currency: "USD" | "KES" | null = script.dataset.currency === "KES" || script.dataset.currency === "USD" ? script.dataset.currency : null;
@@ -170,6 +175,12 @@ textarea { flex: 1; resize: none; border: 1px solid var(--line); border-radius: 
   .panel.open + .launcher { display: none; }
 }
 @media (prefers-reduced-motion: reduce) { .typing span { animation: none; opacity: .6; } }
+.face.logo img, .launcher.logo img { object-fit: contain; background: #ffffff; }
+/* The chat as the page (the business's own page on this service). */
+:host(.page) { display: block; height: 100%; }
+.root.page { position: static; height: 100%; }
+.root.page .panel, .root.page .panel.open { position: static; display: flex; width: 100%; height: 100%; border: none; border-radius: 0; box-shadow: none; }
+.root.page .launcher, .root.page .close { display: none; }
 `;
 
   const icons = {
@@ -225,16 +236,19 @@ textarea { flex: 1; resize: none; border: 1px solid var(--line); border-radius: 
     } else {
       root.append(element("style", undefined, sheet));
     }
-    const container = element("div", "root");
+    const container = element("div", pageMode ? "root page" : "root");
+    // Whose picture the chat shows: Zaina's face, or the business's own logo.
+    const ownLogo = config.avatar === "logo" && typeof config.logo === "string" && /^https?:\/\//.test(config.logo) ? config.logo : null;
+    const picture = ownLogo ?? ZAINA_FACE_DATA_URI;
     panel = element("div", "panel");
     panel.setAttribute("role", "dialog");
     panel.setAttribute("aria-label", `Chat with ${config.assistant_name}`);
 
     const header = element("div", "header");
     const who = element("div", "who");
-    const face = element("span", "face");
+    const face = element("span", ownLogo ? "face logo" : "face");
     const faceImage = document.createElement("img");
-    faceImage.src = ZAINA_FACE_DATA_URI;
+    faceImage.src = picture;
     faceImage.alt = "";
     face.append(faceImage);
     who.append(element("div", "name", config.assistant_name), element("div", "sub", `${config.assistant_role ? `${capitalise(config.assistant_role)} · ` : ""}${config.name}`));
@@ -292,15 +306,15 @@ textarea { flex: 1; resize: none; border: 1px solid var(--line); border-radius: 
     }
     panel.append(footer);
     panel.addEventListener("keydown", (event) => {
-      if (event.key === "Escape") setOpen(false);
+      if (event.key === "Escape" && !pageMode) setOpen(false);
     });
 
-    launcher = element("button", "launcher");
+    launcher = element("button", ownLogo ? "launcher logo" : "launcher");
     launcher.type = "button";
     launcher.setAttribute("aria-label", `Chat with ${config.assistant_name}`);
     launcher.setAttribute("aria-expanded", "false");
     const launcherFace = document.createElement("img");
-    launcherFace.src = ZAINA_FACE_DATA_URI;
+    launcherFace.src = picture;
     launcherFace.alt = "";
     const chatBadge = element("span", "chat-badge");
     chatBadge.innerHTML = icons.chat;
@@ -377,7 +391,7 @@ textarea { flex: 1; resize: none; border: 1px solid var(--line); border-radius: 
   }
 
   async function openSession(): Promise<boolean> {
-    const result = await call("/api/zaina/sessions", { method: "POST", json: { business, display_currency: currency ?? config.currency } });
+    const result = await call("/api/zaina/sessions", { method: "POST", json: { business, display_currency: currency ?? config.currency, ...(pageMode && via ? { via } : {}) } });
     if (result.status !== 201) {
       notice(result.body?.message ?? "The chat isn't available right now. Please try again later.", true);
       return false;
@@ -427,7 +441,8 @@ textarea { flex: 1; resize: none; border: 1px solid var(--line); border-radius: 
       sending = false;
       sendButton.disabled = false;
       schedulePoll();
-      if (open) textarea.focus();
+      if (open && !pageMode) textarea.focus();
+      else if (pageMode && matchMedia("(hover: hover)").matches) textarea.focus();
     }
   }
 
@@ -442,7 +457,8 @@ textarea { flex: 1; resize: none; border: 1px solid var(--line); border-radius: 
         await sync().catch(() => {});
         greet();
       }
-      textarea.focus();
+      // On the business's own page the chat opens by itself: no jumping keyboard on a phone.
+      if (!pageMode) textarea.focus();
     } else {
       launcher.focus();
     }
@@ -465,7 +481,10 @@ textarea { flex: 1; resize: none; border: 1px solid var(--line); border-radius: 
     config = result.body as Config;
     const host = document.createElement("div");
     host.id = "zaina-widget";
-    document.body.append(host);
+    const mount = pageMode ? document.querySelector(script!.dataset.mount ?? "#zaina-chat") : null;
+    if (pageMode) host.className = "page";
+    (mount ?? document.body).append(host);
+    if (mount) mount.classList.add("ready");
     build(host.attachShadow({ mode: "open" }));
     window.Zaina = {
       open: () => void setOpen(true),
@@ -479,7 +498,7 @@ textarea { flex: 1; resize: none; border: 1px solid var(--line); border-radius: 
       await sync(true).catch(() => {});
       schedulePoll();
     }
-    if (script!.dataset.open === "true") void setOpen(true);
+    if (pageMode || script!.dataset.open === "true") void setOpen(true);
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => void boot(), { once: true });

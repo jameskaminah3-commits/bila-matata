@@ -165,11 +165,14 @@ test("the home page says how Zaina works: only the business's own information, n
   assert.match(words, /using only what your business gives her: your catalogue, your price list and your up-to-date calendar/);
   assert.match(words, /Zaina doesn't guess\. Everything she says comes directly from your business/);
   assert.match(words, /She never makes up a price, and if an answer isn't in your information she says so and brings in your team\./);
-  assert.match(words, /She helps each customer find what suits them, checks your up-to-date calendar, quotes the exact price, creates the booking and takes the deposit/);
+  assert.match(words, /She helps each customer find what suits them, checks your up-to-date calendar, quotes the exact price, creates the booking and sends your own M-Pesa or card payment link, so the deposit is paid straight to you/);
   assert.match(words, /Never invents a price: every quote comes straight from your price list/);
   assert.match(words, /Checks your up-to-date calendar before she offers a time/);
   assert.match(words, /Answers you can trust Guess, or answer from general knowledge that isn't about your business Answers only from your own information\. If something isn't there, she says so and brings in your team/);
-  assert.match(words, /paid into your own payment account/);
+  // Zaina is a receptionist, not a cashier: she sends the business's own payment link and never holds its money.
+  assert.match(words, /Customers pay you directly/);
+  assert.match(words, /Zaina never (collects or )?holds/);
+  assert.doesNotMatch(words, /takes (the|a|your) (deposit|payment)|collects (the|a|your) (deposit|payment)/i);
 });
 
 test("the home page shows a smart assistant, and compares her with auto-replies and basic bots on what she really does", () => {

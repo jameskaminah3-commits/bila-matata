@@ -13,6 +13,8 @@
 //                                greeting, and its WhatsApp link when it offers one
 
 import { personaRole } from "../engine/persona.ts";
+import { brandAssetUrl, brandAssetsOf } from "../brand/assets.ts";
+import { doorSource, recordDoorChat } from "../frontdoor/stats.ts";
 import type { Express, NextFunction, Request, Response } from "express";
 import type { PlatformConfig } from "../config.ts";
 import type { Business } from "../db/schema.ts";
@@ -125,6 +127,10 @@ export function registerGatewayRoutes(app: Express, config: PlatformConfig, engi
         displayCurrency: currencyOf(req.body?.display_currency) ?? "USD",
         visitorKey: visitor,
       });
+      // A chat opened from the business's own page on this service: counted, by how the visitor arrived (its QR code, or the link).
+      if ((req.body?.via === "qr" || req.body?.via === "link") && isOriginAllowed(req.header("origin"), consoleOrigin) && req.header("origin")) {
+        void recordDoorChat(business.id, doorSource(req.body.via));
+      }
       res.status(201).json({
         session_id: session.id,
         token: issueSessionToken(secret, { sessionId: session.id, businessId: business.id }),
@@ -208,6 +214,10 @@ export function registerGatewayRoutes(app: Express, config: PlatformConfig, engi
         color: settings?.widgetColor ?? "#0f766e",
         position: settings?.widgetPosition ?? "right",
         greeting: settings?.widgetGreeting ?? null,
+        // The business's brand: a line under its name, its logo, and whose picture the chat shows.
+        tagline: settings?.brandTagline ?? null,
+        logo: brandAssetUrl(config.publicBaseUrl ?? `${req.protocol}://${req.get("host")}`, business.id, (await brandAssetsOf(business.id)).logo),
+        avatar: settings?.chatAvatar ?? "zaina",
         currency: settings?.defaultCurrency ?? "USD",
         whatsapp: number?.status === "active" ? whatsappLink(number.displayPhoneNumber) : null,
       });

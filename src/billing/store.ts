@@ -329,6 +329,12 @@ export async function setBusinessTier(businessId: string, tier: BusinessTier): P
   clearBusinessCache();
 }
 
+/** Whether a business may be paid through a subaccount of the platform's account: off unless the studio turns it on for it. */
+export async function setPlatformPayments(businessId: string, allowed: boolean): Promise<void> {
+  await ownerDb().update(businesses).set({ platformPayments: allowed, updatedAt: new Date() }).where(eq(businesses.id, businessId));
+  clearBusinessCache();
+}
+
 /** The owner stops: at the end of what's paid for (or the trial), or at once when nothing is. */
 export async function cancelPlan(businessId: string, now = new Date()): Promise<{ endsAt: Date | null }> {
   return changeBilling(businessId, now, async (change) => {

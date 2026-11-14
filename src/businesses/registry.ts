@@ -69,8 +69,19 @@ export async function businessByPublicKey(publicKey: string): Promise<Business |
   return (await all()).find((business) => business.publicKey === publicKey && business.status === "active");
 }
 
+let frontDoor: string[] = [];
+
+/**
+ * The service's own address, where every business has a page of its own
+ * (/c/<business>, behind its QR code). Only this service's pages are served
+ * there, and the only one that opens a business's chat is that business's.
+ */
+export function setFrontDoorOrigins(origins: Array<string | null>) {
+  frontDoor = origins.filter((origin): origin is string => Boolean(origin));
+}
+
 export function allowedOriginsFor(business: Business): string[] {
-  return [...business.allowedOrigins, ...extraOrigins, ...(ownSite?.businessId === business.id ? ownSite.origins : [])];
+  return [...business.allowedOrigins, ...extraOrigins, ...frontDoor, ...(ownSite?.businessId === business.id ? ownSite.origins : [])];
 }
 
 /** Every origin any active business allows (answers browsers' CORS preflight). */

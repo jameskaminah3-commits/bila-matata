@@ -110,6 +110,27 @@ or bookings (`src/billing/tier-gate.ts`, `workingType` in `src/db/schema.ts`).
   sent through the same email setup as everything else (Resend), so without
   `RESEND_API_KEY` nothing is sent (`src/notifications/`).
 
+## A front door and a brand for every business
+
+- **Front door.** Every live business has a page of its own at
+  `/c/<business id>`: its name, logo and colours, and its Zaina filling the
+  page (the same widget, `data-mode="page"`). A QR code opens it
+  (`/c/<business id>/qr.svg`, and Settings → QR code & link, which also prints
+  a poster, table cards and stickers and shows scans and chats by day). The
+  service's own address is an allowed origin for every business for this
+  page (`setFrontDoorOrigins`). `src/frontdoor/`.
+- **Brand.** Settings → Brand: logo and cover (PNG, JPEG or WebP, checked by
+  their bytes, kept in the database inside the business and served from
+  `/brand/<business id>/<logo|cover>`), colour, welcome line, and whether the
+  chat shows Zaina's face or the logo. Applied to the widget, the front door
+  and the booking payment page. `src/brand/`.
+- **Money.** Zaina never collects or holds money: customers pay the
+  business's own account. Being paid through a subaccount of the platform's
+  account is off unless the studio turns it on for a business (Plan →
+  "Let this business be paid through our payment account").
+
+See `docs/ROADMAP.md` for the phases.
+
 ## Support
 
 A business's team asks for help from its dashboard (Help & support); the

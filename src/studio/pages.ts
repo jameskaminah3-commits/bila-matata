@@ -114,7 +114,8 @@ const PLANS = [
       "Suggests the extras and upgrades you really offer, at your listed prices, without being pushy",
       "Alerts your team on their phones and hands over the whole conversation, ready to close",
       "Up to 2 notification emails, each with a takeover link and, if you like, the conversation written out",
-      "Chat on your website with one line of code",
+      "Chat on your website with one line of code, or no website at all: your own page and QR code to print",
+      "Your logo, colours and welcome line on the chat and your page",
       "Dashboard with every chat, lead and report, and help from our team",
     ],
     featured: false,
@@ -129,7 +130,7 @@ const PLANS = [
       "Checks your up-to-date calendar before she offers a time",
       "Works out exact totals from your own rates: dates, number of people and fees included",
       "Helps each customer find the right option, then books it from start to finish",
-      "Sends the M-Pesa or card checkout 24/7, paid straight into your own payment account",
+      "Sends your own M-Pesa or card payment link 24/7: customers pay you directly",
       "Up to 5 notification emails, with takeover links and conversation transcripts",
       "Calendar sync and booking notices for your team",
     ],
@@ -141,7 +142,7 @@ const OUTCOMES = [
   { icon: ICONS.moon, title: "Stop losing the customers who message after hours", text: "Zaina replies in seconds, at midnight and on Sunday. The customer who would have gone to whoever answered first stays with you." },
   { icon: ICONS.spark, title: "Smart enough to sell, not just reply", text: "Zaina works out what each customer is really after, asks the one question that matters, recommends the option that suits them from what you actually sell, and always offers the next step: a time, a quote or a call from your team." },
   { icon: ICONS.lock, title: "Answers you can stand behind: nothing invented", text: "Zaina doesn't guess. Everything she says comes directly from your business: your catalogue, your policies and your price list. She never makes up a price, and if an answer isn't in your information she says so and brings in your team." },
-  { icon: ICONS.calendar, title: "From \"do you have…?\" to booked", text: "She helps each customer find what suits them, checks your up-to-date calendar, quotes the exact price, creates the booking and takes the deposit by M-Pesa or card, paid into your own payment account." },
+  { icon: ICONS.calendar, title: "From \"do you have…?\" to booked", text: "She helps each customer find what suits them, checks your up-to-date calendar, quotes the exact price, creates the booking and sends your own M-Pesa or card payment link, so the deposit is paid straight to you." },
   { icon: ICONS.inbox, title: "Wake up to leads that are ready to close", text: "Every serious enquiry arrives with a name, a number and exactly what the customer wants, so your team's first message is the offer, not twenty questions." },
   { icon: ICONS.people, title: "Your team does the work only people can do", text: "Repeat questions stop landing on your staff. When a customer needs a person, Zaina hands over the whole conversation and your team picks up where she left off." },
 ];
@@ -154,7 +155,7 @@ const COMPARISON: Array<[string, string, string]> = [
   ["Accurate price quotes", "Send a static price list or guess, so your staff still have to step in and work out the total", "Works out the exact total from your own rates for the dates, the number of people and your fees. Never a guessed figure"],
   ["Answers you can trust", "Guess, or answer from general knowledge that isn't about your business", "Answers only from your own information. If something isn't there, she says so and brings in your team"],
   ["Recommendations and extras", "Only answer what was asked, and leave money on the table", "Recommends what suits each customer and suggests the extras and upgrades you really offer, at your listed prices"],
-  ["Booking and checkout", "Stop at chatting: your staff still create the order and chase the payment", "Creates the booking and sends the M-Pesa or card checkout, 24/7 while you sleep, paid into your own account"],
+  ["Booking and checkout", "Stop at chatting: your staff still create the order and chase the payment", "Creates the booking and sends your own M-Pesa or card payment link, 24/7 while you sleep. Customers pay you directly"],
   ["Hand-off to your team", "Trap frustrated customers in a loop, or dump messy chats on your phone", "Passes complex or VIP requests to your team with the whole conversation and the customer's details, ready to close"],
 ];
 
@@ -434,7 +435,7 @@ ${header("terms")}
     </ul>
     <h3>Your customers' payments</h3>
     <ul>
-      <li>When Zaina takes a deposit or payment from one of your customers, the money is paid into your own payment account (the M-Pesa or card payment account you connect), not ours. You are the seller, and refunds and disputes for those payments are between you and your customer.</li>
+      <li>Zaina never collects or holds your customers' money. When a deposit or payment is due, she sends your customer your own payment link, and the money is paid into your own payment account (the M-Pesa or card payment account you connect), not ours. You are the seller, and refunds and disputes for those payments are between you and your customer.</li>
       <li>Your payment provider's fees and rules apply to those payments.</li>
     </ul>
     <h3>Acceptable use</h3>

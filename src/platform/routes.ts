@@ -24,7 +24,7 @@ import { inBusiness, runForBusiness } from "../db/tenant.ts";
 import { businessDay } from "../gateway/spend-cap.ts";
 import { createBusinessWithOwner, findStaffByEmail, setBusinessStatus } from "../db/platform-scope.ts";
 import { businessTiers, businessTypes, workingType, type BusinessTier, type BusinessType } from "../db/schema.ts";
-import { BillingError, choosePlan, planById, setBusinessTier } from "../billing/store.ts";
+import { BillingError, choosePlan, planById, setBusinessTier, setPlatformPayments } from "../billing/store.ts";
 import { createStudioInvoice } from "../studio/invoices.ts";
 import { invoiceEmail, invoiceLink } from "../studio/pay.ts";
 import { staffOf } from "../staff/auth.ts";
@@ -57,6 +57,7 @@ export function registerPlatformRoutes(app: Express, config: PlatformConfig): vo
           status: business.status,
           business_type: business.businessType,
           tier: business.tier,
+          platform_payments: business.platformPayments,
           public_key: business.publicKey,
           allowed_origins: business.allowedOrigins,
           time_zone: business.timeZone,
@@ -76,6 +77,12 @@ export function registerPlatformRoutes(app: Express, config: PlatformConfig): vo
     try {
       const business = await anyBusinessById(String(req.params.businessId));
       if (!business) return res.status(404).json({ error: "not_found" });
+      // Paid through the platform's account (a subaccount): only for a business that needs it. Customers otherwise pay the business's own account.
+      if (req.body?.platform_payments !== undefined) {
+        if (typeof req.body.platform_payments !== "boolean") return res.status(400).json({ error: "invalid_platform_payments", message: "platform_payments is true or false." });
+        await setPlatformPayments(business.id, req.body.platform_payments);
+        if (req.body?.status === undefined && req.body?.plan_id === undefined && req.body?.tier === undefined) return res.json({ id: business.id, status: business.status, platform_payments: req.body.platform_payments });
+      }
       // What the business gets: a plan (its tier comes with it, and its invoices go out by themselves), or the tier alone.
       const planId = req.body?.plan_id;
       const tier = req.body?.tier;
@@ -150,6 +157,7 @@ export function registerPlatformRoutes(app: Express, config: PlatformConfig): vo
           business_type: business.businessType,
           working_type: workingType(business),
           tier: business.tier,
+          platform_payments: business.platformPayments,
           status: business.status,
           tokens_today: Number(row.tokens_today ?? 0),
           daily_token_cap: business.dailyTokenCap,

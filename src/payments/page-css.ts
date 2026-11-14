@@ -48,6 +48,8 @@ body {
 }
 .pay { max-width: 560px; margin: 0 auto; padding: 24px 16px 40px; }
 header { margin-bottom: 16px; }
+header.with-logo { display: flex; align-items: center; gap: 14px; }
+header .logo { width: 56px; height: 56px; flex: none; border-radius: 14px; object-fit: contain; background: #ffffff; border: 1px solid var(--line, #e5e7eb); }
 .business { margin: 0; color: var(--muted); font-weight: 600; }
 h1 { margin: 2px 0 4px; font-size: 1.6rem; line-height: 1.2; }
 h2 { margin: 0 0 12px; font-size: 1.15rem; }
