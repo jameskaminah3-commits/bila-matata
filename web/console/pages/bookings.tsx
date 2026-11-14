@@ -6,7 +6,7 @@
 // place to stay, or the day's schedule for a salon or restaurant. A booking
 // opens in a panel with its price, payments and what the team can do next.
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { api, businessPath } from "../api.ts";
 import { go } from "../app.tsx";
 import { clock, day, timeAgo } from "../format.ts";
@@ -61,12 +61,16 @@ export function BookingsPage(props: { businessId: string; role: Role; bookingId:
     void counts.reload();
   };
   const open = (id: string | null) => go({ businessId: props.businessId, page: "bookings", id });
+  const [markingFull, setMarkingFull] = useState(false);
 
   return (
     <div className="page">
       <div className="page-head row">
         <h1>Bookings</h1>
-        {atLeast(props.role, "agent") ? <Button kind="primary" onClick={() => setCreating(true)}><Icon name="plus" /> New booking</Button> : null}
+        <div className="actions">
+          {atLeast(props.role, "manager") ? <Button onClick={() => setMarkingFull(true)}>We're full</Button> : null}
+          {atLeast(props.role, "agent") ? <Button kind="primary" onClick={() => setCreating(true)}><Icon name="plus" /> New booking</Button> : null}
+        </div>
       </div>
       <Tabs
         label="Bookings"
@@ -87,6 +91,7 @@ export function BookingsPage(props: { businessId: string; role: Role; bookingId:
         ? slots ? <ScheduleView businessId={props.businessId} onOpen={open} /> : <CalendarView businessId={props.businessId} />
         : <BookingTable loaded={list} onOpen={open} filter={filter} slots={slots} />}
       {props.bookingId ? <BookingPanel businessId={props.businessId} role={props.role} bookingId={props.bookingId} onClose={() => open(null)} onChanged={refresh} /> : null}
+      {markingFull ? <MarkFull businessId={props.businessId} rooms={!slots} onClose={() => setMarkingFull(false)} onDone={refresh} /> : null}
       {creating
         ? slots
           ? <NewSlotBooking businessId={props.businessId} onClose={() => setCreating(false)} onCreated={(id) => { setCreating(false); refresh(); open(id); }} />
@@ -406,5 +411,47 @@ function CalendarView(props: { businessId: string }) {
       )}
       <p className="muted small">Rooms free per night. Hover or tap a night to see booked, held (awaiting a deposit or a decision) and closed rooms.</p>
     </div>
+  );
+}
+
+/** "We're full", from a phone: Zaina stops offering those days at once. */
+function MarkFull(props: { businessId: string; rooms: boolean; onClose: () => void; onDone: () => void }) {
+  const iso = (date: Date) => `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+  const plus = (days: number) => { const date = new Date(); date.setDate(date.getDate() + days); return date; };
+  const saturday = (() => { const date = new Date(); date.setDate(date.getDate() + ((6 - date.getDay() + 7) % 7)); return date; })();
+  const afterWeekend = new Date(saturday); afterWeekend.setDate(saturday.getDate() + 2);
+  const quick = [
+    { label: props.rooms ? "Tonight" : "Today", from: iso(plus(0)), until: iso(plus(1)) },
+    { label: props.rooms ? "Tomorrow night" : "Tomorrow", from: iso(plus(1)), until: iso(plus(2)) },
+    { label: "This weekend", from: iso(saturday), until: iso(afterWeekend) },
+  ];
+  const [range, setRange] = useState({ from: quick[0].from, until: quick[0].until, reason: "" });
+  const action = useAction();
+  const done = useRef(false);
+  return (
+    <Modal title="We're full" onClose={props.onClose}>
+      <form
+        className="form"
+        onSubmit={async (event) => {
+          event.preventDefault();
+          const ok = await action.run(() => api("POST", businessPath(props.businessId, "/mark-full"), range), props.rooms ? "Done: every room is closed for those nights. Zaina won't offer them." : "Done: closed for those days. Zaina won't offer them.");
+          if (ok) { done.current = true; props.onDone(); }
+        }}
+      >
+        <p className="muted">Sold out somewhere else? {props.rooms ? "Close every room" : "Close the business"} for those {props.rooms ? "nights" : "days"} and Zaina stops offering them at once. Reopen any time under {props.rooms ? "Rooms → Closed dates" : "Services → Closures"}.</p>
+        <div className="quick-choices" role="group" aria-label="Quick choices">
+          {quick.map((choice) => (
+            <button type="button" key={choice.label} className={`quick-choice${range.from === choice.from && range.until === choice.until ? " on" : ""}`} onClick={() => setRange({ ...range, from: choice.from, until: choice.until })}>{choice.label}</button>
+          ))}
+        </div>
+        <div className="form-row">
+          <Field label={props.rooms ? "First night full" : "First day closed"}><input type="date" required value={range.from} onChange={(event) => setRange({ ...range, from: event.target.value })} /></Field>
+          <Field label="Open again on"><input type="date" required min={range.from} value={range.until} onChange={(event) => setRange({ ...range, until: event.target.value })} /></Field>
+        </div>
+        <Field label="Note for your team (optional)"><input maxLength={200} value={range.reason} onChange={(event) => setRange({ ...range, reason: event.target.value })} placeholder="Booked by phone" /></Field>
+        <Message message={action.message} />
+        <div className="actions"><Button onClick={props.onClose}>{done.current ? "Close" : "Cancel"}</Button><Button kind="primary" type="submit" busy={action.busy}>Mark full</Button></div>
+      </form>
+    </Modal>
   );
 }

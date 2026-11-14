@@ -296,7 +296,14 @@ export const leads = pgTable("leads", {
   teamNote: text("team_note"),
   handledBy: uuid("handled_by"),
   updatedAt: at("updated_at"),
+  // Migration 0022: a request for something not listed, or a call back at a chosen time.
+  kind: text("kind").$type<LeadKind>().notNull().default("lead"),
+  callbackAt: timestamp("callback_at", { withTimezone: true, mode: "date" }),
+  callbackWindow: text("callback_window"),
+  callbackRemindedAt: timestamp("callback_reminded_at", { withTimezone: true, mode: "date" }),
 });
+export const leadKinds = ["lead", "request", "callback"] as const;
+export type LeadKind = (typeof leadKinds)[number];
 export const leadStatuses = ["new", "contacted", "won", "lost"] as const;
 export type LeadStatus = (typeof leadStatuses)[number];
 export type Lead = typeof leads.$inferSelect;

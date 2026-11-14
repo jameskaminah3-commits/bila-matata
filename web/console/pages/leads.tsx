@@ -15,7 +15,11 @@ type LeadStatus = "new" | "contacted" | "won" | "lost";
 type Lead = {
   id: number; sessionId: string | null; name: string; email: string | null; phone: string | null; interest: string | null; notes: string | null;
   createdAt: string; status: LeadStatus; teamNote: string | null; updatedAt: string | null; channel: "web" | "whatsapp" | null;
+  kind?: "lead" | "request" | "callback"; callbackAt?: string | null; callbackWindow?: string | null;
 };
+
+/** When a callback is due, in the reader's own words of time. */
+const callTime = (iso: string) => new Date(iso).toLocaleString(undefined, { weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
 type Filter = "open" | LeadStatus | "all";
 
 const STATUS_TEXT: Record<LeadStatus, string> = { new: "New", contacted: "Contacted", won: "Became a customer", lost: "Not going ahead" };
@@ -77,7 +81,7 @@ function LeadCard(props: { lead: Lead; businessId: string; busy: boolean; onUpda
     <article className={`card lead ${lead.status}`}>
       <div className="lead-head">
         <div>
-          <h2>{lead.name}</h2>
+          <h2>{lead.name}{lead.kind === "request" ? <span className="chip warn lead-kind">Request</span> : lead.kind === "callback" ? <span className="chip ok lead-kind">Call back</span> : null}</h2>
           <p className="muted small">
             {timeAgo(lead.createdAt)}{lead.channel ? ` · ${lead.channel === "whatsapp" ? "WhatsApp" : "website chat"}` : ""}
             {lead.updatedAt && lead.status !== "new" ? ` · ${STATUS_TEXT[lead.status].toLowerCase()} ${timeAgo(lead.updatedAt)}` : ""}
@@ -90,8 +94,9 @@ function LeadCard(props: { lead: Lead; businessId: string; busy: boolean; onUpda
           </select>
         </label>
       </div>
-      {lead.interest ? <p><strong>Wants:</strong> {lead.interest}</p> : null}
-      {lead.notes ? <p className="muted">{lead.notes}</p> : null}
+      {lead.kind === "callback" ? <p className="lead-callback"><strong>Call {lead.callbackAt ? callTime(lead.callbackAt) : lead.callbackWindow ?? "soon"}</strong>{lead.callbackAt && lead.callbackWindow ? <span className="muted"> ({lead.callbackWindow})</span> : null}</p> : null}
+      {lead.interest ? <p><strong>{lead.kind === "request" ? "Asks for:" : lead.kind === "callback" ? "About:" : "Wants:"}</strong> {lead.interest}</p> : null}
+      {lead.notes ? <p className="muted lead-notes">{lead.notes}</p> : null}
       <div className="lead-contact">
         {lead.phone ? <a className="button secondary small" href={`tel:${lead.phone.replace(/[^\d+]/g, "")}`}>Call {lead.phone}</a> : null}
         {whatsapp ? <a className="button secondary small" href={`https://wa.me/${whatsapp}`} target="_blank" rel="noopener noreferrer">WhatsApp</a> : null}

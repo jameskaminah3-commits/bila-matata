@@ -31,6 +31,7 @@ import { deletePushSubscription, markPushSubscriptionUsed } from "../db/platform
 import type { Business } from "../db/schema.ts";
 import { inBusiness } from "../db/tenant.ts";
 import { getBusinessSettings } from "../businesses/settings.ts";
+import { oneTapLinks } from "../booking/one-tap.ts";
 import { notifyRecipients, type RecipientAlert } from "../notifications/dispatch.ts";
 
 export type AlertEvent =
@@ -42,7 +43,7 @@ export type AlertEvent =
   /** Something about a booking needs the team, or is worth knowing. */
   | { kind: "booking"; what: "request" | "confirmed" | "conflict" | "code"; bookingId: string; sessionId: string | null; summary: string }
   /** Someone left their details for the team to get back to them. */
-  | { kind: "lead"; leadId: number; sessionId: string | null; summary: string }
+  | { kind: "lead"; leadId: number; sessionId: string | null; summary: string; title?: string; urgent?: boolean }
   /** The team closed a chat: the addresses that asked for transcripts get it. */
   | { kind: "chat-closed"; sessionId: string };
 
@@ -58,7 +59,7 @@ export function pushPublicKey(): string | null {
 }
 
 type Person = { id: string; name: string; email: string; role: string; alertEmail: boolean };
-type Alert = { title: string; body: string; sessionId: string | null; urgent: boolean; bookingId?: string; leadId?: number };
+type Alert = { title: string; body: string; sessionId: string | null; urgent: boolean; bookingId?: string; leadId?: number; oneTap?: boolean };
 
 /** Everyone who works for the business, with their role. */
 async function peopleOf(businessId: string): Promise<Person[]> {
@@ -155,13 +156,14 @@ async function plan(business: Business, event: AlertEvent): Promise<{ people: Pe
     case "booking":
       return {
         people: people.filter(event.what === "conflict" ? runsTheBusiness : answersChats),
-        alert: { ...BOOKING_ALERTS[event.what], body: event.summary, sessionId: event.sessionId, bookingId: event.bookingId },
+        // A request can be accepted or declined straight from the email.
+        alert: { ...BOOKING_ALERTS[event.what], body: event.summary, sessionId: event.sessionId, bookingId: event.bookingId, oneTap: event.what === "request" },
         email: true,
       };
     case "lead":
       return {
         people: people.filter(answersChats),
-        alert: { title: "A customer wants you to get back to them", body: event.summary, sessionId: event.sessionId, leadId: event.leadId, urgent: false },
+        alert: { title: event.title ?? "A customer wants you to get back to them", body: event.summary, sessionId: event.sessionId, leadId: event.leadId, urgent: event.urgent ?? false },
         email: true,
       };
     case "spend-cap":
@@ -232,6 +234,13 @@ async function sendPushes(businessId: string, people: Person[], alert: Alert, bu
   return sent;
 }
 
+/** For a booking request: accept or decline in one tap, from the email (links signed for this person, valid for 3 days). */
+function oneTapLines(businessId: string, alert: Alert, person: Person): string[] {
+  if (!alert.oneTap || !alert.bookingId) return [];
+  const links = oneTapLinks(businessId, alert.bookingId, person.id);
+  return links ? [`Accept it: ${links.accept}`, `Decline it: ${links.decline}`, ""] : [];
+}
+
 async function sendEmails(businessId: string, people: Person[], alert: Alert, businessName: string): Promise<number> {
   const config = settings.alertEmail;
   const recipients = people.filter((person) => person.alertEmail);
@@ -251,6 +260,7 @@ async function sendEmails(businessId: string, people: Person[], alert: Alert, bu
             "",
             alert.body,
             "",
+            ...oneTapLines(businessId, alert, person),
             settings.publicBaseUrl
               ? `${alert.bookingId ? "Open the booking" : alert.leadId ? "Open your leads" : "Open the chat"}: ${consoleLink(businessId, alert)}`
               : `Open the Zaina console to see the ${alert.bookingId ? "booking" : alert.leadId ? "lead" : "chat"}.`,

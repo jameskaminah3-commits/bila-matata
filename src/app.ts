@@ -53,6 +53,9 @@ import { registerNotificationRoutes } from "./notifications/routes.ts";
 import { registerFrontDoorRoutes } from "./frontdoor/routes.ts";
 import { registerCardRoutes } from "./cards/routes.ts";
 import { registerInterviewRoutes } from "./onboarding/interview-routes.ts";
+import { registerOneTapRoutes } from "./booking/one-tap.ts";
+import { registerMarkFullRoutes } from "./booking/mark-full.ts";
+import { registerLeadExtras, sweepCallbacks } from "./leads/extra-tools.ts";
 import { syncWebsites } from "./knowledge/website-import.ts";
 import { STUDIO } from "./studio/brand.ts";
 import { configureStudioPay, sweepStudio } from "./studio/pay.ts";
@@ -116,6 +119,7 @@ export function createApp(config: PlatformConfig, engine: EngineOptions, whatsap
   setPlanCheck(planStep);
   setWhatsappRuntime(whatsapp);
 
+  registerExtrasOnce();
   const app = express();
   app.disable("x-powered-by");
   app.set("trust proxy", config.trustProxy);
@@ -165,6 +169,8 @@ export function createApp(config: PlatformConfig, engine: EngineOptions, whatsap
   registerFrontDoorRoutes(app, config);
   registerCardRoutes(app, config);
   registerInterviewRoutes(app, config);
+  registerOneTapRoutes(app, config);
+  registerMarkFullRoutes(app, config);
   registerConsoleRoutes(app, config);
 
   app.use((_req: Request, res: Response) => {
@@ -179,6 +185,14 @@ export function createApp(config: PlatformConfig, engine: EngineOptions, whatsap
     res.status(status).json({ error: status === 400 ? "invalid_json" : "server_error" });
   });
   return app;
+}
+
+let extrasRegistered = false;
+/** Features that add tools or instructions to Zaina, registered once per process. */
+function registerExtrasOnce(): void {
+  if (extrasRegistered) return;
+  extrasRegistered = true;
+  registerLeadExtras();
 }
 
 function every(label: string, ms: number, job: () => Promise<unknown>): NodeJS.Timeout {
@@ -263,6 +277,8 @@ export async function startServer(config: PlatformConfig): Promise<{ server: Ser
     ...(whatsapp ? [every("whatsapp", Number(process.env.WHATSAPP_SWEEP_INTERVAL_MS ?? "") || 5_000, () => sweepWhatsapp(whatsapp))] : []),
     // Busy times from connected calendars and iCal links in; confirmed bookings out to Google Calendar.
     every("calendars", Number(process.env.CALENDAR_SYNC_INTERVAL_MS ?? "") || 10 * 60_000, () => syncAllCalendars()),
+    // Callbacks customers asked for: the team is reminded when one is due.
+    every("callbacks", Number(process.env.CALLBACK_SWEEP_INTERVAL_MS ?? "") || 60_000, () => sweepCallbacks()),
     // Websites a business asked to keep in step with: read again every week.
     every("websites", Number(process.env.WEBSITE_SYNC_INTERVAL_MS ?? "") || 60 * 60_000, () => syncWebsites()),
     // Plans move on: invoices out a week ahead, overdue ones marked, unpaid businesses paused, ended plans closed.

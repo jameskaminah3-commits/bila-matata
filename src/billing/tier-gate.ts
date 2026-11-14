@@ -11,7 +11,7 @@ import { anyBusinessById } from "../businesses/registry.ts";
 
 /** The staff API's sections that belong to the Full tier. */
 export const FULL_TIER_SECTIONS = new Set([
-  "blocks", "booking-settings", "bookings", "calendar", "calendars", "closures", "offerings", "payments", "quote", "resources", "schedule", "slots",
+  "blocks", "booking-settings", "mark-full", "bookings", "calendar", "calendars", "closures", "offerings", "payments", "quote", "resources", "schedule", "slots",
 ]);
 
 export const FULL_TIER_MESSAGE = "Availability, bookings, payments and calendars are part of the Full Booking & Quote Engine plan. Upgrade in Settings → Plan & billing, or ask the Zaina team.";

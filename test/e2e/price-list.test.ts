@@ -108,7 +108,7 @@ test("the team pastes the list it has: checked first, then added; pasting again 
 
 test("Zaina quotes the list exactly, never a hidden item, and says when something isn't listed", async () => {
   const chat = await openChat("dhow", SITE);
-  assert.match(await say(chat, SITE, "TEST:whoami"), /Tools: create_lead, search_knowledge, escalate_to_human, get_prices\./);
+  assert.match(await say(chat, SITE, "TEST:whoami"), /Tools: create_lead, search_knowledge, escalate_to_human, get_prices, pass_request_to_team, schedule_callback\./);
   const snorkel = await say(chat, SITE, raw64("get_prices", { query: "snorkelling trip" }));
   assert.match(snorkel, /Kisite snorkelling \(half day\): KSh 6,000–7,500/);
 
