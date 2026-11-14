@@ -42,6 +42,7 @@ import { businessDay, claimCapAlert, isOverCap, modelForUsage, recordUsage, usag
 import { runSearchKnowledge, SEARCH_KNOWLEDGE } from "../knowledge/tool.ts";
 import { GET_PRICES, runGetPrices } from "../prices/tool.ts";
 import { withConciergeGuidance } from "./concierge.ts";
+import { extrasFor } from "./extras.ts";
 import { afterFailedTurn } from "./failure-policy.ts";
 import { buildHistory, MAX_EVENTS } from "./history.ts";
 import { withServerIdempotencyKey } from "./idempotency.ts";
@@ -301,8 +302,11 @@ async function runLockedTurn(input: TurnInput, connector: BusinessConnector, rec
   const turnPayments: PaymentDetails[] = [];
   const budget = createTurnBudget(options.turnBudgetMs);
   // The connector says where facts come from; the shared guidance says how to help well with them.
-  const systemInstruction = withConciergeGuidance(await connector.systemPrompt(business));
-  const tools = [{ functionDeclarations: toolDeclarationsFor(business, connector) }];
+  // Then the business's own additions: its industry's playbook, and any extra tools.
+  const extras = await extrasFor(business);
+  const extraTools = new Map(extras.tools.map((tool) => [tool.declaration.name!, tool]));
+  const systemInstruction = withConciergeGuidance(await connector.systemPrompt(business)) + extras.prompt;
+  const tools = [{ functionDeclarations: [...toolDeclarationsFor(business, connector), ...extras.tools.map((tool) => tool.declaration)] }];
 
   let finalText: string | null = null;
   // True when the reply is a fixed message written by a tool (tell_customer):
@@ -345,7 +349,9 @@ async function runLockedTurn(input: TurnInput, connector: BusinessConnector, rec
           ? await runSearchKnowledge(toolArgs, { businessId: business.id, sessionId })
           : call.name === GET_PRICES && !TYPES_WITH_OWN_CONNECTOR.has(business.businessType)
             ? await runGetPrices(toolArgs, { businessId: business.id, sessionId })
-            : await connector.executeTool(call.name, toolArgs, { business, sessionId });
+            : extraTools.has(call.name)
+              ? await extraTools.get(call.name)!.run(toolArgs, { business, sessionId, language })
+              : await connector.executeTool(call.name, toolArgs, { business, sessionId });
       recorder.addTool(call.name, Date.now() - startedAt);
       return { call, toolResponseData };
     } catch (error) {
@@ -375,7 +381,7 @@ async function runLockedTurn(input: TurnInput, connector: BusinessConnector, rec
       contents.push(modelContent);
 
       const canRunInParallel = functionCallParts.length > 1
-        && functionCallParts.every((part: any) => isReadOnlyTool(part.functionCall?.name, connector));
+        && functionCallParts.every((part: any) => isReadOnlyTool(part.functionCall?.name, connector) || extraTools.get(part.functionCall?.name)?.readOnly === true);
       const toolResults = canRunInParallel
         ? await Promise.all(functionCallParts.map(runToolCall))
         : await (async () => {

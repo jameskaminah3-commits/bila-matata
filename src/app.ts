@@ -52,6 +52,8 @@ import { registerSupportRoutes } from "./support/routes.ts";
 import { registerNotificationRoutes } from "./notifications/routes.ts";
 import { registerFrontDoorRoutes } from "./frontdoor/routes.ts";
 import { registerCardRoutes } from "./cards/routes.ts";
+import { registerInterviewRoutes } from "./onboarding/interview-routes.ts";
+import { syncWebsites } from "./knowledge/website-import.ts";
 import { STUDIO } from "./studio/brand.ts";
 import { configureStudioPay, sweepStudio } from "./studio/pay.ts";
 import { registerStudioRoutes } from "./studio/routes.ts";
@@ -162,6 +164,7 @@ export function createApp(config: PlatformConfig, engine: EngineOptions, whatsap
   registerNotificationRoutes(app, config);
   registerFrontDoorRoutes(app, config);
   registerCardRoutes(app, config);
+  registerInterviewRoutes(app, config);
   registerConsoleRoutes(app, config);
 
   app.use((_req: Request, res: Response) => {
@@ -260,6 +263,8 @@ export async function startServer(config: PlatformConfig): Promise<{ server: Ser
     ...(whatsapp ? [every("whatsapp", Number(process.env.WHATSAPP_SWEEP_INTERVAL_MS ?? "") || 5_000, () => sweepWhatsapp(whatsapp))] : []),
     // Busy times from connected calendars and iCal links in; confirmed bookings out to Google Calendar.
     every("calendars", Number(process.env.CALENDAR_SYNC_INTERVAL_MS ?? "") || 10 * 60_000, () => syncAllCalendars()),
+    // Websites a business asked to keep in step with: read again every week.
+    every("websites", Number(process.env.WEBSITE_SYNC_INTERVAL_MS ?? "") || 60 * 60_000, () => syncWebsites()),
     // Plans move on: invoices out a week ahead, overdue ones marked, unpaid businesses paused, ended plans closed.
     every("billing", Number(process.env.BILLING_SWEEP_INTERVAL_MS ?? "") || 5 * 60_000, async () => {
       const moved = await sweepBilling();

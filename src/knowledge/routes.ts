@@ -26,14 +26,19 @@ import { searchKnowledge } from "./search.ts";
 import {
   deleteKnowledgeSource,
   getKnowledgeSource,
+  knowledgeSourceByTitle,
   listKnowledgeMisses,
   listKnowledgeSources,
   MAX_KNOWLEDGE_CHARS,
+  resolveKnowledgeMiss,
   saveKnowledgeSource,
   validateKnowledgeInput,
   type SaveResult,
 } from "./store.ts";
-import { kindOfPage, MAX_WEBSITE_PAGES, pageTitles, readWebsite } from "./website.ts";
+import { MAX_WEBSITE_PAGES } from "./website.ts";
+import { importWebsite } from "./website-import.ts";
+import { ANSWERS_SOURCE_TITLE, withAnswer } from "../onboarding/interview.ts";
+import { getBusinessSettings, updateBusinessSettings } from "../businesses/settings.ts";
 
 /** Knowledge routes take bigger bodies than the rest of the API. */
 export const KNOWLEDGE_PATH = /^\/v1\/staff\/businesses\/[^/]+\/knowledge(?:\/|$)/;
@@ -78,6 +83,58 @@ export function registerKnowledgeRoutes(app: Express, secret: string): void {
     try {
       const days = Math.min(365, Math.max(1, Number(req.query.days ?? 30) || 30));
       res.json({ days, misses: await listKnowledgeMisses(staffOf(req).business!.id, days) });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // Answer once, and Zaina knows it: the answer joins the team's answers document, and the question is resolved.
+  app.post(`${base}/misses/answer`, knowledgeBody, staff, requireBusinessRole("agent"), async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { business, user } = staffOf(req);
+      const question = typeof req.body?.question === "string" ? req.body.question.trim() : "";
+      const answer = typeof req.body?.answer === "string" ? req.body.answer.replace(/\r\n?/g, "\n").trim() : "";
+      if (question.length < 2 || question.length > 300) return res.status(400).json({ error: "invalid_question", message: "The question is 2 to 300 characters." });
+      if (answer.length < 2 || answer.length > 4000) return res.status(400).json({ error: "invalid_answer", message: "Write an answer of up to 4,000 characters." });
+      const current = await knowledgeSourceByTitle(business!.id, ANSWERS_SOURCE_TITLE);
+      const content = withAnswer(current?.content ?? null, question, answer);
+      if (content.length > MAX_KNOWLEDGE_CHARS) return res.status(400).json({ error: "too_long", message: "Your answers document is full: move some answers into documents of their own." });
+      const result = await saveKnowledgeSource(business!.id, { title: ANSWERS_SOURCE_TITLE, kind: "faq", url: null, language: "en", content, status: "published" }, user.id, current?.id);
+      const resolved = await resolveKnowledgeMiss(business!.id, question, "answered", user.id);
+      res.json({ ...saved(result!), resolved });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post(`${base}/misses/dismiss`, knowledgeBody, staff, requireBusinessRole("agent"), async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { business, user } = staffOf(req);
+      const question = typeof req.body?.question === "string" ? req.body.question.trim() : "";
+      if (!question) return res.status(400).json({ error: "invalid_question" });
+      res.json({ resolved: await resolveKnowledgeMiss(business!.id, question, "dismissed", user.id) });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // Reading the website again every week (or not).
+  app.get(`${base}/website-sync`, staff, requireBusinessRole("viewer"), async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.json({ sync: (await getBusinessSettings(staffOf(req).business!.id))?.websiteSync ?? null });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.patch(`${base}/website-sync`, knowledgeBody, staff, requireBusinessRole("manager"), async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { business, user } = staffOf(req);
+      if (typeof req.body?.weekly !== "boolean") return res.status(400).json({ error: "invalid_weekly", message: "weekly is true or false." });
+      const sync = (await getBusinessSettings(business!.id))?.websiteSync;
+      if (!sync) return res.status(409).json({ error: "no_website", message: "Read your website once first; then it can be read again every week." });
+      const updated = await updateBusinessSettings(business!.id, { websiteSync: { ...sync, weekly: req.body.weekly } }, user.id);
+      res.json({ sync: updated.websiteSync });
     } catch (error) {
       next(error);
     }
@@ -130,32 +187,20 @@ export function registerKnowledgeRoutes(app: Express, secret: string): void {
         res.setHeader("Retry-After", String(verdict.retryAfterSeconds));
         return res.status(429).json({ error: "rate_limited", message: "The website was read several times this hour. Please try again later." });
       }
-      let read;
+      let result;
       try {
-        read = await readWebsite(address, { maxPages });
+        result = await importWebsite(business!.id, address, { maxPages, status, userId: user.id });
       } catch (error) {
         if (error instanceof PublicFetchError) return res.status(400).json({ error: "website_unreadable", message: `The website couldn't be read: ${error.message}` });
         throw error;
       }
-      // A page never replaces a source the team wrote (same title, not from this page): it takes a title of its own.
-      const existing = new Map((await listKnowledgeSources(business!.id)).map((source) => [source.title, source.url]));
-      const titles = pageTitles(read.pages).map((title, index) => {
-        const url = read.pages[index].url;
-        if (!existing.has(title) || existing.get(title) === url) return title;
-        let own = `${title.slice(0, 185)} (website)`;
-        for (let n = 2; existing.has(own) && existing.get(own) !== url; n += 1) own = `${title.slice(0, 180)} (website ${n})`;
-        return own;
-      });
-      const pages = [];
-      for (const [index, page] of read.pages.entries()) {
-        const checked = validateKnowledgeInput({ title: titles[index], kind: kindOfPage(page), url: page.url, content: page.text.slice(0, MAX_KNOWLEDGE_CHARS), status });
-        if (!checked.ok) {
-          read.skipped.push({ url: page.url, reason: checked.error });
-          continue;
-        }
-        pages.push({ ...saved((await saveKnowledgeSource(business!.id, checked.value, user.id))!), url: page.url });
-      }
-      res.json({ site: read.site, pages, skipped: read.skipped, description: read.pages[0]?.description ?? null });
+      // Remembered, so it can be read again every week if the team wants (website sync).
+      const previous = (await getBusinessSettings(business!.id))?.websiteSync;
+      const weekly = typeof req.body?.weekly === "boolean" ? req.body.weekly : previous?.weekly ?? false;
+      await updateBusinessSettings(business!.id, { websiteSync: { url: address, maxPages, weekly, lastReadAt: new Date().toISOString(), lastPages: result.pages.length, lastSkipped: result.skipped.length, lastError: null } }, user.id);
+      const read = { site: result.site, skipped: result.skipped, pages: [{ description: result.description }] };
+      const pages = result.pages.map((page) => ({ ...saved(page.saved), url: page.url }));
+      res.json({ site: read.site, pages, skipped: read.skipped, description: read.pages[0]?.description ?? null, weekly });
     } catch (error) {
       next(error);
     }

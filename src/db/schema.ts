@@ -221,6 +221,9 @@ export const staffPushSubscriptions = pgTable("staff_push_subscriptions", {
   lastUsedAt: at("last_used_at"),
 });
 
+import type { Industry } from "../engine/playbooks.ts";
+export type WebsiteSync = { url: string; maxPages: number; weekly: boolean; lastReadAt: string | null; lastPages: number; lastSkipped: number; lastError: string | null };
+
 export const qrDestinations = ["page", "website", "whatsapp"] as const;
 export type QrDestination = (typeof qrDestinations)[number];
 export const cardDesigns = ["signature", "minimal", "bold"] as const;
@@ -256,6 +259,12 @@ export const businessSettings = pgTable("business_settings", {
   qrDestination: text("qr_destination").$type<QrDestination>().notNull().default("page"),
   /** What its business cards say, and which design (migration 0020). */
   cardDetails: jsonb("card_details").$type<CardDetails | null>(),
+  /** What kind of business it is, for Zaina's playbook (migration 0021); empty: it follows from the type. */
+  industry: text("industry").$type<Industry | null>(),
+  /** The setup interview's answers (migration 0021). */
+  interview: jsonb("interview").$type<{ answers: Record<string, string>; updatedAt: string } | null>(),
+  /** The website Zaina reads, and whether it's read again every week (migration 0021). */
+  websiteSync: jsonb("website_sync").$type<WebsiteSync | null>(),
   updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
   updatedBy: uuid("updated_by"),
 });
@@ -326,6 +335,10 @@ export const knowledgeMisses = pgTable("knowledge_misses", {
   sessionId: uuid("session_id"),
   query: text("query").notNull(),
   createdAt: createdAt(),
+  /** answered (it became knowledge) or dismissed, by the team (migration 0021). */
+  resolution: text("resolution").$type<"answered" | "dismissed" | null>(),
+  resolvedAt: timestamp("resolved_at", { withTimezone: true, mode: "date" }),
+  resolvedBy: uuid("resolved_by"),
 });
 
 export const followupParameters = ["none", "business_name", "customer_name"] as const;

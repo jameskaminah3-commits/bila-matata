@@ -171,8 +171,28 @@ export async function listKnowledgeMisses(businessId: string, days: number) {
       lastAsked: sql<Date>`max(${knowledgeMisses.createdAt})`,
     })
     .from(knowledgeMisses)
-    .where(and(eq(knowledgeMisses.businessId, businessId), sql`${knowledgeMisses.createdAt} >= ${since}`))
+    .where(and(eq(knowledgeMisses.businessId, businessId), sql`${knowledgeMisses.createdAt} >= ${since}`, sql`${knowledgeMisses.resolution} is null`))
     .groupBy(sql`lower(${knowledgeMisses.query})`)
     .orderBy(desc(sql`count(*)`), desc(sql`max(${knowledgeMisses.createdAt})`))
     .limit(100), businessId);
+}
+
+/** Marks a question (every time it was asked, in any letter case) as answered or dismissed. */
+export async function resolveKnowledgeMiss(businessId: string, query: string, resolution: "answered" | "dismissed", by: string): Promise<number> {
+  const rows = await inBusiness((db) => db
+    .update(knowledgeMisses)
+    .set({ resolution, resolvedAt: new Date(), resolvedBy: by })
+    .where(and(eq(knowledgeMisses.businessId, businessId), sql`lower(${knowledgeMisses.query}) = lower(${query})`, sql`${knowledgeMisses.resolution} is null`))
+    .returning({ id: knowledgeMisses.id }), businessId);
+  return rows.length;
+}
+
+/** A source by its exact title, with its text. */
+export async function knowledgeSourceByTitle(businessId: string, title: string): Promise<KnowledgeSource | undefined> {
+  const [row] = await inBusiness((db) => db
+    .select()
+    .from(knowledgeSources)
+    .where(and(eq(knowledgeSources.businessId, businessId), eq(knowledgeSources.title, title)))
+    .limit(1), businessId);
+  return row;
 }

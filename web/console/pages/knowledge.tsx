@@ -20,6 +20,7 @@ type WebsiteImport = {
   site: string;
   pages: Array<{ url: string; source: { title: string; kind: string; status: string }; passages: number; hidden_amounts: number; unchanged: boolean }>;
   skipped: Array<{ url: string; reason: string }>;
+  weekly?: boolean;
   description: string | null;
 };
 
@@ -48,7 +49,7 @@ async function readFile(file: File): Promise<{ text: string; note: string | null
 }
 
 export function KnowledgePage(props: { businessId: string; role: Role }) {
-  const [tab, setTab] = useState<"sources" | "check" | "missed">("sources");
+  const [tab, setTab] = useState<"sources" | "interview" | "check" | "missed">("sources");
   const canEdit = atLeast(props.role, "manager");
   return (
     <div className="page">
@@ -62,6 +63,7 @@ export function KnowledgePage(props: { businessId: string; role: Role }) {
         onChange={setTab}
         tabs={[
           { id: "sources", label: "Documents" },
+          { id: "interview", label: "Setup interview" },
           { id: "check", label: "Check a question" },
           ...(atLeast(props.role, "agent") ? [{ id: "missed" as const, label: "Unanswered questions" }] : []),
         ]}
@@ -69,6 +71,7 @@ export function KnowledgePage(props: { businessId: string; role: Role }) {
       {tab === "sources" ? <Sources businessId={props.businessId} canEdit={canEdit} /> : null}
       {tab === "check" ? <Check businessId={props.businessId} /> : null}
       {tab === "missed" ? <Missed businessId={props.businessId} /> : null}
+      {tab === "interview" ? <Interview businessId={props.businessId} canEdit={canEdit} /> : null}
     </div>
   );
 }
@@ -245,6 +248,7 @@ function ReadWebsite(props: { businessId: string; onClose: () => void; onRead: (
   const [address, setAddress] = useState<string | null>(null);
   const [pages, setPages] = useState("10");
   const [status, setStatus] = useState<"published" | "draft">("published");
+  const [weekly, setWeekly] = useState(true);
   const [result, setResult] = useState<WebsiteImport | null>(null);
   const action = useAction();
   const value = address ?? settings.data?.settings.websiteUrl ?? "";
@@ -266,7 +270,7 @@ function ReadWebsite(props: { businessId: string; onClose: () => void; onRead: (
               <ul className="plain-list small">{result.skipped.map((entry) => <li key={entry.url}><span className="ellipsis">{entry.url}</span>: {entry.reason}</li>)}</ul>
             </details>
           ) : null}
-          <p className="muted small">Check the pages under Documents: edit or delete anything out of date. Read the website again after you change it.</p>
+          <p className="muted small">Check the pages under Documents: edit or delete anything out of date. {result.weekly ? "Zaina reads your website again every week, so changes you make there reach her by themselves." : "Read the website again after you change it."}</p>
           <div className="actions"><Button kind="primary" onClick={props.onClose}>Done</Button></div>
         </div>
       ) : (
@@ -275,7 +279,7 @@ function ReadWebsite(props: { businessId: string; onClose: () => void; onRead: (
           onSubmit={async (event) => {
             event.preventDefault();
             await action.run(async () => {
-              setResult(await api<WebsiteImport>("POST", businessPath(props.businessId, "/knowledge/import-website"), { url: value.trim(), max_pages: Number(pages), status }));
+              setResult(await api<WebsiteImport>("POST", businessPath(props.businessId, "/knowledge/import-website"), { url: value.trim(), max_pages: Number(pages), status, weekly }));
               await props.onRead();
             });
           }}
@@ -297,6 +301,7 @@ function ReadWebsite(props: { businessId: string; onClose: () => void; onRead: (
               </select>
             </Field>
           </div>
+          <label className="check"><input type="checkbox" checked={weekly} onChange={(event) => setWeekly(event.target.checked)} /><span>Keep in step: read it again every week, so Zaina knows what you change</span></label>
           {action.busy ? <p className="muted small" aria-live="polite">Reading your website: this can take up to a minute…</p> : null}
           <Message message={action.message} />
           <div className="actions">
@@ -345,21 +350,125 @@ function Check(props: { businessId: string }) {
 
 function Missed(props: { businessId: string }) {
   const misses = useLoad(() => api<{ misses: Array<{ query: string; times: number; lastAsked: string }> }>("GET", businessPath(props.businessId, "/knowledge/misses?days=30")), [props.businessId]);
+  const [open, setOpen] = useState<string | null>(null);
+  const [answer, setAnswer] = useState("");
+  const [gone, setGone] = useState<Set<string>>(new Set());
+  const action = useAction();
+  const list = (misses.data?.misses ?? []).filter((miss) => !gone.has(miss.query));
+  const resolve = (query: string) => setGone(new Set([...gone, query]));
   return (
     <section>
-      <p className="muted">Questions from the last 30 days that no document answered. Each one is a document worth adding.</p>
+      <p className="muted">Questions from the last 30 days that Zaina couldn't answer. Answer one here and she knows it from the next chat: your answer joins "Answers from our team" under Documents.</p>
       <ErrorLine error={misses.error} />
-      {misses.data && misses.data.misses.length === 0 ? <Empty title="Every question found an answer" /> : null}
-      {misses.data && misses.data.misses.length > 0 ? (
-        <table className="table">
-          <thead><tr><th>Question</th><th className="number">Times asked</th><th>Last asked</th></tr></thead>
-          <tbody>
-            {misses.data.misses.map((miss) => (
-              <tr key={miss.query}><td>{miss.query}</td><td className="number">{miss.times}</td><td className="muted">{timeAgo(miss.lastAsked)}</td></tr>
-            ))}
-          </tbody>
-        </table>
+      <Message message={action.message} />
+      {misses.data && list.length === 0 ? <Empty title="Every question found an answer" /> : null}
+      {list.length > 0 ? (
+        <ul className="miss-list">
+          {list.map((miss) => (
+            <li key={miss.query} className="miss">
+              <div className="miss-head">
+                <div className="miss-question"><strong>{miss.query}</strong><span className="muted small">Asked {miss.times} time{miss.times === 1 ? "" : "s"} · last {timeAgo(miss.lastAsked)}</span></div>
+                {open !== miss.query ? (
+                  <div className="actions">
+                    <Button small kind="primary" onClick={() => { setOpen(miss.query); setAnswer(""); action.setMessage(null); }}>Answer</Button>
+                    <Button small kind="ghost" busy={action.busy} onClick={() => void action.run(async () => {
+                      await api("POST", businessPath(props.businessId, "/knowledge/misses/dismiss"), { question: miss.query });
+                      resolve(miss.query);
+                    }, "Dismissed.")}>Not relevant</Button>
+                  </div>
+                ) : null}
+              </div>
+              {open === miss.query ? (
+                <form
+                  className="form miss-answer"
+                  onSubmit={async (event) => {
+                    event.preventDefault();
+                    await action.run(async () => {
+                      await api("POST", businessPath(props.businessId, "/knowledge/misses/answer"), { question: miss.query, answer });
+                      resolve(miss.query);
+                      setOpen(null);
+                    }, "Saved. Zaina answers this from the next chat.");
+                  }}
+                >
+                  <Field label="Your answer" hint="Write it the way you'd tell a customer. No prices here: they come from your price list."><textarea rows={3} required maxLength={4000} value={answer} onChange={(event) => setAnswer(event.target.value)} autoFocus /></Field>
+                  <div className="actions"><Button small onClick={() => setOpen(null)}>Cancel</Button><Button small kind="primary" type="submit" busy={action.busy}>Save answer</Button></div>
+                </form>
+              ) : null}
+            </li>
+          ))}
+        </ul>
       ) : null}
     </section>
+  );
+}
+
+type InterviewView = {
+  industry: string;
+  chosen: boolean;
+  industries: Array<{ id: string; label: string }>;
+  questions: Array<{ id: string; section: string; question: string; hint?: string; long?: boolean }>;
+  answers: Record<string, string>;
+  updated_at: string | null;
+  playbook: string;
+};
+
+/** The setup interview: what a website rarely says, asked the way the Bila Matata team asks it on a call. */
+function Interview(props: { businessId: string; canEdit: boolean }) {
+  const [industry, setIndustry] = useState<string | null>(null);
+  const loaded = useLoad(() => api<InterviewView>("GET", businessPath(props.businessId, `/interview${industry ? `?industry=${industry}` : ""}`)), [props.businessId, industry]);
+  const [answers, setAnswers] = useState<Record<string, string> | null>(null);
+  const action = useAction();
+  const view = loaded.data;
+  if (view && answers === null) setAnswers(view.answers);
+  if (!view || !answers) return <ErrorLine error={loaded.error} />;
+  const sections = [...new Set(view.questions.map((question) => question.section))];
+  const done = view.questions.filter((question) => answers[question.id]?.trim()).length;
+  return (
+    <form
+      className="stack"
+      onSubmit={async (event) => {
+        event.preventDefault();
+        await action.run(async () => {
+          const saved = await api<InterviewView>("PUT", businessPath(props.businessId, "/interview"), { industry: view.industry, answers });
+          setAnswers(saved.answers);
+        }, "Saved. Zaina knows all of this from the next chat.");
+      }}
+    >
+      <section className="card">
+        <h2>Tell Zaina about your business</h2>
+        <p className="muted">The things a website rarely says. Answer what you can (you can come back any time); every answer becomes something Zaina can tell your customers. Our team can also go through it with you on a call.</p>
+        <div className="form-row">
+          <Field label="Your kind of business" hint="Zaina works by the habits of your industry: what customers usually mean, and what always goes to a person.">
+            <select value={view.industry} disabled={!props.canEdit} onChange={(event) => setIndustry(event.target.value)}>
+              {view.industries.map((entry) => <option key={entry.id} value={entry.id}>{entry.label}</option>)}
+            </select>
+          </Field>
+          <div className="interview-progress" aria-label={`${done} of ${view.questions.length} answered`}>
+            <span className="interview-count"><strong>{done}</strong> of {view.questions.length} answered</span>
+            <span className="allowance-bar"><span ref={(node) => node?.style.setProperty("width", `${Math.round((done / Math.max(1, view.questions.length)) * 100)}%`)} /></span>
+          </div>
+        </div>
+        <details className="playbook">
+          <summary>How Zaina works at your kind of business</summary>
+          <pre>{view.playbook}</pre>
+        </details>
+      </section>
+      {sections.map((section) => (
+        <section className="card form" key={section}>
+          <h2>{section}</h2>
+          {view.questions.filter((question) => question.section === section).map((question) => (
+            <Field key={question.id} label={question.question} hint={question.hint}>
+              {question.long
+                ? <textarea rows={3} maxLength={2000} disabled={!props.canEdit} value={answers[question.id] ?? ""} onChange={(event) => setAnswers({ ...answers, [question.id]: event.target.value })} />
+                : <input maxLength={2000} disabled={!props.canEdit} value={answers[question.id] ?? ""} onChange={(event) => setAnswers({ ...answers, [question.id]: event.target.value })} />}
+            </Field>
+          ))}
+        </section>
+      ))}
+      <div className="interview-save card">
+        <Message message={action.message} />
+        {props.canEdit ? <div className="actions"><Button kind="primary" type="submit" busy={action.busy}>Save answers</Button></div> : <p className="muted small">Managers and owners can change these.</p>}
+      </div>
+    </form>
   );
 }
