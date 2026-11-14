@@ -48,6 +48,7 @@ export const SITE_CSS = String.raw`
   }
 }
 *, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
 html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
 body {
   margin: 0;
@@ -103,6 +104,8 @@ p { margin: 0; }
 
 /* ── Hero ─────────────────────────────────────────────────────────── */
 .hero { padding-block: clamp(48px, 8vw, 96px) clamp(40px, 6vw, 72px); }
+.hero-solo { max-width: var(--wrap); }
+.hero-solo > div { max-width: 50em; }
 .hero-grid { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr); gap: clamp(28px, 5vw, 64px); align-items: center; }
 .eyebrow { display: inline-flex; align-items: center; gap: 8px; font-size: 0.8rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); }
 .eyebrow::before { content: ""; width: 22px; height: 2px; background: currentColor; border-radius: 2px; }
@@ -166,7 +169,7 @@ table.compare { width: 100%; min-width: 640px; border-collapse: collapse; font-s
 /* Pricing. */
 .plans { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin-top: 36px; }
 @media (max-width: 760px) { .plans { grid-template-columns: minmax(0, 1fr); } }
-.plan { position: relative; background: var(--bg); border: 1px solid var(--line); border-radius: 20px; padding: 28px; display: flex; flex-direction: column; min-width: 0; }
+.plan { position: relative; background: var(--surface); border: 1px solid var(--line); border-radius: 20px; padding: 28px; display: flex; flex-direction: column; min-width: 0; }
 .plan.featured { border-color: var(--accent); box-shadow: var(--shadow); }
 .plan .tag { align-self: flex-start; font-size: 0.74rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding: 5px 10px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); margin-bottom: 14px; }
 .plan .price { margin-top: 14px; font-size: 2.3rem; font-weight: 800; letter-spacing: -0.03em; font-variant-numeric: tabular-nums; line-height: 1.1; }
@@ -232,6 +235,41 @@ table.compare { width: 100%; min-width: 640px; border-collapse: collapse; font-s
 .field input { width: 100%; min-height: 50px; padding: 0 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); font: inherit; }
 .field input:focus-visible { outline-offset: 0; border-color: var(--accent); }
 .field .hint { font-size: 0.87rem; color: var(--muted); }
+.field select, .field textarea { width: 100%; padding: 12px 14px; border-radius: 12px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); font: inherit; }
+.field select { min-height: 50px; }
+.field textarea { resize: vertical; min-height: 120px; line-height: 1.5; }
+.field select:focus-visible, .field textarea:focus-visible { outline-offset: 0; border-color: var(--accent); }
+.field [aria-invalid="true"] { border-color: var(--bad); }
+.field-error { font-size: 0.87rem; color: var(--bad); font-weight: 550; }
+.field .optional { font-weight: 400; color: var(--muted); font-size: 0.87rem; }
+.field-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 16px; }
+@media (max-width: 640px) { .field-row { grid-template-columns: minmax(0, 1fr); } }
+.hp { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+
+/* ── Start (book a consultation) ──────────────────────────────────── */
+.start { padding-block: clamp(32px, 6vw, 64px); }
+.start h1 { font-size: clamp(1.9rem, 4.2vw, 2.6rem); }
+.start .lede { font-size: 1.05rem; }
+.start-grid { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 0.8fr); gap: clamp(24px, 4vw, 48px); align-items: start; }
+@media (max-width: 900px) { .start-grid { grid-template-columns: minmax(0, 1fr); } }
+.start-side { background: var(--surface); border: 1px solid var(--line); border-radius: 20px; padding: 24px; position: sticky; top: 88px; }
+@media (max-width: 900px) { .start-side { position: static; } }
+.start-side h2 { font-size: 1.15rem; letter-spacing: -0.01em; }
+.next { counter-reset: next; margin: 16px 0 0; padding: 0; list-style: none; display: grid; gap: 14px; }
+.next li { counter-increment: next; position: relative; padding-left: 40px; font-size: 0.96rem; color: var(--muted); }
+.next li strong { color: var(--ink); }
+.next li::before { content: counter(next); position: absolute; left: 0; top: 0; width: 28px; height: 28px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; font-weight: 800; font-size: 0.85rem; }
+.start-alt { margin-top: 22px; padding-top: 18px; border-top: 1px solid var(--line); display: grid; gap: 10px; font-size: 0.95rem; color: var(--muted); }
+.thanks { max-width: 640px; margin: 0 auto; text-align: left; padding-block: clamp(16px, 5vw, 56px); }
+.thanks h1 { margin-top: 16px; }
+
+/* Service cards: what it starts from, and the way to book it. */
+.card.service { display: flex; flex-direction: column; }
+.card.service ul { flex: 1; align-content: start; }
+.card.service .from { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); font-size: 1.3rem; font-weight: 800; letter-spacing: -0.02em; color: var(--ink); font-variant-numeric: tabular-nums; }
+.card.service .from span { display: block; font-size: 0.74rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+.card.service .btn { margin-top: 14px; min-height: 46px; padding: 0 16px; font-size: 0.95rem; text-align: center; }
+.plan-alt { margin-top: 12px; text-align: center; font-size: 0.92rem; color: var(--muted); }
 .panel .btn { width: 100%; margin-top: 18px; }
 .facts { margin: 18px 0 0; display: grid; gap: 0; }
 .facts div { display: flex; justify-content: space-between; gap: 16px; padding: 11px 0; border-bottom: 1px solid var(--line); }

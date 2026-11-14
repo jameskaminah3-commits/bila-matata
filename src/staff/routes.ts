@@ -36,6 +36,7 @@ import { getBusinessSettings, updateBusinessSettings, validateSettingsPatch } fr
 import { deleteConversation, eraseCustomer } from "../conversations/retention.ts";
 import { createStaffUser, findStaffByEmail, getStaffUser, membershipsOf, resetStaffPassword, setStaffPassword, updateBusinessDirectory, type DirectoryPatch } from "../db/platform-scope.ts";
 import { chatSessions, leads, leadStatuses, staffMemberships, staffRoles, staffUsers, type Lead, type LeadStatus, type StaffRole, type StaffUser } from "../db/schema.ts";
+import { workingType } from "../db/schema.ts";
 import { inBusiness } from "../db/tenant.ts";
 import { summarizeTurns } from "../engine/telemetry.ts";
 import { businessReport } from "../reports/business-report.ts";
@@ -525,7 +526,10 @@ export function registerStaffAccountRoutes(app: Express, config: PlatformConfig)
     staffed_hours: business.staffedHours,
     unclaimed_timeout_minutes: business.unclaimedTimeoutMinutes,
     allowed_origins: business.allowedOrigins,
-    business_type: business.businessType,
+    // What the business works as on its tier (the dashboard's sections follow it), and what it is.
+    business_type: workingType(business),
+    kind: business.businessType,
+    tier: business.tier,
     status: business.status,
     public_key: business.publicKey,
     daily_token_cap: business.dailyTokenCap,

@@ -8,6 +8,7 @@
 import { localParts, zonedInstant } from "../booking/local-time.ts";
 import { formatMoney } from "../booking/money.ts";
 import { bookingCurrencies, billingIntervals, type BillingInterval, type BookingCurrency, type Plan } from "../db/schema.ts";
+import { businessTiers, type BusinessTier } from "../db/schema.ts";
 
 const DAY_MS = 86_400_000;
 
@@ -68,6 +69,8 @@ export type PlanInput = {
   conversationsPerMonth?: number | null;
   status?: "active" | "hidden";
   sortOrder?: number;
+  tier?: BusinessTier;
+  setupFeeMinor?: number;
 };
 
 const whole = (value: unknown, min: number, max: number) => Number.isSafeInteger(value) && (value as number) >= min && (value as number) <= max;
@@ -114,6 +117,14 @@ export function validatePlan(input: unknown, creating: boolean): { ok: true; val
   if ("status" in body) {
     if (body.status !== "active" && body.status !== "hidden") return { ok: false, error: "status is active or hidden" };
     value.status = body.status;
+  }
+  if ("tier" in body) {
+    if (!businessTiers.includes(body.tier as BusinessTier)) return { ok: false, error: "tier is starter or full" };
+    value.tier = body.tier as BusinessTier;
+  }
+  if ("setup_fee_minor" in body) {
+    if (!whole(body.setup_fee_minor, 0, 100_000_000_000)) return { ok: false, error: "setup_fee_minor is the one-off set-up fee in cents (0 for none)" };
+    value.setupFeeMinor = body.setup_fee_minor as number;
   }
   if ("sort_order" in body) {
     if (!whole(body.sort_order, -1000, 1000)) return { ok: false, error: "sort_order is -1000 to 1000" };

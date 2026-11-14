@@ -8,7 +8,7 @@
 // anything else answers from its settings and takes leads for its team
 // (basic).
 
-import { booksTime, type Business } from "../db/schema.ts";
+import { booksTime, workingType, type Business } from "../db/schema.ts";
 import { appointmentsConnector } from "./appointments/index.ts";
 import { basicConnector } from "./basic/index.ts";
 import { hospitalityConnector } from "./hospitality/index.ts";
@@ -31,11 +31,13 @@ export function hasConnector(businessId: string): boolean {
   return connectors.has(businessId);
 }
 
-export async function connectorFor(business: Pick<Business, "id" | "businessType">): Promise<BusinessConnector> {
+export async function connectorFor(business: Pick<Business, "id" | "businessType"> & Partial<Pick<Business, "tier">>): Promise<BusinessConnector> {
   const connector = connectors.get(business.id);
   if (connector) return connector;
   if (expected.has(business.id)) throw new Error(`The connector for "${business.id}" isn't configured on this server`);
-  if (business.businessType === "guesthouse") return hospitalityConnector;
-  if (booksTime(business.businessType)) return appointmentsConnector;
+  // On the Starter tier there are no booking tools: Zaina answers, quotes the price list and takes leads.
+  const type = workingType(business);
+  if (type === "guesthouse") return hospitalityConnector;
+  if (booksTime(type)) return appointmentsConnector;
   return basicConnector;
 }

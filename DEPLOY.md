@@ -108,7 +108,7 @@ analysis and research). Other businesses use their own accounts.
 
 **Testing the sandbox flow:**
 
-1. `/app/` → **Platform** → **Studio invoices** → **New invoice**. Fill in a
+1. `/app/` → **Bila Matata** → **Studio invoices** → **New invoice**. Fill in a
    client, a service, what it's for and an amount; **Create invoice**; then
    **Copy link**.
 2. Open the link (`/pay/BM-XXXXXXXX`), or go to `/pay` and type the
@@ -163,8 +163,8 @@ are indexable; invoices, the dashboard and the APIs are not.
 
 ## 7. Zaina for a client
 
-1. `/app/` → **Platform** → **Add a business**: its id, name, website
-   address(es) and first owner.
+1. `/app/` → **Bila Matata** → **Businesses** → **Add a business**: its id,
+   name, what it sells, website address, plan and first owner.
 2. The owner signs in, loads their catalogue, prices and policies, and
    (Full plan) connects **their own** Paystack or M-Pesa account under
    Settings → Bookings & payments.
@@ -174,11 +174,14 @@ are indexable; invoices, the dashboard and the APIs are not.
    <script src="https://bilamatata.co.ke/zaina.js" data-business="<their id>" async></script>
    ```
 
-4. Their plan: **Platform → Billing → Add a plan** for each of the two
-   plans (Starter Sales Concierge KES 6,700 a month; Full Booking & Quote
-   Engine KES 11,000 a month). Monthly invoices then go out by themselves
-   and are paid from the client's dashboard. Bill the set-up fee as a studio
-   invoice (service: **Zaina AI set-up**).
+4. Their plan: the first time, open **Bila Matata → Plans & billing** and
+   press **Add the two standard plans** (Starter Sales Concierge, KES 6,700 a
+   month with a KES 10,000 set-up fee; Full Booking & Quote Engine, KES 11,000
+   a month with a KES 20,000 set-up fee). Then, when you add a business,
+   choose its plan and tick **Bill the one-off set-up fee**: the set-up
+   invoice is created and emailed to the owner, monthly invoices go out by
+   themselves, and the business gets exactly what its plan includes. Change
+   a business's plan later with the **Plan** button in its row.
 
 ## Optional, later
 

@@ -47,6 +47,8 @@ import { sweepInvoicePayments } from "./billing/payments.ts";
 import { planStep, registerBillingRoutes } from "./billing/routes.ts";
 import { sweepBilling } from "./billing/store.ts";
 import { setPlanCheck } from "./onboarding/checklist.ts";
+import { fullTierOnly } from "./billing/tier-gate.ts";
+import { registerSupportRoutes } from "./support/routes.ts";
 import { STUDIO } from "./studio/brand.ts";
 import { configureStudioPay, sweepStudio } from "./studio/pay.ts";
 import { registerStudioRoutes } from "./studio/routes.ts";
@@ -132,6 +134,8 @@ export function createApp(config: PlatformConfig, engine: EngineOptions, whatsap
     KNOWLEDGE_PATH.test(req.path) || PRICE_LIST_PATH.test(req.path) || req.path === WEBHOOK_PATH || PAYMENT_WEBHOOK_PATH.test(req.path) ? next() : json(req, res, next)
   ));
   app.use(cors());
+  // The Starter tier can't add or change rooms, services, bookings, payments or calendars.
+  app.use("/v1/staff/businesses/:businessId", fullTierOnly);
 
   registerGatewayRoutes(app, config, engine);
   registerStaffAccountRoutes(app, config);
@@ -149,6 +153,7 @@ export function createApp(config: PlatformConfig, engine: EngineOptions, whatsap
   registerSignupRoutes(app, config);
   registerOnboardingRoutes(app, config);
   registerBillingRoutes(app, config);
+  registerSupportRoutes(app, config);
   registerConsoleRoutes(app, config);
 
   app.use((_req: Request, res: Response) => {

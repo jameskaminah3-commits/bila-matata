@@ -10,6 +10,7 @@ One Node service serves everything on `bilamatata.co.ke`:
 |---|---|
 | `/` | The studio's home page: Zaina AI, pricing, services, contact |
 | `/terms` | Terms of service and privacy |
+| `/start` | Book a free consultation or ask for a Zaina plan: lands in the studio's dashboard |
 | `/pay` | Pay a studio invoice by M-Pesa or card (Paystack) |
 | `/app/` | The dashboard: clients' teams, and the studio's own admins |
 | `/api/zaina/*` | Zaina's public API (the chat widget and embeds use it) |
@@ -77,6 +78,27 @@ The database tests empty the database they are given, so they only accept a
 local one. End-to-end tests run the real service against stand-ins for the
 model, Paystack, M-Pesa, WhatsApp, Google and email: nothing leaves the
 machine and no money moves.
+
+## Plans: Starter and Full
+
+A business is on one of two tiers, and Zaina and the dashboard obey it:
+
+- **Starter**: Zaina answers from the business's own information, quotes its
+  price list, takes leads and hands over to its team.
+- **Full**: everything in Starter, plus live availability, exact totals,
+  bookings, checkout and calendar sync.
+
+The studio sets the tier when it adds a business (dashboard → Bila Matata →
+Businesses), either with a plan (monthly invoices go out by themselves; the
+plan's one-off set-up fee is billed as a studio invoice) or by hand. On
+Starter, Zaina has no booking tools and the team can't add rooms, services
+or bookings (`src/billing/tier-gate.ts`, `workingType` in `src/db/schema.ts`).
+
+## Support
+
+A business's team asks for help from its dashboard (Help & support); the
+studio answers from its own (Bila Matata → Support). Each side is emailed
+about the other's message (`src/support/`).
 
 ## Payments: who is paid for what
 

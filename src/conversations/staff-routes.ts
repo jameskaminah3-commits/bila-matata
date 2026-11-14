@@ -26,6 +26,7 @@ import { requireBusinessRole, requireStaff, ROLE_RANK, staffOf } from "../staff/
 import { claimSession, closeSession, releaseSession } from "./handoff.ts";
 import { availablePeople, setPresence } from "./routing.ts";
 import { appendEvent, getSession } from "./store.ts";
+import { unreadForBusiness } from "../support/store.ts";
 
 /** The acting person, as recorded on the chat. */
 function agentId(req: Request): string {
@@ -122,7 +123,8 @@ export function registerStaffConversationRoutes(app: Express, config: PlatformCo
          from chat_sessions where business_id = $1`,
         [business!.id, user.id],
       ));
-      res.json({ pending: row?.waiting ?? 0, mine: row?.mine ?? 0, callbacks: row?.callbacks ?? 0, leads: row?.leads ?? 0 });
+      // And answers from the studio's support that nobody has read yet.
+      res.json({ pending: row?.waiting ?? 0, mine: row?.mine ?? 0, callbacks: row?.callbacks ?? 0, leads: row?.leads ?? 0, support: await unreadForBusiness(business!.id) });
     } catch (error) {
       next(error);
     }

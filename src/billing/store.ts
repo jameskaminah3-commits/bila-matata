@@ -39,6 +39,7 @@ import {
   type Plan,
   type Subscription,
 } from "../db/schema.ts";
+import type { BusinessTier } from "../db/schema.ts";
 import { billingConfig } from "./config.ts";
 import { tellOwners } from "./emails.ts";
 import { invoiceNumber, invoiceSendAt, paidPeriodStart, pauseAt, periodEnd, trialEnd, type PlanInput } from "./periods.ts";
@@ -89,6 +90,7 @@ export async function createPlan(input: PlanInput): Promise<Plan | "exists"> {
       id: input.id!, name: input.name!, description: input.description ?? "", priceMinor: input.priceMinor!, currency: input.currency!,
       billingInterval: input.billingInterval ?? "month", trialDays: input.trialDays ?? 0, conversationsPerMonth: input.conversationsPerMonth ?? null,
       status: input.status ?? "active", sortOrder: input.sortOrder ?? 0,
+      tier: input.tier ?? "full", setupFeeMinor: input.setupFeeMinor ?? 0,
     }).returning();
     return row;
   } catch (error) {
@@ -293,12 +295,13 @@ async function startPlan(change: Change, plan: Plan): Promise<void> {
  * at the new plan; an invoice already overdue is sent again at the new
  * price, due when it was.
  */
-export async function choosePlan(businessId: string, planId: string, now = new Date()): Promise<void> {
+export async function choosePlan(businessId: string, planId: string, now = new Date(), options: { byTeam?: boolean } = {}): Promise<void> {
   const plan = await planById(planId);
-  if (!plan || plan.status !== "active") throw new BillingError(404, "plan_not_found", "That plan isn't offered.");
+  // The studio's team may put a business on any plan, offered or hidden; a business chooses among those offered.
+  if (!plan || (plan.status !== "active" && !options.byTeam)) throw new BillingError(404, "plan_not_found", "That plan isn't offered.");
   await changeBilling(businessId, now, async (change) => {
     const { subscription, business, open } = change;
-    if (!subscription && business.source !== "self_serve") {
+    if (!subscription && business.source !== "self_serve" && !options.byTeam) {
       throw new BillingError(409, "billed_by_team", "The Zaina team bills this business directly.");
     }
     if (subscription && subscription.status !== "cancelled" && subscription.planId === plan.id) {
@@ -316,6 +319,14 @@ export async function choosePlan(businessId: string, planId: string, now = new D
     }
     await advance(change);
   });
+  // The plan's tier is what the business now gets: Zaina's tools and the dashboard follow it.
+  await setBusinessTier(businessId, plan.tier);
+}
+
+/** Sets what a business gets (Starter or Full). */
+export async function setBusinessTier(businessId: string, tier: BusinessTier): Promise<void> {
+  await ownerDb().update(businesses).set({ tier, updatedAt: new Date() }).where(eq(businesses.id, businessId));
+  clearBusinessCache();
 }
 
 /** The owner stops: at the end of what's paid for (or the trial), or at once when nothing is. */

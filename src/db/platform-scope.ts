@@ -20,6 +20,7 @@ import {
   type StaffRole,
   type StaffUser,
 } from "./schema.ts";
+import { workingType, type BusinessTier } from "./schema.ts";
 
 export async function findStaffByEmail(email: string): Promise<StaffUser | undefined> {
   const [row] = await ownerDb().select().from(staffUsers).where(eq(staffUsers.email, email.trim().toLowerCase())).limit(1);
@@ -79,12 +80,14 @@ export async function resetStaffPassword(input: { userId: string; tokenVersion: 
 }
 
 /** The businesses a person works for, as what, whether each is live yet, and why one is paused. */
-export async function membershipsOf(userId: string): Promise<Array<{ businessId: string; businessName: string; role: StaffRole; businessType: BusinessType; businessStatus: BusinessStatus; pauseReason: PauseReason | null }>> {
-  return ownerDb()
-    .select({ businessId: staffMemberships.businessId, businessName: businesses.name, role: staffMemberships.role, businessType: businesses.businessType, businessStatus: businesses.status, pauseReason: businesses.pauseReason })
+export async function membershipsOf(userId: string): Promise<Array<{ businessId: string; businessName: string; role: StaffRole; businessType: BusinessType; kind: BusinessType; tier: BusinessTier; businessStatus: BusinessStatus; pauseReason: PauseReason | null }>> {
+  const rows = await ownerDb()
+    .select({ businessId: staffMemberships.businessId, businessName: businesses.name, role: staffMemberships.role, kind: businesses.businessType, tier: businesses.tier, businessStatus: businesses.status, pauseReason: businesses.pauseReason })
     .from(staffMemberships)
     .innerJoin(businesses, eq(businesses.id, staffMemberships.businessId))
     .where(eq(staffMemberships.userId, userId));
+  // businessType is what the business works as on its tier (the dashboard's sections follow it); kind is what it is.
+  return rows.map((row) => ({ ...row, businessType: workingType({ businessType: row.kind, tier: row.tier }) }));
 }
 
 /**
@@ -102,6 +105,7 @@ export async function createBusinessWithOwner(input: {
     dailyTokenCap: number;
     retentionDays: number;
     businessType: BusinessType;
+    tier?: BusinessTier;
   };
   owner: { email: string; name: string; passwordHash: string | null };
 }): Promise<StaffUser> {

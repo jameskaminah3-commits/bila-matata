@@ -21,7 +21,7 @@
 
 import { and, count, eq, sql } from "drizzle-orm";
 import { getBusinessSettings } from "../businesses/settings.ts";
-import { chatEvents, chatSessions, knowledgeSources, offerings, priceItems, resources, whatsappNumbers, takesBookings, booksTime, type Business } from "../db/schema.ts";
+import { chatEvents, chatSessions, knowledgeSources, offerings, priceItems, resources, whatsappNumbers, takesBookings, booksTime, workingType, type Business } from "../db/schema.ts";
 import { inBusiness } from "../db/tenant.ts";
 import { canTakeDeposits, getBookingSettings, paymentOptionsOf } from "../booking/settings.ts";
 
@@ -47,9 +47,11 @@ export function setPlanCheck(check: PlanCheck) {
 }
 
 export async function checklist(business: Business): Promise<Step[]> {
+  // On the Starter tier a business sets up as a general one: no rooms, services or payments to add.
+  const type = workingType(business);
   const [settings, policy, counts, plan] = await Promise.all([
     getBusinessSettings(business.id),
-    takesBookings(business.businessType) ? getBookingSettings(business.id) : Promise.resolve(null),
+    takesBookings(type) ? getBookingSettings(business.id) : Promise.resolve(null),
     inBusiness(async (db) => {
       const [knowledge] = await db.select({ n: count() }).from(knowledgeSources).where(eq(knowledgeSources.businessId, business.id));
       const [rooms] = await db.select({ n: count() }).from(offerings).where(and(eq(offerings.businessId, business.id), eq(offerings.status, "active"), eq(offerings.kind, "room_type")));
@@ -82,16 +84,16 @@ export async function checklist(business: Business): Promise<Step[]> {
     title: "Add what customers ask about",
     detail: "Your opening times, policies and answers to common questions: read them from your website, add a PDF, or type them. Zaina answers from them.",
     done: counts.knowledge > 0,
-    required: business.businessType === "general",
+    required: type === "general",
     page: "knowledge",
   });
-  if (business.businessType === "general") {
+  if (type === "general") {
     steps.push({ id: "offerings", title: "Add your prices", detail: "What customers ask the price of, so Zaina quotes it exactly. Paste the list you have.", done: counts.prices > 0, required: false, page: "prices" });
-  } else if (business.businessType === "guesthouse") {
+  } else if (type === "guesthouse") {
     steps.push({ id: "offerings", title: "Add your rooms", detail: "Each room type, how many there are, who they sleep and what they cost.", done: counts.rooms > 0, required: true, page: "rooms" });
-  } else if (booksTime(business.businessType)) {
+  } else if (booksTime(type)) {
     const hours = Object.values(policy?.openingHours ?? {}).some((spans) => (spans ?? []).length > 0);
-    const restaurant = business.businessType === "restaurant";
+    const restaurant = type === "restaurant";
     steps.push({
       id: "offerings",
       title: restaurant ? "Add your hours and tables" : "Add your hours, team and services",

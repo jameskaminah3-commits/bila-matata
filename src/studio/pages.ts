@@ -6,6 +6,8 @@
 // and the studio's own Zaina chat, the same one-line embed any client uses.
 
 import { formatMoney, STUDIO, whatsappLink } from "./brand.ts";
+import { renderDemo } from "./demo.ts";
+import { STUDIO_SERVICES, type StudioServiceId } from "./services.ts";
 
 export const esc = (value: unknown) => String(value ?? "").replace(/[&<>"']/g, (char) => (
   { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char] as string
@@ -60,7 +62,7 @@ ${options.extra ?? ""}
 </head>`;
 }
 
-function header(current: "home" | "terms" | "pay"): string {
+function header(current: "home" | "terms" | "pay" | "start"): string {
   const home = current === "home" ? "" : "/";
   return `<a class="skip" href="#main">Skip to the content</a>
 <header class="site-header">
@@ -153,32 +155,7 @@ const COMPARISON: Array<[string, string, string]> = [
   ["Hand-off to your team", "Trap frustrated customers in a loop, or dump messy chats on your phone", "Passes complex or VIP requests to your team with the whole conversation and the customer's details, ready to close"],
 ];
 
-const SERVICES = [
-  {
-    icon: ICONS.code,
-    title: "Website & Mobile App Development",
-    text: "A site or app that brings in enquiries and takes payments, not just one that looks good.",
-    points: ["Business websites and online shops", "Customer and staff apps for Android and iPhone", "M-Pesa and card payments built in"],
-  },
-  {
-    icon: ICONS.flow,
-    title: "AI Automation & Workflow Systems",
-    text: "The copying, chasing and re-typing your team does every day, done for them.",
-    points: ["Enquiries routed and answered automatically", "Invoices, reminders and follow-ups that send themselves", "Your tools connected: forms, sheets, WhatsApp, email"],
-  },
-  {
-    icon: ICONS.chart,
-    title: "Data Analysis & Business Intelligence",
-    text: "Know what sells, what it costs you and where the money leaks, from the data you already have.",
-    points: ["Dashboards your whole team can read", "Sales, stock and customer analysis", "Clean-up of messy spreadsheets and records"],
-  },
-  {
-    icon: ICONS.doc,
-    title: "Strategic Research & Professional Writing",
-    text: "Decisions and documents backed by evidence, written so the reader says yes.",
-    points: ["Market and feasibility research", "Business plans, proposals and grant applications", "Reports, company profiles and policy documents"],
-  },
-];
+const SERVICE_ICONS: Record<StudioServiceId, string> = { software: ICONS.code, automation: ICONS.flow, data: ICONS.chart, research: ICONS.doc };
 
 export function renderHome(page: SitePage): string {
   const title = "Bila Matata | AI Sales Concierge, Software, Data & Research Studio in Mombasa";
@@ -214,7 +191,7 @@ ${header("home")}
 <main id="main">
 
 <section class="hero">
-  <div class="wrap hero-grid">
+  <div class="wrap hero-solo">
     <div>
       <p class="eyebrow">AI · Software · Data · Research, from Mombasa</p>
       <h1>Run Your Business <em>Without the Hassle.</em></h1>
@@ -223,7 +200,7 @@ ${header("home")}
         <a class="btn btn-primary" href="#zaina" data-open-zaina>${ICONS.chat}Try Zaina AI Live</a>
         <a class="btn btn-ghost" href="${projectLink}" rel="noopener">${ICONS.whatsapp}Start a Project on WhatsApp</a>
       </div>
-      <p class="hero-note">Ask Zaina anything about our services and prices: she is the same assistant we set up for your business.</p>
+      <p class="hero-note">Ask Zaina anything about our services and prices: she is the same assistant we set up for your business. Or <a href="#demo">watch how she works</a>.</p>
       <ul class="chips" aria-label="At a glance">
         <li>Replies in seconds, day and night</li>
         <li>Answers only from your business</li>
@@ -232,20 +209,12 @@ ${header("home")}
         <li>Website and WhatsApp</li>
       </ul>
     </div>
-    <figure class="chat-card" aria-label="An example conversation with Zaina">
-      <div class="chat-head"><span class="chat-dot" aria-hidden="true">Z</span><div><strong>Zaina</strong><span>Example conversation · Saturday, 11:42 pm</span></div></div>
-      <div class="chat-body">
-        <p class="bubble them">Hi, do you have a slot for knotless braids this Saturday?</p>
-        <p class="bubble zaina">Yes! Saturday has 10:00 am and 2:30 pm open. Knotless braids are KES 3,500 and take about four hours. Shall I book one for you?</p>
-        <p class="bubble them">10 am please</p>
-        <p class="bubble zaina">Done: Saturday, 10:00 am is held for you. To confirm it, pay the KES 1,000 deposit by M-Pesa or card here.<small>Booking created · team notified</small></p>
-      </div>
-      <figcaption class="chat-foot">An illustration of how Zaina handles a late-night enquiry for a salon.</figcaption>
-    </figure>
   </div>
 </section>
 
-<section class="band alt" id="zaina" aria-labelledby="zaina-title">
+${renderDemo()}
+
+<section class="band" id="zaina" aria-labelledby="zaina-title">
   <div class="wrap">
     <div class="section-head">
       <p class="eyebrow">Zaina AI</p>
@@ -262,7 +231,7 @@ ${header("home")}
   </div>
 </section>
 
-<section class="band" id="compare" aria-labelledby="compare-title">
+<section class="band alt" id="compare" aria-labelledby="compare-title">
   <div class="wrap">
     <div class="section-head">
       <p class="eyebrow">Why Zaina</p>
@@ -281,7 +250,7 @@ ${header("home")}
   </div>
 </section>
 
-<section class="band alt" id="pricing" aria-labelledby="pricing-title">
+<section class="band" id="pricing" aria-labelledby="pricing-title">
   <div class="wrap">
     <div class="section-head">
       <p class="eyebrow">Pricing</p>
@@ -296,7 +265,8 @@ ${header("home")}
         <p class="setup">+ ${esc(formatMoney(plan.setupMinor, "KES"))} one-off set-up</p>
         <p class="for">${esc(plan.for)}</p>
         <ul>${plan.features.map((feature) => `<li>${esc(feature)}</li>`).join("")}</ul>
-        <a class="btn ${plan.featured ? "btn-primary" : "btn-ghost"}" href="${esc(whatsappLink(`${ZAINA_MESSAGE} I'm interested in the ${plan.name} plan.`))}" rel="noopener">${ICONS.whatsapp}Get ${esc(plan.name.split(" ")[0])} on WhatsApp</a>
+        <a class="btn ${plan.featured ? "btn-primary" : "btn-ghost"}" href="/start?service=${plan.featured ? "zaina_full" : "zaina_starter"}">Get ${esc(plan.name.split(" ")[0])} for my business</a>
+        <a class="plan-alt" href="${esc(whatsappLink(`${ZAINA_MESSAGE} I'm interested in the ${plan.name} plan.`))}" rel="noopener">or ask on WhatsApp</a>
       </article>`).join("\n      ")}
     </div>
     <p class="fine">Prices are in Kenya shillings. Set-up is paid once and covers loading your catalogue and prices, tuning Zaina's answers with you, and installation. Monthly plans are billed in advance and you can cancel at any time; see the <a href="/terms">terms</a>. Already a client? <a href="/app/">Sign in</a> or <a href="/pay">pay an invoice</a>.</p>
@@ -305,20 +275,20 @@ ${header("home")}
   </div>
 </section>
 
-<section class="band" id="services" aria-labelledby="services-title">
+<section class="band alt" id="services" aria-labelledby="services-title">
   <div class="wrap">
     <div class="section-head">
       <p class="eyebrow">Services</p>
       <h2 id="services-title">Beyond Zaina: what the studio builds for you</h2>
-      <p>The same team that builds Zaina takes on custom work. Every project starts with what it should change for your business, then a fixed written quote.</p>
+      <p>The same team that builds Zaina takes on custom work. Every project starts with a free consultation and a fixed written quote, so you know the price before you pay anything.</p>
     </div>
     <div class="grid four">
-      ${SERVICES.map((service) => `<article class="card"><div class="icon">${service.icon}</div><h3>${esc(service.title)}</h3><p>${esc(service.text)}</p><ul>${service.points.map((point) => `<li>${esc(point)}</li>`).join("")}</ul></article>`).join("\n      ")}
+      ${STUDIO_SERVICES.map((service) => `<article class="card service"><div class="icon">${SERVICE_ICONS[service.id]}</div><h3>${esc(service.title)}</h3><p>${esc(service.text)}</p><ul>${service.points.map((point) => `<li>${esc(point)}</li>`).join("")}</ul><p class="from"><span>From</span> ${esc(formatMoney(service.fromMinor, "KES"))}</p><a class="btn btn-primary" href="/start?service=${service.id}">Book a free consultation</a></article>`).join("\n      ")}
     </div>
   </div>
 </section>
 
-<section class="band alt" id="how" aria-labelledby="how-title">
+<section class="band" id="how" aria-labelledby="how-title">
   <div class="wrap">
     <div class="section-head">
       <p class="eyebrow">How it works</p>

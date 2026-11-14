@@ -15,6 +15,7 @@ import { InboxPage } from "./pages/inbox.tsx";
 import { LeadsPage } from "./pages/leads.tsx";
 import { KnowledgePage } from "./pages/knowledge.tsx";
 import { PlatformPage } from "./pages/platform.tsx";
+import { SupportPage } from "./pages/support.tsx";
 import { PricesPage } from "./pages/prices.tsx";
 import { ReportsPage } from "./pages/reports.tsx";
 import { RoomsPage } from "./pages/rooms.tsx";
@@ -28,11 +29,12 @@ import { alertsSupported, currentSubscription, turnAlertsOff, turnAlertsOn } fro
 import { atLeast, type Me, type Role } from "./types.ts";
 import { Button, Field, Icon, Message, Modal, Toggle, useAction, useEvery, useLoad } from "./ui.tsx";
 
-type Route = { businessId: string | null; page: string; id: string | null };
+type Route = { businessId: string | null; page: string; id: string | null; sub?: string | null };
 
 function readRoute(): Route {
   const parts = location.hash.replace(/^#\/?/, "").split("/").filter(Boolean).map(decodeURIComponent);
-  if (parts[0] === "platform") return { businessId: null, page: "platform", id: null };
+  // The studio's own dashboard: #/platform/<section>/<item>.
+  if (parts[0] === "platform") return { businessId: null, page: "platform", id: parts[1] ?? null, sub: parts[2] ?? null };
   if (parts[0] === "reset" || parts[0] === "welcome") return { businessId: null, page: parts[0], id: parts[1] ?? null };
   if (parts[0] === "b" && parts[1]) return { businessId: parts[1], page: parts[2] ?? "inbox", id: parts[3] ?? null };
   return { businessId: null, page: "inbox", id: null };
@@ -42,6 +44,11 @@ export function go(route: Partial<Route> & { businessId: string | null }) {
   location.hash = route.businessId
     ? `#/b/${encodeURIComponent(route.businessId)}/${route.page ?? "inbox"}${route.id ? `/${encodeURIComponent(route.id)}` : ""}`
     : "#/platform";
+}
+
+/** Opens a section of the studio's own dashboard (and one item in it). */
+export function goPlatform(section?: string | null, item?: string | null) {
+  location.hash = `#/platform${section ? `/${encodeURIComponent(section)}${item ? `/${encodeURIComponent(item)}` : ""}` : ""}`;
 }
 
 function useRoute(): Route {
@@ -167,6 +174,8 @@ const PAGES: Array<{ id: string; label: string; icon: string; minimum: Role; onl
   { id: "reports", label: "Reports", icon: "chart", minimum: "manager" },
   { id: "settings", label: "Settings", icon: "settings", minimum: "manager" },
   { id: "team", label: "Team", icon: "team", minimum: "manager" },
+  // How to do the everyday things, and a direct line to the studio.
+  { id: "support", label: "Help & support", icon: "help", minimum: "viewer" },
 ];
 
 /** On a phone, how many sections sit in the bar at the bottom (the rest are under "More"). */
@@ -175,7 +184,18 @@ const BAR_ITEMS = 4;
 function Console(props: { me: Me; route: Route; reloadMe: () => Promise<void> }) {
   const { me, route } = props;
   const admin = me.user.is_platform_admin;
-  const [counts, setCounts] = useState({ pending: 0, mine: 0, callbacks: 0, leads: 0 });
+  const [counts, setCounts] = useState({ pending: 0, mine: 0, callbacks: 0, leads: 0, support: 0 });
+  // For the studio's admins: what's waiting for them (support questions and new requests).
+  const [attention, setAttention] = useState(0);
+  const refreshAttention = useCallback(async () => {
+    if (!admin) return;
+    try {
+      const result = await api<{ support_open: number; project_requests_new: number }>("GET", "/v1/platform/attention");
+      setAttention(result.support_open + result.project_requests_new);
+    } catch {}
+  }, [admin]);
+  useEffect(() => void refreshAttention(), [refreshAttention]);
+  useEvery(refreshAttention, 60_000, [refreshAttention]);
   const [menuOpen, setMenuOpen] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   // Choosing a section closes the phone's "More" list.
@@ -204,7 +224,7 @@ function Console(props: { me: Me; route: Route; reloadMe: () => Promise<void> })
   const refreshCounts = useCallback(async () => {
     if (!businessId || !role) return;
     try {
-      setCounts(await api("GET", businessPath(businessId, "/pending-count")));
+      setCounts({ support: 0, ...(await api<{ pending: number; mine: number; callbacks: number; leads: number; support?: number }>("GET", businessPath(businessId, "/pending-count"))) });
     } catch {}
   }, [businessId, role]);
   useEffect(() => void refreshCounts(), [refreshCounts]);
@@ -245,15 +265,15 @@ function Console(props: { me: Me; route: Route; reloadMe: () => Promise<void> })
       href: `#/b/${encodeURIComponent(businessId ?? "")}/${item.id}`,
       icon: item.icon,
       label: item.id === "services" && businessType === "restaurant" ? "Tables" : item.label,
-      count: item.id === "inbox" ? counts.pending : item.id === "leads" ? counts.leads : 0,
-      countLabel: item.id === "inbox" ? "waiting" : "new",
+      count: item.id === "inbox" ? counts.pending : item.id === "leads" ? counts.leads : item.id === "support" ? counts.support : 0,
+      countLabel: item.id === "inbox" ? "waiting" : item.id === "support" ? "answered" : "new",
     })),
-    ...(admin ? [{ id: "platform", href: "#/platform", icon: "shield", label: "Platform", count: 0, countLabel: "" }] : []),
+    ...(admin ? [{ id: "platform", href: "#/platform", icon: "shield", label: "Bila Matata", count: attention, countLabel: "waiting for you" }] : []),
   ];
   const moreActive = navItems.slice(BAR_ITEMS).some((item) => item.id === page);
   const moreCount = navItems.slice(BAR_ITEMS).reduce((sum, item) => sum + item.count, 0);
   let content: JSX.Element;
-  if (page === "platform" && admin) content = <PlatformPage />;
+  if (page === "platform" && admin) content = <PlatformPage tab={route.id} sub={route.sub ?? null} onChanged={() => void refreshAttention()} />;
   else if (!businessId || !role) content = <div className="page"><p className="message error">You don't work for this business.</p></div>;
   else if (page === "setup") content = <SetupPage businessId={businessId} role={role} onLive={() => void props.reloadMe()} />;
   else if (page === "bookings" && ["guesthouse", "salon", "restaurant"].includes(businessType ?? "")) content = <BookingsPage businessId={businessId} role={role} bookingId={route.id} businessType={businessType} />;
@@ -265,6 +285,7 @@ function Console(props: { me: Me; route: Route; reloadMe: () => Promise<void> })
   else if (page === "reports" && atLeast(role, "manager")) content = <ReportsPage businessId={businessId} />;
   else if (page === "settings" && atLeast(role, "manager")) content = <SettingsPage key={route.id ?? "settings"} businessId={businessId} role={role} me={me} businessType={businessType} tab={route.id} onBusinessChanged={() => void props.reloadMe()} />;
   else if (page === "team" && atLeast(role, "manager")) content = <TeamPage businessId={businessId} role={role} me={me} />;
+  else if (page === "support") content = <SupportPage businessId={businessId} role={role} threadId={route.id} onChanged={() => void refreshCounts()} />;
   else content = <InboxPage businessId={businessId} role={role} me={me} chatId={route.page === "inbox" ? route.id : null} counts={counts} onChanged={refreshCounts} />;
 
   return (

@@ -140,7 +140,13 @@ test("the home page carries the agreed offer: headline, navigation, both plans, 
   for (const service of ["Website & Mobile App Development", "AI Automation & Workflow Systems", "Data Analysis & Business Intelligence", "Strategic Research & Professional Writing"]) {
     assert.ok(words.includes(service), service);
   }
-  assert.equal((html.match(/<article class="card"><div class="icon">[\s\S]*?<\/article>/g) ?? []).filter((card) => card.includes("<ul>")).length, 4, "four service cards");
+  const services = html.match(/<article class="card service">[\s\S]*?<\/article>/g) ?? [];
+  assert.equal(services.length, 4, "four service cards");
+  // Each says what it starts from and has a way to book it.
+  assert.deepEqual(services.map((card) => /<p class="from"><span>From<\/span> ([^<]+)<\/p>/.exec(card)?.[1]), ["KES 25,000", "KES 15,000", "KES 10,000", "KES 5,000"]);
+  assert.deepEqual(services.map((card) => /href="(\/start\?service=[a-z]+)">Book a free consultation/.exec(card)?.[1]), ["/start?service=software", "/start?service=automation", "/start?service=data", "/start?service=research"]);
+  assert.match(html, /href="\/start\?service=zaina_starter">Get Starter for my business/);
+  assert.match(html, /href="\/start\?service=zaina_full">Get Full for my business/);
   assert.match(words, /Serving businesses across Kenya and globally · WhatsApp\/Call: \+254 707 255 598 · Email: hello@bilamatata\.co\.ke/);
   assert.match(html, /<a href="\/terms">/);
 
@@ -172,7 +178,7 @@ test("the home page shows a smart assistant, and compares her with auto-replies 
   assert.match(words, /Smart enough to sell, not just reply/);
   assert.match(words, /works out what each customer is really after, asks the one question that matters, recommends the option that suits them from what you actually sell, and always offers the next step/);
   assert.match(words, /Understands what each customer needs and recommends what suits them/);
-  assert.equal((html.match(/<article class="card"><div class="icon">/g) ?? []).length, 10, "six outcomes and four services");
+  assert.equal((html.match(/<article class="card"><div class="icon">/g) ?? []).length, 6, "six outcomes");
 
   // The comparison: what customers need, then the basic bots, then Zaina last.
   const table = /<table class="compare">[\s\S]*?<\/table>/.exec(html)![0];
@@ -216,7 +222,7 @@ test("the home page promises nothing it can't show: no invented numbers, reviews
     // Whole words: "frustrated" isn't "rated".
     assert.doesNotMatch(words, new RegExp(`(^|[^a-z])${claim.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}([^a-z]|$)`), claim);
   }
-  assert.match(words, /example conversation/);
+  assert.match(words, /a demonstration with example businesses: the names, prices and times are examples\./);
 });
 
 test("the terms cover projects (50% to start, balance on delivery), Zaina's monthly plans, refunds and Kenya's data law", () => {

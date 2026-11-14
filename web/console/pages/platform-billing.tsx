@@ -32,6 +32,12 @@ type PlatformBilling = {
   grace_days: number;
 };
 
+/** The two plans on the website, as the studio prices them. */
+const STANDARD_PLANS = [
+  { id: "starter", name: "Starter Sales Concierge", description: "Zaina answers your customers day and night from your own catalogue and price list, captures every lead and hands over to your team.", price_minor: 670_000, currency: "KES", billing_interval: "month", trial_days: 0, tier: "starter", setup_fee_minor: 1_000_000, sort_order: 10 },
+  { id: "full", name: "Full Booking & Quote Engine", description: "Everything in Starter, plus live availability, exact totals, bookings created from start to finish, M-Pesa and card checkout, and calendar sync.", price_minor: 1_100_000, currency: "KES", billing_interval: "month", trial_days: 0, tier: "full", setup_fee_minor: 2_000_000, sort_order: 20 },
+];
+
 const STATUS: Record<SubscriptionStatus, string> = { incomplete: "First invoice unpaid", trialing: "Free trial", active: "Paid", past_due: "Overdue", cancelled: "Ended" };
 
 export function PlatformBillingSection() {
@@ -66,12 +72,13 @@ export function PlatformBillingSection() {
         </div>
         {plans.data?.length ? (
           <table className="table">
-            <thead><tr><th>Plan</th><th>Price</th><th className="number">Free trial</th><th className="number">Conversations a month</th><th>Offered</th><th /></tr></thead>
+            <thead><tr><th>Plan</th><th>Includes</th><th>Price</th><th className="number">Free trial</th><th className="number">Conversations a month</th><th>Offered</th><th /></tr></thead>
             <tbody>
               {plans.data.map((plan) => (
                 <tr key={plan.id}>
                   <td><strong>{plan.name}</strong><div className="small muted">{plan.id}</div></td>
-                  <td>{plan.price_text}</td>
+                  <td><span className={`chip${plan.tier === "full" ? " ok" : ""}`}>{plan.tier === "full" ? "Full" : "Starter"}</span></td>
+                  <td>{plan.price_text}{plan.setup_fee_minor > 0 ? <div className="small muted">+ {cents(plan.setup_fee_minor, plan.currency)} set-up</div> : null}</td>
                   <td className="number">{plan.trial_days ? `${plan.trial_days} days` : "—"}</td>
                   <td className="number">{plan.conversations_per_month ? count(plan.conversations_per_month) : "—"}</td>
                   <td>{plan.status === "active" ? <span className="chip ok">Offered</span> : <span className="chip">Hidden</span>}</td>
@@ -80,7 +87,16 @@ export function PlatformBillingSection() {
               ))}
             </tbody>
           </table>
-        ) : plans.data ? <Empty title="No plans yet">Billing is off until you add one: businesses go live without choosing a plan.</Empty> : null}
+        ) : plans.data ? (
+          <Empty title="No plans yet">
+            Billing is off until you add one: businesses go live without choosing a plan.
+            <Button kind="primary" busy={action.busy} onClick={() => void action.run(async () => {
+              for (const plan of STANDARD_PLANS) await api("POST", "/v1/platform/plans", plan);
+              await reload();
+            }, "The Starter and Full plans are offered now.")}>Add the two standard plans</Button>
+            <span className="small">Starter Sales Concierge, KSh 6,700 a month (set-up KSh 10,000), and Full Booking &amp; Quote Engine, KSh 11,000 a month (set-up KSh 20,000): the prices on the website.</span>
+          </Empty>
+        ) : null}
       </div>
 
       <div className="stack-tight">
@@ -176,6 +192,8 @@ function PlanForm(props: { plan: Plan | null; onClose: () => void; onSaved: (mes
     trial: String(plan?.trial_days ?? 14),
     conversations: plan?.conversations_per_month ? String(plan.conversations_per_month) : "",
     order: String(plan?.sort_order ?? 0),
+    tier: plan?.tier ?? "full",
+    setup: plan ? String(plan.setup_fee_minor / 100) : "",
     offered: plan ? plan.status === "active" : true,
   });
   const action = useAction();
@@ -201,6 +219,8 @@ function PlanForm(props: { plan: Plan | null; onClose: () => void; onSaved: (mes
               billing_interval: form.interval,
               trial_days: Number(form.trial) || 0,
               conversations_per_month: form.conversations.trim() ? Number(form.conversations) : null,
+              tier: form.tier,
+              setup_fee_minor: Math.round((Number(form.setup.replace(/,/g, "").trim()) || 0) * 100),
               sort_order: Number(form.order) || 0,
               status: form.offered ? "active" : "hidden",
             };
@@ -211,7 +231,7 @@ function PlanForm(props: { plan: Plan | null; onClose: () => void; onSaved: (mes
       >
         <div className="form-row">
           <Field label="Name"><input required maxLength={80} value={form.name} onChange={(event) => set("name", event.target.value)} /></Field>
-          {plan ? null : <Field label="Id" hint="Lowercase letters, digits and dashes; can't change."><input required pattern="[a-z][a-z0-9-]{1,39}" value={form.id} onChange={(event) => set("id", event.target.value.trim())} /></Field>}
+          {plan ? null : <Field label="Id" hint="Lowercase letters, digits and dashes; can't change."><input required pattern="[a-z][a-z0-9\-]{1,39}" value={form.id} onChange={(event) => set("id", event.target.value.trim())} /></Field>}
         </div>
         <Field label="What it's for" hint="Shown to businesses choosing a plan."><textarea rows={2} maxLength={500} value={form.description} onChange={(event) => set("description", event.target.value)} /></Field>
         <div className="form-row">
@@ -227,6 +247,12 @@ function PlanForm(props: { plan: Plan | null; onClose: () => void; onSaved: (mes
           <Field label="Free trial (days)" hint="0 to 90; one trial per business."><input type="number" min={0} max={90} value={form.trial} onChange={(event) => set("trial", event.target.value)} /></Field>
           <Field label="Conversations a month" hint="Shown to businesses; not cut off."><input type="number" min={1} value={form.conversations} onChange={(event) => set("conversations", event.target.value)} /></Field>
           <Field label="Order" hint="Lower comes first."><input type="number" value={form.order} onChange={(event) => set("order", event.target.value)} /></Field>
+        </div>
+        <div className="form-row">
+          <Field label="What it includes" hint="Starter: answers, prices, leads, hand-over. Full: those, plus availability, bookings, checkout and calendars.">
+            <select value={form.tier} onChange={(event) => set("tier", event.target.value)}><option value="starter">Starter</option><option value="full">Full</option></select>
+          </Field>
+          <Field label="One-off set-up fee" hint="Billed once, as a studio invoice, when you add a business. 0 for none."><input inputMode="decimal" value={form.setup} onChange={(event) => set("setup", event.target.value)} /></Field>
         </div>
         <label className="check"><input type="checkbox" checked={form.offered} onChange={(event) => set("offered", event.target.checked)} /><span>Offered to businesses (hidden plans stay with those already on them)</span></label>
         <Message message={action.message} />

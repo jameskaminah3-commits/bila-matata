@@ -457,7 +457,7 @@ test("the console signs in with a cookie that page scripts can't read, and the c
   assert.equal(me.status, 200);
   const profile = (await me.json()) as any;
   assert.equal(profile.user.email, "wanjiku@example.com");
-  assert.deepEqual(profile.businesses, [{ businessId: "acme", businessName: "Acme Guesthouse", role: "agent", businessType: "guesthouse", businessStatus: "active", pauseReason: null }]);
+  assert.deepEqual(profile.businesses, [{ businessId: "acme", businessName: "Acme Guesthouse", role: "agent", kind: "guesthouse", tier: "full", businessStatus: "active", pauseReason: null, businessType: "guesthouse" }]);
   assert.equal(profile.push.public_key, vapid.publicKey);
   assert.equal(profile.push.devices, 1);
 

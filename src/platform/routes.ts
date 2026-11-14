@@ -23,7 +23,11 @@ import { anyBusinessById, clearBusinessCache, everyBusiness } from "../businesse
 import { inBusiness, runForBusiness } from "../db/tenant.ts";
 import { businessDay } from "../gateway/spend-cap.ts";
 import { createBusinessWithOwner, findStaffByEmail, setBusinessStatus } from "../db/platform-scope.ts";
-import { businessTypes, type BusinessType } from "../db/schema.ts";
+import { businessTiers, businessTypes, workingType, type BusinessTier, type BusinessType } from "../db/schema.ts";
+import { BillingError, choosePlan, planById, setBusinessTier } from "../billing/store.ts";
+import { createStudioInvoice } from "../studio/invoices.ts";
+import { invoiceEmail, invoiceLink } from "../studio/pay.ts";
+import { staffOf } from "../staff/auth.ts";
 import { TYPES_WITH_OWN_CONNECTOR } from "../engine/tool-sets.ts";
 import { normalizeOrigin } from "../gateway/origin.ts";
 import { sendEmail } from "./mailer.ts";
@@ -52,6 +56,7 @@ export function registerPlatformRoutes(app: Express, config: PlatformConfig): vo
           name: business.name,
           status: business.status,
           business_type: business.businessType,
+          tier: business.tier,
           public_key: business.publicKey,
           allowed_origins: business.allowedOrigins,
           time_zone: business.timeZone,
@@ -71,6 +76,27 @@ export function registerPlatformRoutes(app: Express, config: PlatformConfig): vo
     try {
       const business = await anyBusinessById(String(req.params.businessId));
       if (!business) return res.status(404).json({ error: "not_found" });
+      // What the business gets: a plan (its tier comes with it, and its invoices go out by themselves), or the tier alone.
+      const planId = req.body?.plan_id;
+      const tier = req.body?.tier;
+      if (planId !== undefined || tier !== undefined) {
+        if (planId !== undefined) {
+          if (typeof planId !== "string" || !(await planById(planId))) return res.status(404).json({ error: "plan_not_found", message: "That plan doesn't exist." });
+          try {
+            await choosePlan(business.id, planId, new Date(), { byTeam: true });
+          } catch (error) {
+            if (error instanceof BillingError && error.code !== "same_plan") return res.status(error.status).json({ error: error.code, message: error.message });
+            if (!(error instanceof BillingError)) throw error;
+          }
+        } else {
+          if (!businessTiers.includes(tier as BusinessTier)) return res.status(400).json({ error: "invalid_tier", message: "tier is starter or full." });
+          await setBusinessTier(business.id, tier as BusinessTier);
+        }
+        if (req.body?.status === undefined) {
+          const updated = await anyBusinessById(business.id);
+          return res.json({ id: business.id, status: business.status, tier: updated?.tier ?? business.tier });
+        }
+      }
       const status = req.body?.status;
       if (status !== "active" && status !== "paused") return res.status(400).json({ error: "invalid_status", message: "status is active or paused." });
       if (status === "active" && business.status === "onboarding") {
@@ -122,6 +148,9 @@ export function registerPlatformRoutes(app: Express, config: PlatformConfig): vo
           id: business.id,
           name: business.name,
           business_type: business.businessType,
+          working_type: workingType(business),
+          tier: business.tier,
+          status: business.status,
           tokens_today: Number(row.tokens_today ?? 0),
           daily_token_cap: business.dailyTokenCap,
           chats_7d: row.chats_7d,
@@ -166,6 +195,11 @@ export function registerPlatformRoutes(app: Express, config: PlatformConfig): vo
       const dailyTokenCap = positiveWhole(req.body?.daily_token_cap, DEFAULT_DAILY_TOKEN_CAP);
       const retentionDays = positiveWhole(req.body?.retention_days, DEFAULT_RETENTION_DAYS);
       const businessType = (req.body?.business_type ?? "general") as BusinessType;
+      // The plan decides the tier; without one, the tier is given (full unless said).
+      const plan = typeof req.body?.plan_id === "string" ? await planById(req.body.plan_id) : undefined;
+      if (req.body?.plan_id !== undefined && !plan) return res.status(404).json({ error: "plan_not_found", message: "That plan doesn't exist." });
+      const tier = (plan?.tier ?? req.body?.tier ?? "full") as BusinessTier;
+      if (!businessTiers.includes(tier)) return res.status(400).json({ error: "invalid_tier", message: "tier is starter or full." });
       if (!businessTypes.includes(businessType)) {
         return res.status(400).json({ error: "invalid_business_type", message: `business_type is one of ${businessTypes.join(", ")}.` });
       }
@@ -205,7 +239,7 @@ export function registerPlatformRoutes(app: Express, config: PlatformConfig): vo
       let ownerUser;
       try {
         ownerUser = await createBusinessWithOwner({
-          business: { id, name, publicKey, allowedOrigins: origins as string[], timeZone, dailyTokenCap, retentionDays, businessType },
+          business: { id, name, publicKey, allowedOrigins: origins as string[], timeZone, dailyTokenCap, retentionDays, businessType, tier },
           owner: { email: ownerEmail, name: String(owner.name ?? ""), passwordHash: existing ? null : invite ? await unknownPassword() : await hashPassword(owner.password) },
         });
       } catch (error) {
@@ -214,6 +248,18 @@ export function registerPlatformRoutes(app: Express, config: PlatformConfig): vo
         throw error;
       }
       clearBusinessCache();
+      // On a plan from the start: its invoices go out by themselves, and an unpaid one pauses the business.
+      if (plan) await choosePlan(id, plan.id, new Date(), { byTeam: true });
+      // The plan's one-off set-up fee, as an invoice the owner pays on /pay.
+      let setupInvoice: { reference: string; pay_url: string | null; emailed: boolean } | null = null;
+      if (plan && req.body?.setup_invoice === true && plan.setupFeeMinor > 0) {
+        const invoice = await createStudioInvoice({
+          clientName: name, clientEmail: ownerEmail, description: `Zaina AI set-up: ${plan.name}`, category: "zaina_setup",
+          amountMinor: plan.setupFeeMinor, currency: plan.currency, dueAt: null, notes: null,
+        }, staffOf(req).user.id);
+        const email = invoiceEmail(invoice);
+        setupInvoice = { reference: invoice.reference, pay_url: invoiceLink(invoice), emailed: email ? await sendEmail({ to: ownerEmail, ...email }) : false };
+      }
       if (invite) {
         const link = passwordLink(config.publicBaseUrl!, passwordLinkToken(config.sessionTokenSecret, ownerUser, "invite"), "invite");
         void sendEmail({ to: ownerUser.email, ...inviteEmail(ownerUser, name, "owner", link, null) });
@@ -223,8 +269,9 @@ export function registerPlatformRoutes(app: Express, config: PlatformConfig): vo
       res.status(201).json({
         business: {
           id, name, business_type: businessType, public_key: publicKey, allowed_origins: origins, time_zone: timeZone,
-          daily_token_cap: dailyTokenCap, retention_days: retentionDays,
+          daily_token_cap: dailyTokenCap, retention_days: retentionDays, tier, plan_id: plan?.id ?? null,
         },
+        setup_invoice: setupInvoice,
         owner: { id: ownerUser.id, email: ownerUser.email, invited: invite },
       });
     } catch (error) {

@@ -62,6 +62,8 @@ export function planView(plan: Plan) {
     conversations_per_month: plan.conversationsPerMonth,
     status: plan.status,
     sort_order: plan.sortOrder,
+    tier: plan.tier,
+    setup_fee_minor: plan.setupFeeMinor,
     price_text: priceText(plan),
   };
 }
@@ -171,6 +173,8 @@ export function registerBillingRoutes(app: Express, config: PlatformConfig): voi
     const open = mine.invoices.find((invoice) => invoice.status === "open") ?? null;
     const { graceDays, paymentInstructions } = billingConfig();
     return {
+      tier: business.tier,
+      kind: business.businessType,
       enabled: offered.length > 0,
       billed_by_team: !subscription && business.source !== "self_serve",
       can_manage: role === "owner",

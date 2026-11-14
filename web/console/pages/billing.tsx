@@ -6,9 +6,10 @@
 // An owner chooses and pays; the rest of the team can look.
 
 import { api, businessPath } from "../api.ts";
+import { go } from "../app.tsx";
 import { cents, count, date, period } from "../format.ts";
 import type { Billing, Invoice, Plan } from "../types.ts";
-import { Button, Empty, ErrorLine, Message, useAction, useEvery, useLoad } from "../ui.tsx";
+import { Icon, Button, Empty, ErrorLine, Message, useAction, useEvery, useLoad } from "../ui.tsx";
 
 type Note = { kind: "success" | "error"; text: string };
 
@@ -37,22 +38,29 @@ export function BillingSettings(props: { businessId: string; outcome: string | n
 
   if (data.billed_by_team) {
     return (
-      <section className="card">
-        <h2>Plan & billing</h2>
-        <p>The Zaina team bills this business directly: there's nothing to do here.</p>
-      </section>
+      <div className="stack">
+        <Included data={data} businessId={props.businessId} />
+        <section className="card">
+          <h2>Billing</h2>
+          <p>The Bila Matata team bills this business directly: there's nothing to pay here. To change plan, ask us in Help &amp; support.</p>
+        </section>
+      </div>
     );
   }
   if (!data.enabled && !data.subscription) {
     return (
-      <section className="card">
-        <h2>Plan & billing</h2>
-        <p className="muted">There are no plans to choose from yet: Zaina is free to use for now.</p>
-      </section>
+      <div className="stack">
+        <Included data={data} businessId={props.businessId} />
+        <section className="card">
+          <h2>Billing</h2>
+          <p className="muted">There are no plans to choose from yet: there's nothing to pay here for now.</p>
+        </section>
+      </div>
     );
   }
   return (
     <div className="stack">
+      <Included data={data} businessId={props.businessId} />
       <Message message={outcomeNote(props.outcome, data)} />
       <CurrentPlan data={data} busy={action.busy} onCancel={() => change(() => api("POST", businessPath(props.businessId, "/billing/cancel")), "Your plan is cancelled.")} onKeep={() => change(() => api("POST", businessPath(props.businessId, "/billing/keep")), "Your plan carries on.")} />
       {data.open_invoice ? <PayInvoice businessId={props.businessId} data={data} invoice={data.open_invoice} /> : null}
@@ -60,6 +68,44 @@ export function BillingSettings(props: { businessId: string; outcome: string | n
       <Plans data={data} busy={action.busy} onChoose={(plan) => change(() => api("POST", businessPath(props.businessId, "/billing/plan"), { plan_id: plan.id }), `You're on the ${plan.name} plan.`)} />
       <Invoices invoices={data.invoices} />
     </div>
+  );
+}
+
+const STARTER_INCLUDES = [
+  "Zaina answers customers day and night, only from your own information",
+  "Quotes only the prices on your price list",
+  "Captures leads and alerts your team",
+  "Your team takes over any chat, on the website or WhatsApp",
+  "Chat on your website with one line of code",
+  "Conversations, leads and reports in this dashboard",
+  "Help from the Bila Matata team",
+];
+const FULL_ADDS = [
+  "Checks your up-to-date calendar before offering a time",
+  "Works out exact totals from your rates",
+  "Creates bookings from start to finish",
+  "Sends the M-Pesa or card checkout, paid into your own account",
+  "Calendar sync and booking alerts for your team",
+];
+
+/** What the business's tier includes, and what the other would add. */
+function Included(props: { data: Billing; businessId: string }) {
+  const full = props.data.tier === "full";
+  return (
+    <section className="card">
+      <h2>What your plan includes <span className={`chip${full ? " ok" : ""}`}>{full ? "Full Booking & Quote Engine" : "Starter Sales Concierge"}</span></h2>
+      <ul className="check-list">
+        {STARTER_INCLUDES.map((line) => <li key={line}><Icon name="check" size={14} /> {line}</li>)}
+        {full ? FULL_ADDS.map((line) => <li key={line}><Icon name="check" size={14} /> {line}</li>) : null}
+      </ul>
+      {!full ? (
+        <div className="upgrade">
+          <strong>The Full plan adds</strong>
+          <ul className="check-list muted">{FULL_ADDS.map((line) => <li key={line}><Icon name="plus" size={14} /> {line}</li>)}</ul>
+          <Button small onClick={() => go({ businessId: props.businessId, page: "support" })}>Ask about upgrading</Button>
+        </div>
+      ) : null}
+    </section>
   );
 }
 

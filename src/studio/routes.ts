@@ -56,6 +56,10 @@ import {
 import { invoiceEmail, invoiceLink, settleAndNotify, studioCheckout, studioPayAvailable, studioPayTestMode } from "./pay.ts";
 import { PAY_MESSAGES, renderInvoicePage, renderPayHome } from "./pay-pages.ts";
 import { FAVICON_SVG, renderHome, renderTerms, type SitePage } from "./pages.ts";
+import { readRequest, saveRequest } from "./requests.ts";
+import { requestTopic } from "./services.ts";
+import { renderStart, renderStartThanks } from "./start-pages.ts";
+import { DEMO_CSS, DEMO_JS } from "./demo.ts";
 import { SITE_CSS, SITE_JS } from "./site-css.ts";
 
 /** The site's pages run only the site's own scripts and styles; forms go to the site, then on to Paystack. */
@@ -135,8 +139,8 @@ export function registerStudioRoutes(app: Express, config: PlatformConfig): void
     pageHeaders(res, { cache: true, index: true });
     res.type("html").send(renderTerms(pageOf(req)));
   });
-  app.get("/site/site.css", text("text/css", SITE_CSS));
-  app.get("/site/site.js", text("application/javascript", SITE_JS));
+  app.get("/site/site.css", text("text/css", SITE_CSS + DEMO_CSS));
+  app.get("/site/site.js", text("application/javascript", SITE_JS + DEMO_JS));
   app.get("/site/favicon.svg", text("image/svg+xml", FAVICON_SVG, 86400));
   app.get("/favicon.ico", (_req: Request, res: Response) => res.redirect(302, "/site/favicon.svg"));
   app.get("/site/og.png", (_req: Request, res: Response) => {
@@ -163,9 +167,35 @@ export function registerStudioRoutes(app: Express, config: PlatformConfig): void
     res.setHeader("Cache-Control", "public, max-age=3600");
     res.type("application/xml").send(`<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-${["/", "/terms", "/pay"].map((path) => `  <url><loc>${base}${path}</loc></url>`).join("\n")}
+${["/", "/start", "/terms", "/pay"].map((path) => `  <url><loc>${base}${path}</loc></url>`).join("\n")}
 </urlset>
 `);
+  });
+
+  // ── Starting something: a Zaina plan or a project ────────────────────
+  const emptyRequest = (topic: string) => ({ name: "", business: "", phone: "", email: "", topic, details: "" });
+  app.get("/start", (req: Request, res: Response) => {
+    pageHeaders(res, { cache: false, index: true });
+    res.type("html").send(renderStart(pageOf(req), { request: emptyRequest(requestTopic(req.query.service)?.id ?? ""), problems: {} }));
+  });
+  app.post("/start", form, async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      pageHeaders(res, { cache: false, index: false });
+      const { value, problems } = readRequest(req.body);
+      // A field people can't see: only a script fills it in. Thanked, and nothing is saved.
+      if (typeof req.body?.website === "string" && req.body.website.trim()) return res.redirect(303, "/start/thanks");
+      if (Object.keys(problems).length) return res.status(400).type("html").send(renderStart(pageOf(req), { request: value, problems }));
+      const verdict = await consumeLimits([{ key: `studio:request:${visitorKey(secret, req.ip)}`, limit: 5, windowSeconds: 3600 }]);
+      if (!verdict.allowed) return res.status(429).type("html").send(renderStart(pageOf(req), { request: value, problems: {}, tooMany: true }));
+      await saveRequest(value, config.studioNotifyEmail);
+      res.redirect(303, `/start/thanks?service=${encodeURIComponent(value.topic)}`);
+    } catch (error) {
+      next(error);
+    }
+  });
+  app.get("/start/thanks", (req: Request, res: Response) => {
+    pageHeaders(res, { cache: false, index: false });
+    res.type("html").send(renderStartThanks(pageOf(req), String(req.query.service ?? "")));
   });
 
   // ── Paying an invoice ────────────────────────────────────────────────

@@ -8,7 +8,10 @@ export type Membership = {
   businessId: string;
   businessName: string;
   role: Role;
+  /** What the business works as on its plan (the sections follow it); kind is what it is. */
   businessType?: string;
+  kind?: string;
+  tier?: "starter" | "full";
   businessStatus?: "onboarding" | "active" | "paused";
   /** Why a paused business is paused: by the Zaina team, or for an unpaid invoice. */
   pauseReason?: "platform" | "billing" | null;
@@ -390,6 +393,9 @@ export type Plan = {
   conversations_per_month: number | null;
   status: "active" | "hidden";
   sort_order: number;
+  /** What the plan includes, and its one-off set-up fee. */
+  tier: "starter" | "full";
+  setup_fee_minor: number;
   price_text: string;
 };
 
@@ -414,6 +420,9 @@ export type Invoice = {
 export type SubscriptionStatus = "incomplete" | "trialing" | "active" | "past_due" | "cancelled";
 
 export type Billing = {
+  /** What the business gets now, and what kind of business it is. */
+  tier: "starter" | "full";
+  kind: string;
   enabled: boolean;
   billed_by_team: boolean;
   can_manage: boolean;

@@ -32,6 +32,17 @@ export const bookingBusinessTypes: readonly BusinessType[] = ["guesthouse", "sal
 export const takesBookings = (type: BusinessType) => bookingBusinessTypes.includes(type);
 export const booksTime = (type: BusinessType) => type === "salon" || type === "restaurant";
 
+/** Plan tiers: Starter (answers from the business's information, quotes its price list, takes leads, hands over) and Full (those, plus availability, exact totals, bookings and checkout). */
+export const businessTiers = ["starter", "full"] as const;
+export type BusinessTier = (typeof businessTiers)[number];
+/**
+ * What a business works as: its own type on the Full tier. On Starter, a
+ * business that would take bookings works as a general one (answers, prices,
+ * leads), whatever it sells: bookings are what Full adds.
+ */
+export const workingType = (business: { businessType: BusinessType; tier?: BusinessTier | null }): BusinessType =>
+  business.tier === "starter" && takesBookings(business.businessType) ? "general" : business.businessType;
+
 /** The languages Zaina answers in; fixed texts exist in each. */
 export const chatLanguages = ["en", "sw"] as const;
 export type ChatLanguage = (typeof chatLanguages)[number];
@@ -42,6 +53,8 @@ export const businesses = pgTable("businesses", {
   /** onboarding: signed up and setting up (the team works in the console; customers aren't answered yet). */
   status: text("status").$type<BusinessStatus>().notNull().default("active"),
   businessType: text("business_type").$type<BusinessType>().notNull().default("general"),
+  /** The plan tier Zaina and the dashboard obey (migration 0017): starter answers and takes leads; full also books. */
+  tier: text("tier").$type<BusinessTier>().notNull().default("full"),
   publicKey: text("public_key").notNull(),
   allowedOrigins: text("allowed_origins").array().notNull().default([]),
   timeZone: text("time_zone").notNull().default("Africa/Nairobi"),
@@ -621,6 +634,10 @@ export const plans = pgTable("plans", {
   conversationsPerMonth: integer("conversations_per_month"),
   status: text("status").$type<"active" | "hidden">().notNull().default("active"),
   sortOrder: integer("sort_order").notNull().default(0),
+  /** What the plan includes (migration 0017): choosing it sets the business's tier. */
+  tier: text("tier").$type<BusinessTier>().notNull().default("full"),
+  /** The one-off set-up fee that goes with the plan, billed as a studio invoice. */
+  setupFeeMinor: bigint("setup_fee_minor", { mode: "number" }).notNull().default(0),
   createdAt: createdAt(),
   updatedAt: at("updated_at").notNull().defaultNow(),
 });

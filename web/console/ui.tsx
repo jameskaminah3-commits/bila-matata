@@ -212,6 +212,7 @@ const PATHS: Record<string, string> = {
   scissors: "M6 9a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM6 21a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM20 4L8.1 15.9M14.5 14.5L20 20M8.1 8.1L12 12",
   tag: "M20.6 13.4l-7.2 7.2a2 2 0 0 1-2.8 0L3 13V3h10l7.6 7.6a2 2 0 0 1 0 2.8zM7.5 7.5h.01",
   more: "M4 6h16M4 12h16M4 18h16",
+  help: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM9.500 9.500a2.500 2.500 0 1 1 3.700 2.200c-.700.400-1.200.900-1.200 1.800M12 16.800v.100",
 };
 
 export function Icon(props: { name: keyof typeof PATHS | string; size?: number; label?: string }) {

@@ -47,4 +47,6 @@ We report what the evidence shows. We cannot promise that a proposal or applicat
 
 ## Prices for project work
 
-Project work is quoted individually because every project is different. To get a quote, tell us what you need on WhatsApp at +254 707 255 598, or leave your details in this chat. Quotes are free.
+Each service has a starting price on the price list: use the price list for the amounts, and say they are starting prices. The exact price depends on the project and comes in a free written quote, before the client pays anything.
+
+To book a free consultation, the client can fill in the short form at https://bilamatata.co.ke/start, tell us what they need on WhatsApp at +254 707 255 598, or leave their details in this chat.
