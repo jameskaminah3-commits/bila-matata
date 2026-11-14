@@ -139,7 +139,7 @@ test("the demonstration shows both sides of six conversations, is all in the pag
   assert.doesNotMatch(shop, /<span class="demo-kind">Booking<\/span>/);
   assert.match(html, /class="bubble staff"[^>]*><small class="demo-who">Mary · Baraka Dental<\/small>/);
   // Zaina in the demonstration does what the real one does: she says when she doesn't know.
-  assert.match(words, /I don't have the instalment terms, so I won't guess\./);
+  assert.match(words, /so I'll let them confirm rather than guess\./);
   assert.match(words, /A demonstration with example businesses: the names, prices and times are examples\./);
   // Hotels and stays are a target industry now; tours, safaris, car hire and travel agencies still are not.
   assert.doesNotMatch(words, /paystack|testimonial|guarantee|\b(tours?|safaris?|car hire|holidays?|travel\w*)\b/i);

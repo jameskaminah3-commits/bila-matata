@@ -24,6 +24,8 @@ test("Zaina is told to understand the customer, recommend, and always offer a ne
     /offer the nearest thing the business really has/,
     /Always finish with one clear next step/,
     /offer once to take their name and number/,
+    /keep the warmth a good receptionist would/,
+    /so they won't have to repeat themselves/,
   ]) assert.match(CONCIERGE_GUIDANCE, rule);
 });
 
