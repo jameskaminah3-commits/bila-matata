@@ -58,6 +58,7 @@ import { registerMarkFullRoutes } from "./booking/mark-full.ts";
 import { registerLeadExtras, sweepCallbacks } from "./leads/extra-tools.ts";
 import { registerIntegrationRoutes } from "./integrations/routes.ts";
 import { registerReviewRoutes } from "./review/routes.ts";
+import { registerOnboardingTrackerRoutes } from "./onboarding/tracker.ts";
 import { registerIntegrationExtras } from "./integrations/tools.ts";
 import { syncWebsites } from "./knowledge/website-import.ts";
 import { STUDIO } from "./studio/brand.ts";
@@ -176,6 +177,7 @@ export function createApp(config: PlatformConfig, engine: EngineOptions, whatsap
   registerMarkFullRoutes(app, config);
   registerIntegrationRoutes(app, config);
   registerReviewRoutes(app, config);
+  registerOnboardingTrackerRoutes(app, config);
   registerConsoleRoutes(app, config);
 
   app.use((_req: Request, res: Response) => {

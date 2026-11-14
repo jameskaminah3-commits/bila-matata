@@ -144,7 +144,7 @@ or bookings (`src/billing/tier-gate.ts`, `workingType` in `src/db/schema.ts`).
   account is off unless the studio turns it on for a business (Plan →
   "Let this business be paid through our payment account").
 
-See `docs/ROADMAP.md` for the phases, and `docs/INTEGRATION.md` for connecting a client's own system (the contract their developer builds to).
+See `docs/ROADMAP.md` for the phases, `docs/INTEGRATION.md` for connecting a client's own system (the contract their developer builds to), `docs/ONBOARDING.md` for setting up a new client, `docs/PILOTS.md` for running pilots and `docs/RUNBOOKS.md` for when something goes wrong.
 
 ## Support
 

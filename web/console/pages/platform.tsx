@@ -22,6 +22,7 @@ import { PlatformBillingSection } from "./platform-billing.tsx";
 import { StudioInvoicesSection } from "./platform-studio-invoices.tsx";
 import { PlatformSupport } from "./support.tsx";
 import { ReviewSection } from "./review.tsx";
+import { OnboardingTracker } from "./onboarding-tracker.tsx";
 
 type Tier = "starter" | "full";
 type Overview = {
@@ -47,7 +48,7 @@ type Attention = { support_open: number; studio_invoices_open: number; project_r
 type Subscriptions = { subscriptions: Array<{ business_id: string; plan_id: string; plan_name: string; status: string }> };
 type Business = Overview["businesses"][number];
 
-const TABS = ["overview", "businesses", "review", "billing", "invoices", "support"] as const;
+const TABS = ["overview", "businesses", "onboarding", "review", "billing", "invoices", "support"] as const;
 type Tab = (typeof TABS)[number];
 export const TIER_NAMES: Record<Tier, string> = { starter: "Starter", full: "Full" };
 const KIND: Record<string, string> = { general: "General", guesthouse: "Rooms", salon: "Appointments", restaurant: "Tables", custom: "Custom" };
@@ -70,6 +71,7 @@ export function PlatformPage(props: { tab: string | null; sub: string | null; on
         tabs={[
           { id: "overview", label: "Overview" },
           { id: "businesses", label: "Businesses" },
+          { id: "onboarding", label: "Onboarding" },
           { id: "review", label: "Review" },
           { id: "billing", label: "Plans & billing" },
           { id: "invoices", label: "Studio invoices", count: attention.data?.studio_invoices_open },
@@ -78,6 +80,7 @@ export function PlatformPage(props: { tab: string | null; sub: string | null; on
       />
       {tab === "overview" ? <OverviewTab attention={attention.data} error={attention.error} /> : null}
       {tab === "businesses" ? <BusinessesTab /> : null}
+      {tab === "onboarding" ? <OnboardingTracker /> : null}
       {tab === "review" ? <ReviewSection /> : null}
       {tab === "billing" ? <PlatformBillingSection /> : null}
       {tab === "invoices" ? <StudioInvoicesSection /> : null}
