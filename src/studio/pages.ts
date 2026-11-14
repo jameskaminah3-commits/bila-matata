@@ -440,7 +440,7 @@ ${header("terms")}
     <h3>Acceptable use</h3>
     <ul>
       <li>You may not use Zaina to break the law, to mislead customers, to send unsolicited bulk messages, or to sell anything your payment provider or WhatsApp does not allow.</li>
-      <li>If you connect Zaina to WhatsApp, Meta's WhatsApp Business terms and policies also apply to you.</li>
+      <li>If you connect Zaina to WhatsApp, WhatsApp's business terms and policies also apply to you.</li>
       <li>We may pause an account that puts the service or other clients at risk, and we will tell you why.</li>
     </ul>
 
