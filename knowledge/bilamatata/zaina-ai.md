@@ -58,7 +58,7 @@ A business does not need a website to use Zaina. Every business gets its own pag
 
 The printed code never changes, and the business chooses where a scan goes: its own page, its website with the chat already open (once the chat is set up there), or its WhatsApp number (once it is connected to Zaina). The code can carry the business's colour and logo in the centre, and stays fully readable, or be plain black and white.
 
-The business can also make premium business cards in the dashboard (Settings, then Business cards): its brand on the front, its QR code on the back, in three designs. They print ten to an A4 sheet at the standard 85 by 55 mm, or the business can ask Bila Matata to print and deliver them, with a price agreed before anything is printed. Card scans are counted separately.
+Every business with an active Zaina plan also gets premium business cards, included in its plan (Settings, then Business cards): its brand on the front and its QR code on the back, in three designs (Signature, Minimal and Bold), drawn with professional typefaces. The business can download a print-ready A4 sheet of ten, a print shop file with bleed, high-resolution pictures of each side, or a picture of both sides to share on WhatsApp and social media. Bila Matata can also print and deliver them as a separate service, with a price agreed before anything is printed. Card scans are counted separately.
 
 ## The business's own brand
 

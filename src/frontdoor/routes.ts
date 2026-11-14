@@ -92,7 +92,7 @@ export function websiteWithChat(websiteUrl: string, allowedOrigins: string[]): s
 }
 
 /** A business's logo as a data: URI, to sit in the centre of its code. */
-async function logoDataUri(businessId: string): Promise<string | null> {
+export async function logoDataUri(businessId: string): Promise<string | null> {
   const logo = await readBrandAsset(businessId, "logo");
   return logo ? `data:${logo.contentType};base64,${logo.bytes.toString("base64")}` : null;
 }

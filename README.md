@@ -126,8 +126,14 @@ or bookings (`src/billing/tier-gate.ts`, `workingType` in `src/db/schema.ts`).
   is allowed there), or its WhatsApp (only when connected to Zaina). The code
   is branded (its colour, darkened if too light to scan, and its logo in the
   centre with the highest error correction) or classic. Settings → Business
-  cards prints ten 85 × 55 mm cards per A4 page with crop marks and bleed, or
-  asks the studio to print them (a support conversation).
+  cards (included with an active plan, `src/cards/`): the server draws each
+  side as an exact vector picture, with text set as outlines in Plus Jakarta
+  Sans and Fraunces (SIL OFL, from npm), so it looks the same everywhere;
+  three designs; 3 mm bleed and a 6 mm safe area. The dashboard makes the
+  files from those pictures (`web/console/card-export.ts`): an A4 PDF of ten
+  with cut marks, a print-shop PDF with bleed and trim box at 600 dpi, PNGs,
+  and a share picture. The studio can print them as a service (a support
+  conversation).
 - **Brand.** Settings → Brand: logo and cover (PNG, JPEG or WebP, checked by
   their bytes, kept in the database inside the business and served from
   `/brand/<business id>/<logo|cover>`), colour, welcome line, and whether the

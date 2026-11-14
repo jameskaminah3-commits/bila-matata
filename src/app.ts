@@ -51,6 +51,7 @@ import { fullTierOnly } from "./billing/tier-gate.ts";
 import { registerSupportRoutes } from "./support/routes.ts";
 import { registerNotificationRoutes } from "./notifications/routes.ts";
 import { registerFrontDoorRoutes } from "./frontdoor/routes.ts";
+import { registerCardRoutes } from "./cards/routes.ts";
 import { STUDIO } from "./studio/brand.ts";
 import { configureStudioPay, sweepStudio } from "./studio/pay.ts";
 import { registerStudioRoutes } from "./studio/routes.ts";
@@ -160,6 +161,7 @@ export function createApp(config: PlatformConfig, engine: EngineOptions, whatsap
   registerSupportRoutes(app, config);
   registerNotificationRoutes(app, config);
   registerFrontDoorRoutes(app, config);
+  registerCardRoutes(app, config);
   registerConsoleRoutes(app, config);
 
   app.use((_req: Request, res: Response) => {

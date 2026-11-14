@@ -1,81 +1,131 @@
 // web/console/pages/business-cards.tsx
 //
-// Settings → Business cards: premium cards with the business's brand on the
-// front and its QR code on the back. A scan of a card goes wherever the
-// business's Zaina works (Settings → QR code & link), and card scans are
-// counted on their own.
+// Settings → Business cards: premium cards that come with every active Zaina
+// plan. The business's brand on the front; on the back, its QR code, which
+// sends each scan wherever its Zaina works (Settings → QR code & link).
 //
-// The details are saved with the business; the cards print ten to an A4
-// sheet at the standard 85 × 55 mm, fronts on one page and backs on the
-// next (print both sides, flipping on the long edge), with crop marks and a
-// bleed so coloured edges cut clean. The studio can print them instead.
+// What is shown is exactly what is printed: the server draws each side as a
+// vector picture (real typefaces, the business's colour and logo), and the
+// downloads are made from those same pictures: an A4 sheet of ten to print
+// at home or the office, a print shop's file with bleed, pictures of each
+// side, and one to share on WhatsApp. The studio can also print them, as a
+// service.
 
-import { useEffect, useState, type ReactNode } from "react";
-import { createPortal } from "react-dom";
-import { api, businessPath } from "../api.ts";
+import { useEffect, useRef, useState } from "react";
+import { api, ApiError, businessPath } from "../api.ts";
 import { go } from "../app.tsx";
+import { cardPng, printSheetPdf, printShopPdf, shareImage, shareOrSave } from "../card-export.ts";
 import { atLeast, type Role } from "../types.ts";
-import { Button, ErrorLine, Field, Message, useAction, useLoad } from "../ui.tsx";
-import { svgUri, type CardDetails, type Door } from "./front-door.tsx";
+import { Button, ErrorLine, Field, Message, useAction } from "../ui.tsx";
+import { download, svgUri, type CardDetails } from "./front-door.tsx";
 
 type Design = CardDetails["design"];
-const DESIGNS: Array<{ id: Design; name: string; text: string }> = [
-  { id: "signature", name: "Signature", text: "Clean white front, your colour on the back." },
-  { id: "minimal", name: "Minimal", text: "White on both sides, with a fine line of your colour." },
-  { id: "bold", name: "Bold", text: "Your colour across the front, a white back." },
-];
-const blank = (contact: Door["contact"]): CardDetails => ({
-  design: "signature", personName: null, personTitle: null, phone: contact.phone, email: contact.email, website: contact.website?.replace(/^https?:\/\//, "").replace(/\/$/, "") ?? null, address: null,
-});
+type Rendered = { name: string; design: Design; details: CardDetails; front: string; back: string; thumbnails?: Record<Design, string> };
 
-const lettersOf = (name: string) => {
-  const words = name.replace(/[^\p{L}\p{N}\s]/gu, " ").split(/\s+/).filter(Boolean);
-  return (words.length > 1 ? words[0][0] + words[1][0] : (words[0] ?? "?").slice(0, 2)).toUpperCase();
-};
+const DESIGNS: Array<{ id: Design; name: string; text: string }> = [
+  { id: "signature", name: "Signature", text: "Deep and refined, with a serif name." },
+  { id: "minimal", name: "Minimal", text: "Crisp white, with your colour on the back." },
+  { id: "bold", name: "Bold", text: "A panel of your colour, modern and confident." },
+];
 
 export function BusinessCards(props: { businessId: string; role: Role }) {
-  const loaded = useLoad(() => api<Door>("GET", businessPath(props.businessId, "/front-door")), [props.businessId]);
+  const path = businessPath(props.businessId, "/business-card");
   const [card, setCard] = useState<CardDetails | null>(null);
-  const [printing, setPrinting] = useState(false);
+  const [view, setView] = useState<Rendered | null>(null);
+  const [thumbs, setThumbs] = useState<Record<Design, string> | null>(null);
+  const [locked, setLocked] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [drawing, setDrawing] = useState(false);
+  const [working, setWorking] = useState<string | null>(null);
   const save = useAction();
+  const files = useAction();
   const order = useAction();
   const canEdit = atLeast(props.role, "manager");
+  const typed = useRef(false);
+
+  // The saved card, and every design's front to choose from.
   useEffect(() => {
-    if (loaded.data) setCard(loaded.data.card ?? blank(loaded.data.contact));
-  }, [loaded.data]);
-  useEffect(() => {
-    if (!printing) return;
-    const done = () => setPrinting(false);
-    window.addEventListener("afterprint", done, { once: true });
-    const timer = setTimeout(() => window.print(), 200);
+    let live = true;
+    api<Rendered>("POST", path, { thumbnails: true })
+      .then((result) => {
+        if (!live) return;
+        setCard(result.details);
+        setView(result);
+        setThumbs(result.thumbnails ?? null);
+      })
+      .catch((problem) => {
+        if (!live) return;
+        if (problem instanceof ApiError && problem.status === 402) setLocked(problem.message);
+        else setError(problem instanceof ApiError ? problem.message : "The card couldn't be drawn.");
+      });
     return () => {
-      clearTimeout(timer);
-      window.removeEventListener("afterprint", done);
+      live = false;
     };
-  }, [printing]);
-  const door = loaded.data;
-  if (!door || !card) return <ErrorLine error={loaded.error} />;
-  const set = <K extends keyof CardDetails>(key: K, value: CardDetails[K]) => setCard({ ...card, [key]: value });
+  }, [path]);
+
+  // As the details change, the card is drawn again (a moment after typing stops).
+  useEffect(() => {
+    if (!card || !typed.current) return;
+    setDrawing(true);
+    const timer = setTimeout(() => {
+      api<Rendered>("POST", path, { details: card, thumbnails: true })
+        .then((result) => {
+          setView(result);
+          setThumbs(result.thumbnails ?? null);
+        })
+        .catch((problem) => setError(problem instanceof ApiError ? problem.message : "The card couldn't be drawn."))
+        .finally(() => setDrawing(false));
+    }, 380);
+    return () => clearTimeout(timer);
+  }, [card, path]);
+
+  if (locked) {
+    return (
+      <section className="card bc-locked">
+        <h2>Premium business cards</h2>
+        <p className="muted">{locked}</p>
+        <p className="muted small">Every active plan includes them: your brand on the front, your QR code on the back, ready to print or share.</p>
+        <div className="actions start"><Button kind="primary" onClick={() => go({ businessId: props.businessId, page: "settings", id: "billing" })}>Plan &amp; billing</Button></div>
+      </section>
+    );
+  }
+  if (!card || !view) return error ? <ErrorLine error={error} /> : <p className="muted">Drawing your card…</p>;
+
+  const set = <K extends keyof CardDetails>(key: K, value: CardDetails[K]) => {
+    typed.current = true;
+    setCard({ ...card, [key]: value });
+  };
   const text = (key: Exclude<keyof CardDetails, "design">) => card[key] ?? "";
-  const persist = () => api("PATCH", businessPath(props.businessId, "/settings"), { cardDetails: card });
+  const file = props.businessId;
+  const title = `${view.name}: business cards`;
+  /** The current card with its 3 mm print margin, for the print files. */
+  const withBleed = () => api<Rendered>("POST", path, { details: card, bleed: true });
+  const make = (label: string, task: () => Promise<unknown>, done: string) => {
+    setWorking(label);
+    void files.run(task, done).finally(() => setWorking(null));
+  };
 
   return (
     <div className="stack">
       <section className="card">
-        <h2>Premium business cards</h2>
-        <p className="muted">Your brand on the front, your QR code on the back. Whoever scans it reaches {door.assistant}, your {door.role}, wherever you've chosen ({door.destination.effective === "page" ? "your page here" : door.destination.effective === "website" ? "your website" : "your WhatsApp"}): every card you hand out keeps working day and night.</p>
-        <div className="bcard-preview">
-          <figure><CardFront door={door} card={card} /><figcaption>Front</figcaption></figure>
-          <figure><CardBack door={door} card={card} /><figcaption>Back</figcaption></figure>
+        <div className="bc-head">
+          <div>
+            <h2>Your business card</h2>
+            <p className="muted">Your brand on the front. On the back, your QR code: whoever scans it reaches your Zaina, day and night. Included with your plan.</p>
+          </div>
+          {drawing ? <span className="bc-drawing" role="status">Updating…</span> : null}
         </div>
-        <fieldset className="bcard-designs">
+        <div className={`bc-stage${drawing ? " busy" : ""}`}>
+          <figure><img src={svgUri(view.front)} alt="The front of your business card" /><figcaption>Front</figcaption></figure>
+          <figure><img src={svgUri(view.back)} alt="The back of your business card, with its QR code" /><figcaption>Back</figcaption></figure>
+        </div>
+        <fieldset className="bc-designs">
           <legend>Design</legend>
           {DESIGNS.map((design) => (
-            <label key={design.id} className={`bcard-design${card.design === design.id ? " on" : ""}`}>
-              <input type="radio" name="design" className="visually-hidden" checked={card.design === design.id} disabled={!canEdit} onChange={() => set("design", design.id)} />
-              <span className={`bcard-swatch ${design.id}`} ref={(node) => node?.style.setProperty("--card-brand", door.color)} aria-hidden="true"><i /><i /></span>
-              <strong>{design.name}</strong>
-              <span className="muted small">{design.text}</span>
+            <label key={design.id} className={`bc-design${card.design === design.id ? " on" : ""}`}>
+              <input type="radio" name="design" className="visually-hidden" checked={card.design === design.id} onChange={() => set("design", design.id)} />
+              {thumbs?.[design.id] ? <img src={svgUri(thumbs[design.id])} alt="" /> : <span className="bc-thumb-empty" />}
+              <span className="bc-design-text"><strong>{design.name}</strong><span className="muted small">{design.text}</span></span>
             </label>
           ))}
         </fieldset>
@@ -85,146 +135,94 @@ export function BusinessCards(props: { businessId: string; role: Role }) {
         className="form card"
         onSubmit={async (event) => {
           event.preventDefault();
-          await save.run(persist, "Saved. Your cards are ready to print.");
+          await save.run(() => api("PATCH", businessPath(props.businessId, "/settings"), { cardDetails: card }), "Saved. This is now your card.");
         }}
       >
-        <h2>What the card says</h2>
-        <p className="muted small">Leave a line empty and it isn't printed. Your name, logo and colour come from Brand.</p>
+        <h2>What it says</h2>
+        <p className="muted small">Your name, logo, colour and welcome line come from Brand. Leave a line empty and it isn't printed.</p>
         <div className="form-row">
-          <Field label="Name on the card" hint="Optional: a person, for example the owner or a manager."><input maxLength={60} disabled={!canEdit} value={text("personName")} onChange={(event) => set("personName", event.target.value || null)} /></Field>
-          <Field label="Their title"><input maxLength={60} disabled={!canEdit} value={text("personTitle")} onChange={(event) => set("personTitle", event.target.value || null)} placeholder="Owner" /></Field>
+          <Field label="Name on the card" hint="Optional: a person, such as the owner or a manager."><input maxLength={60} value={text("personName")} onChange={(event) => set("personName", event.target.value || null)} /></Field>
+          <Field label="Their title"><input maxLength={60} value={text("personTitle")} onChange={(event) => set("personTitle", event.target.value || null)} placeholder="Owner" /></Field>
         </div>
         <div className="form-row">
-          <Field label="Phone"><input maxLength={40} disabled={!canEdit} value={text("phone")} onChange={(event) => set("phone", event.target.value || null)} placeholder="+254 700 000 000" /></Field>
-          <Field label="Email"><input type="email" maxLength={120} disabled={!canEdit} value={text("email")} onChange={(event) => set("email", event.target.value || null)} /></Field>
+          <Field label="Phone"><input maxLength={40} value={text("phone")} onChange={(event) => set("phone", event.target.value || null)} placeholder="+254 700 000 000" /></Field>
+          <Field label="Email"><input type="email" maxLength={120} value={text("email")} onChange={(event) => set("email", event.target.value || null)} /></Field>
         </div>
         <div className="form-row">
-          <Field label="Website"><input maxLength={120} disabled={!canEdit} value={text("website")} onChange={(event) => set("website", event.target.value || null)} placeholder="yourbusiness.co.ke" /></Field>
-          <Field label="Address"><input maxLength={120} disabled={!canEdit} value={text("address")} onChange={(event) => set("address", event.target.value || null)} placeholder="Links Road, Nyali, Mombasa" /></Field>
+          <Field label="Website"><input maxLength={120} value={text("website")} onChange={(event) => set("website", event.target.value || null)} placeholder="yourbusiness.co.ke" /></Field>
+          <Field label="Address"><input maxLength={120} value={text("address")} onChange={(event) => set("address", event.target.value || null)} placeholder="Links Road, Nyali, Mombasa" /></Field>
         </div>
         <Message message={save.message} />
-        {canEdit ? <div className="actions"><Button kind="primary" type="submit" busy={save.busy}>Save</Button></div> : <p className="muted small">Managers and owners can change these.</p>}
+        {canEdit ? <div className="actions"><Button kind="primary" type="submit" busy={save.busy}>Save as our card</Button></div> : <p className="muted small">You can try changes and download them; managers and owners can save them as the business's card.</p>}
       </form>
 
       <section className="card">
-        <h2>Print them</h2>
-        <div className="print-choices">
-          <div className="print-choice">
-            <h3>Print them yourself</h3>
-            <p className="muted small">Ten cards to an A4 sheet at the standard 85 × 55 mm. Print both sides on thick card (300 gsm or more), flipping on the long edge, then cut along the marks. Choose "Save as PDF" to take it to a print shop.</p>
-            <Button small kind="primary" onClick={() => void (canEdit ? save.run(persist) : Promise.resolve(true)).then(() => setPrinting(true))}>Print the sheet</Button>
+        <h2>Download and share</h2>
+        <div className="bc-files">
+          <div className="bc-file">
+            <h3>Print at home or the office</h3>
+            <p className="muted small">A4 PDF with ten cards a sheet and cut marks. Print both sides on 300 gsm card, flipping on the long edge.</p>
+            <Button kind="primary" small busy={working === "sheet"} onClick={() => make("sheet", async () => {
+              const bled = await withBleed();
+              download(`${file}-business-cards-a4.pdf`, await printSheetPdf(bled.front, bled.back, title));
+            }, "Your A4 sheet is downloaded.")}>Download A4 PDF</Button>
           </div>
-          <div className="print-choice">
-            <h3>Let us print them</h3>
-            <p className="muted small">We print them for you on premium card and deliver them. Tell us how many, and we'll come back with a price before anything is printed.</p>
-            {atLeast(props.role, "agent") ? (
-              <Button
-                small
-                busy={order.busy}
-                onClick={() => void order.run(async () => {
-                  if (canEdit) await persist();
-                  const lines = [
-                    `Please print our business cards (${DESIGNS.find((design) => design.id === card.design)!.name} design).`,
-                    "How many: (for example 100, 250 or 500)",
-                    "Deliver to:",
-                    "",
-                    "The card says:",
-                    ...[card.personName && `${card.personName}${card.personTitle ? `, ${card.personTitle}` : ""}`, card.phone, card.email, card.website, card.address].filter(Boolean) as string[],
-                  ];
-                  const thread = await api<{ thread: { id: string } }>("POST", businessPath(props.businessId, "/support"), { subject: "Printed business cards", topic: "idea", message: lines.join("\n") });
-                  // Open the new conversation, so they can say how many and where to.
-                  go({ businessId: props.businessId, page: "support", id: thread.thread.id });
-                })}
-              >
-                Ask us to print them
-              </Button>
-            ) : null}
-            <Message message={order.message} />
+          <div className="bc-file">
+            <h3>For a print shop</h3>
+            <p className="muted small">The front and back at 85 × 55 mm with 3 mm bleed, 600 dpi: the file print shops ask for.</p>
+            <Button small busy={working === "shop"} onClick={() => make("shop", async () => {
+              const bled = await withBleed();
+              download(`${file}-business-card-print.pdf`, await printShopPdf(bled.front, bled.back, title));
+            }, "Your print shop file is downloaded.")}>Download print file</Button>
+          </div>
+          <div className="bc-file">
+            <h3>Share it</h3>
+            <p className="muted small">Both sides in one picture: send it on WhatsApp, post it on your status or social media.</p>
+            <Button small busy={working === "share"} onClick={() => make("share", async () => {
+              const picture = await shareImage(view.front, view.back);
+              const outcome = await shareOrSave(new File([picture], `${file}-business-card.png`, { type: "image/png" }), `${view.name}: scan the code to chat with us.`, download);
+              if (outcome === "saved") files.setMessage({ kind: "success", text: "Your card picture is downloaded, ready to share." });
+            }, "Shared.")}>Share</Button>
+          </div>
+          <div className="bc-file">
+            <h3>Pictures</h3>
+            <p className="muted small">Each side as a high-resolution picture, for your website, email signature or a designer.</p>
+            <div className="actions start">
+              <Button small busy={working === "front"} onClick={() => make("front", async () => download(`${file}-card-front.png`, await cardPng(view.front)), "The front is downloaded.")}>Front</Button>
+              <Button small busy={working === "back"} onClick={() => make("back", async () => download(`${file}-card-back.png`, await cardPng(view.back)), "The back is downloaded.")}>Back</Button>
+            </div>
           </div>
         </div>
+        <Message message={files.message} />
       </section>
 
-      {printing ? createPortal(<CardSheets door={door} card={card} />, document.body) : null}
-    </div>
-  );
-}
-
-function Logo(props: { door: Door; light?: boolean }) {
-  const { door } = props;
-  return <span className={`bc-logo${door.logo_url ? "" : " letters"}${props.light ? " light" : ""}`}>{door.logo_url ? <img src={door.logo_url} alt="" /> : lettersOf(door.name)}</span>;
-}
-
-const ICON: Record<string, ReactNode> = {
-  phone: <path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z" />,
-  email: <><rect x="3" y="5" width="18" height="14" rx="2" /><path d="M3 7l9 6 9-6" /></>,
-  website: <><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18" /></>,
-  address: <><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z" /><circle cx="12" cy="10" r="2.5" /></>,
-};
-
-function Lines(props: { card: CardDetails }) {
-  const rows = (["phone", "email", "website", "address"] as const).filter((key) => props.card[key]);
-  return (
-    <ul className="bc-lines">
-      {rows.map((key) => (
-        <li key={key}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{ICON[key]}</svg><span>{props.card[key]}</span></li>
-      ))}
-    </ul>
-  );
-}
-
-/** The front: the business, a person (if any), how to reach them. */
-export function CardFront(props: { door: Door; card: CardDetails }) {
-  const { door, card } = props;
-  return (
-    <div className={`bc bc-front ${card.design}`} ref={(node) => node?.style.setProperty("--card-brand", door.color)}>
-      <div className="bc-top">
-        <Logo door={door} light={card.design === "bold"} />
-        <div className="bc-brand">
-          <p className="bc-name">{door.name}</p>
-          {door.tagline ? <p className="bc-tagline">{door.tagline}</p> : null}
+      <section className="card bc-service">
+        <div>
+          <h2>Let us print them</h2>
+          <p className="muted">We print your cards on premium card stock and deliver them. Tell us how many, and we'll send you a price before anything is printed.</p>
         </div>
-      </div>
-      <div className="bc-bottom">
-        {card.personName ? <div className="bc-person"><p className="bc-person-name">{card.personName}</p>{card.personTitle ? <p className="bc-person-title">{card.personTitle}</p> : null}</div> : null}
-        <Lines card={card} />
-      </div>
+        {atLeast(props.role, "agent") ? (
+          <Button
+            busy={order.busy}
+            onClick={() => void order.run(async () => {
+              const lines = [
+                `Please print our business cards (${DESIGNS.find((design) => design.id === card.design)!.name} design).`,
+                "How many: (for example 100, 250 or 500)",
+                "Deliver to:",
+                "",
+                "The card says:",
+                ...[card.personName && `${card.personName}${card.personTitle ? `, ${card.personTitle}` : ""}`, card.phone, card.email, card.website, card.address].filter(Boolean) as string[],
+              ];
+              const thread = await api<{ thread: { id: string } }>("POST", businessPath(props.businessId, "/support"), { subject: "Printed business cards", topic: "idea", message: lines.join("\n") });
+              // The conversation opens, so they can say how many and where to.
+              go({ businessId: props.businessId, page: "support", id: thread.thread.id });
+            })}
+          >
+            Ask us to print them
+          </Button>
+        ) : null}
+        <Message message={order.message} />
+      </section>
     </div>
   );
 }
-
-/** The back: the QR code, and what it does. */
-export function CardBack(props: { door: Door; card: CardDetails }) {
-  const { door, card } = props;
-  return (
-    <div className={`bc bc-back ${card.design}`} ref={(node) => node?.style.setProperty("--card-brand", door.color)}>
-      <div className="bc-qr"><img src={svgUri(door.card_qr_svg)} alt="" /></div>
-      <div className="bc-call">
-        <p className="bc-call-title">Scan to chat with us</p>
-        <p className="bc-call-text">Ask, check what's available or book: {door.assistant}, our {door.role}, answers day and night.</p>
-      </div>
-    </div>
-  );
-}
-
-/** Two A4 pages: ten fronts, then ten backs, with crop marks and a bleed. */
-function CardSheets(props: { door: Door; card: CardDetails }) {
-  const cuts = { x: [20, 105, 190], y: [11, 66, 121, 176, 231, 286] };
-  const marks = (
-    <>
-      {cuts.x.map((x) => <span key={`t${x}`} className="crop v" ref={(node) => { node?.style.setProperty("left", `${x}mm`); node?.style.setProperty("top", "0"); }} />)}
-      {cuts.x.map((x) => <span key={`b${x}`} className="crop v" ref={(node) => { node?.style.setProperty("left", `${x}mm`); node?.style.setProperty("top", "289mm"); }} />)}
-      {cuts.y.map((y) => <span key={`l${y}`} className="crop h" ref={(node) => { node?.style.setProperty("top", `${y}mm`); node?.style.setProperty("left", "0"); }} />)}
-      {cuts.y.map((y) => <span key={`r${y}`} className="crop h" ref={(node) => { node?.style.setProperty("top", `${y}mm`); node?.style.setProperty("left", "202mm"); }} />)}
-    </>
-  );
-  const page = (side: "front" | "back") => (
-    <div className={`bc-page ${side} ${props.card.design}`} ref={(node) => node?.style.setProperty("--card-brand", props.door.color)}>
-      {marks}
-      <div className="bc-grid">
-        {Array.from({ length: 10 }, (_, index) => (side === "front" ? <CardFront key={index} door={props.door} card={props.card} /> : <CardBack key={index} door={props.door} card={props.card} />))}
-      </div>
-    </div>
-  );
-  return <div className="print-root cards">{page("front")}{page("back")}</div>;
-}
-

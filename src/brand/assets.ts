@@ -89,9 +89,11 @@ export function brandAssetUrl(baseUrl: string, businessId: string, asset: BrandA
   return asset ? `${baseUrl}/brand/${encodeURIComponent(businessId)}/${asset.kind}?v=${asset.sha256.slice(0, 12)}` : null;
 }
 
-/** Text that reads on a colour: dark on a light colour, white on a dark one. */
+/** Text that reads on a colour: white or ink, whichever contrasts more with it. */
 export function readableOn(hex: string): string {
   const [r, g, b] = [1, 3, 5].map((index) => parseInt(hex.slice(index, index + 2), 16) / 255)
     .map((channel) => (channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4));
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.45 ? "#111827" : "#ffffff";
+  const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  // Contrast with white is 1.05 / (L + 0.05); with ink (#111827, L ≈ 0.0109) it is (L + 0.05) / 0.0609.
+  return 1.05 / (luminance + 0.05) >= (luminance + 0.05) / 0.0609 ? "#ffffff" : "#111827";
 }

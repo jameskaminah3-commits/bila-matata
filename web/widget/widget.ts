@@ -107,7 +107,8 @@ const POLL_OPEN_MS = 30_000;
     const [r, g, b] = [1, 3, 5].map((index) => parseInt(hex.slice(index, index + 2), 16) / 255)
       .map((channel) => (channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4));
     const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-    return luminance > 0.45 ? "#111827" : "#ffffff";
+    // White or ink, whichever contrasts more with the colour.
+    return 1.05 / (luminance + 0.05) >= (luminance + 0.05) / 0.0609 ? "#ffffff" : "#111827";
   }
 
   const css = (brand: string, side: "right" | "left") => `

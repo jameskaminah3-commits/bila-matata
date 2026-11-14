@@ -246,3 +246,44 @@ test("a business card's details are saved with the business and its scans counte
     return stats.visits === before.visits + 1 && stats.chats === before.chats + 1 ? stats : null;
   }, "the card's visit and chat are counted as a card's");
 });
+
+test("business cards come with an active plan: drawn for the team, with the saved details or what they're typing", async () => {
+  const draw = (body: unknown, who = "owner", business = "palm") => staff("POST", "/business-card", body, who, business);
+  // A live business billed by the studio (no plan record) has them; so does anyone on its team.
+  const card = await draw({ thumbnails: true }, "viewer");
+  assert.equal(card.status, 200, JSON.stringify(card.body));
+  assert.equal(card.body.details.personName, "Grace Wambui", "the saved card");
+  assert.match(card.body.front, /^<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg" viewBox="0 0 85 55" width="85mm" height="55mm"/);
+  assert.match(card.body.back, /viewBox="0 0 85 55"/);
+  assert.deepEqual(Object.keys(card.body.thumbnails).sort(), ["bold", "minimal", "signature"]);
+  // While typing: drawn with what's in the form, without saving it.
+  const typed = await draw({ details: { design: "minimal", personName: "Daniel Mwangi" }, bleed: true });
+  assert.equal(typed.status, 200);
+  assert.deepEqual([typed.body.design, typed.body.details.personName], ["minimal", "Daniel Mwangi"]);
+  assert.match(typed.body.front, /viewBox="-3 -3 91 61" width="91mm" height="61mm"/, "with the print margin");
+  assert.equal((await staff("GET", "/front-door")).body.card.personName, "Grace Wambui", "nothing was saved");
+  assert.equal((await draw({ details: { design: "neon" } })).status, 400);
+
+  // Paused, or a plan that has ended: no cards, and the team is told why.
+  assert.equal((await api("PATCH", "/v1/platform/businesses/other", { status: "paused" }, ops)).status, 200);
+  const paused = await draw({}, "other", "other");
+  assert.equal(paused.status, 402);
+  assert.match(paused.body.message, /paused/);
+  // Never live before, so resuming puts it back to setting up: still no cards until it goes live.
+  const resumed = await api("PATCH", "/v1/platform/businesses/other", { status: "active" }, ops);
+  assert.deepEqual([resumed.status, resumed.body.status], [200, "onboarding"]);
+  const settingUp = await draw({}, "other", "other");
+  assert.equal(settingUp.status, 402);
+  assert.match(settingUp.body.message, /once your business is live/);
+  await platform.db.query(`update businesses set status = 'active', went_live_at = now() where id = 'other'`);
+  await new Promise((resolve) => setTimeout(resolve, 200));
+  assert.equal((await draw({}, "other", "other")).status, 200, "live again: cards are back");
+  await platform.db.query(`insert into plans (id, name, tier, price_minor, currency) values ('cards-test', 'Test plan', 'full', 100000, 'KES') on conflict (id) do nothing`);
+  await platform.db.query(`insert into subscriptions (business_id, plan_id, status) values ('other', 'cards-test', 'cancelled') on conflict (business_id) do update set status = 'cancelled'`);
+  await new Promise((resolve) => setTimeout(resolve, 200));
+  const ended = await draw({}, "other", "other");
+  assert.equal(ended.status, 402);
+  assert.match(ended.body.message, /active Zaina plan/);
+  await platform.db.query(`update subscriptions set status = 'active', current_period_start = now(), current_period_end = now() + interval '30 days' where business_id = 'other'`);
+  assert.equal((await draw({}, "other", "other")).status, 200, "a running plan has them");
+});
