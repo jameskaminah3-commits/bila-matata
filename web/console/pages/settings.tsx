@@ -12,13 +12,14 @@ import { WEEKDAYS } from "../format.ts";
 import type { Me, Operations, Role, Settings, WhatsappState } from "../types.ts";
 import { Brand } from "./brand.tsx";
 import { FrontDoor } from "./front-door.tsx";
+import { BusinessCards } from "./business-cards.tsx";
 import { Button, ErrorLine, Field, Message, Tabs, Toggle, useAction, useLoad } from "../ui.tsx";
 import { BillingSettings } from "./billing.tsx";
 import { BookingSettings } from "./booking-settings.tsx";
 import { Calendars } from "./calendars.tsx";
 
-type Tab = "profile" | "brand" | "door" | "notifications" | "widget" | "whatsapp" | "hours" | "bookings" | "calendars" | "billing";
-const TABS: Tab[] = ["profile", "brand", "door", "notifications", "widget", "whatsapp", "hours", "bookings", "calendars", "billing"];
+type Tab = "profile" | "brand" | "door" | "cards" | "notifications" | "widget" | "whatsapp" | "hours" | "bookings" | "calendars" | "billing";
+const TABS: Tab[] = ["profile", "brand", "door", "cards", "notifications", "widget", "whatsapp", "hours", "bookings", "calendars", "billing"];
 
 /**
  * The tab in the address (#/b/<business>/settings/<tab>?…), and what a
@@ -45,6 +46,7 @@ export function SettingsPage(props: { businessId: string; role: Role; me: Me; bu
           { id: "profile", label: "Business" },
           { id: "brand", label: "Brand" },
           { id: "door", label: "QR code & link" },
+          { id: "cards", label: "Business cards" },
           ...(stays ? [{ id: "bookings" as const, label: "Bookings & payments" }, { id: "calendars" as const, label: "Calendars" }] : []),
           { id: "notifications", label: "Notifications" },
           { id: "widget", label: "Website widget" },
@@ -58,6 +60,7 @@ export function SettingsPage(props: { businessId: string; role: Role; me: Me; bu
       {tab === "profile" ? <Profile businessId={props.businessId} /> : null}
       {tab === "brand" ? <Brand businessId={props.businessId} role={props.role} /> : null}
       {tab === "door" ? <FrontDoor businessId={props.businessId} role={props.role} /> : null}
+      {tab === "cards" ? <BusinessCards businessId={props.businessId} role={props.role} /> : null}
       {tab === "notifications" ? <NotificationEmails businessId={props.businessId} role={props.role} /> : null}
       {tab === "widget" ? <Widget businessId={props.businessId} role={props.role} me={props.me} /> : null}
       {tab === "whatsapp" ? <Whatsapp businessId={props.businessId} role={props.role} /> : null}

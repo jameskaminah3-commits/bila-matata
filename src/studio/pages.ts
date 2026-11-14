@@ -114,7 +114,7 @@ const PLANS = [
       "Suggests the extras and upgrades you really offer, at your listed prices, without being pushy",
       "Alerts your team on their phones and hands over the whole conversation, ready to close",
       "Up to 2 notification emails, each with a takeover link and, if you like, the conversation written out",
-      "Chat on your website with one line of code, or no website at all: your own page and QR code to print",
+      "Chat on your website with one line of code, or no website at all: your own page, branded QR code and business cards to print",
       "Your logo, colours and welcome line on the chat and your page",
       "Dashboard with every chat, lead and report, and help from our team",
     ],

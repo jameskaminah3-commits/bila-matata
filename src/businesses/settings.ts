@@ -6,7 +6,7 @@
 // security) and cached briefly.
 
 import { eq } from "drizzle-orm";
-import { businessSettings, type BusinessSettings } from "../db/schema.ts";
+import { businessSettings, cardDesigns, qrDestinations, type BusinessSettings, type CardDesign, type CardDetails, type QrDestination } from "../db/schema.ts";
 import { inBusiness } from "../db/tenant.ts";
 
 const CACHE_MS = Number(process.env.BUSINESS_CACHE_MS ?? "") || 30_000;
@@ -22,7 +22,7 @@ export async function getBusinessSettings(businessId: string): Promise<BusinessS
 
 export type SettingsPatch = Partial<Pick<BusinessSettings,
   | "displayName" | "assistantName" | "about" | "contactPhone" | "contactPhoneDisplay" | "websiteUrl" | "supportEmail"
-  | "allowedLinkHosts" | "allowedLinkHostSuffixes" | "defaultCurrency" | "widgetColor" | "widgetPosition" | "widgetGreeting" | "widgetWhatsapp" | "personaRole" | "brandTagline" | "chatAvatar" | "frontDoor">>;
+  | "allowedLinkHosts" | "allowedLinkHostSuffixes" | "defaultCurrency" | "widgetColor" | "widgetPosition" | "widgetGreeting" | "widgetWhatsapp" | "personaRole" | "brandTagline" | "chatAvatar" | "frontDoor" | "qrDestination" | "cardDetails">>;
 
 const TEXT_FIELDS = ["displayName", "assistantName", "about", "contactPhone", "contactPhoneDisplay", "websiteUrl", "supportEmail"] as const;
 const HOST_PATTERN = /^(?:[a-z0-9-]+\.)+[a-z]{2,}$/;
@@ -103,11 +103,42 @@ export function validateSettingsPatch(input: Record<string, unknown>): { ok: tru
     if (typeof input.frontDoor !== "boolean") return { ok: false, error: "frontDoor is true or false" };
     patch.frontDoor = input.frontDoor;
   }
+  if ("qrDestination" in input) {
+    if (!qrDestinations.includes(input.qrDestination as QrDestination)) return { ok: false, error: "qrDestination is page, website or whatsapp" };
+    patch.qrDestination = input.qrDestination as QrDestination;
+  }
+  if ("cardDetails" in input) {
+    const card = checkCardDetails(input.cardDetails);
+    if (!card.ok) return card;
+    patch.cardDetails = card.value;
+  }
   if ("widgetWhatsapp" in input) {
     if (typeof input.widgetWhatsapp !== "boolean") return { ok: false, error: "widgetWhatsapp is true or false" };
     patch.widgetWhatsapp = input.widgetWhatsapp;
   }
   return { ok: true, patch };
+}
+
+const CARD_LIMITS = { personName: 60, personTitle: 60, phone: 40, email: 120, website: 120, address: 120 } as const;
+
+/** What a business card says: short single lines, each optional; a design from the list. */
+export function checkCardDetails(input: unknown): { ok: true; value: CardDetails | null } | { ok: false; error: string } {
+  if (input === null) return { ok: true, value: null };
+  if (typeof input !== "object" || Array.isArray(input)) return { ok: false, error: "cardDetails is an object" };
+  const body = input as Record<string, unknown>;
+  const design = body.design ?? "signature";
+  if (!cardDesigns.includes(design as CardDesign)) return { ok: false, error: "cardDetails.design is signature, minimal or bold" };
+  const value: CardDetails = { design: design as CardDesign, personName: null, personTitle: null, phone: null, email: null, website: null, address: null };
+  for (const [field, limit] of Object.entries(CARD_LIMITS) as Array<[keyof typeof CARD_LIMITS, number]>) {
+    const raw = body[field];
+    if (raw === undefined || raw === null || raw === "") continue;
+    if (typeof raw !== "string") return { ok: false, error: `cardDetails.${field} is text` };
+    const clean = raw.replace(/\s+/g, " ").trim();
+    if (clean.length > limit) return { ok: false, error: `cardDetails.${field} is up to ${limit} characters` };
+    value[field] = clean || null;
+  }
+  if (value.email && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(value.email)) return { ok: false, error: "cardDetails.email must be an email address" };
+  return { ok: true, value };
 }
 
 export async function updateBusinessSettings(businessId: string, patch: SettingsPatch, updatedBy: string | null): Promise<BusinessSettings> {

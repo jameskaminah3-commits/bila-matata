@@ -4,19 +4,23 @@
 //
 //   GET  /c/:business                 its own page: name, logo, colours, and Zaina ready to talk
 //   GET  /c/:business/brand.css       its colours (the page allows no inline style)
-//   GET  /c/:business/qr.svg          the QR code that opens the page (counted as a scan)
+//   GET  /c/:business/qr.svg          its QR code (?style=classic for plain black and white; ?for=card for the business card's)
+//   GET  /q/:business, /k/:business   what its printed codes carry (/k on business cards): the scan is
+//                                     counted, then the customer goes wherever its Zaina works (its
+//                                     page here, its website with the chat open, or its WhatsApp)
 //   GET  /c-assets/door.css           the page's look
 //   GET  /brand/:business/:kind       its logo or cover picture (kind: logo | cover)
 //
 //   Its team, from the dashboard (/v1/staff/businesses/:businessId/…):
-//   GET    front-door                 viewer   the address, the QR code, whether it's open, and how many came through it
+//   GET    front-door                 viewer   the address, the QR codes, where scans go, whether it's open, and how many came through it
 //   GET    brand                      viewer   its pictures' addresses and size limits
 //   PUT    brand/:kind                manager  a new logo or cover (the picture itself as the request body)
 //   DELETE brand/:kind                manager  remove it
 //
-// The welcome line, the chat's picture (Zaina's face or the logo) and whether
-// the page is open are settings (PATCH settings: brandTagline, chatAvatar,
-// frontDoor).
+// The welcome line, the chat's picture (Zaina's face or the logo), whether
+// the page is open, where scans go and what the business cards say are
+// settings (PATCH settings: brandTagline, chatAvatar, frontDoor,
+// qrDestination, cardDetails).
 
 import express, { type Express, type NextFunction, type Request, type Response } from "express";
 import type { PlatformConfig } from "../config.ts";
@@ -27,9 +31,11 @@ import { getNumber } from "../channels/whatsapp/numbers.ts";
 import { personaRole } from "../engine/persona.ts";
 import { whatsappLink } from "../gateway/routes.ts";
 import { requireBusinessRole, requireStaff, staffOf } from "../staff/auth.ts";
-import { brandCss, DOOR_CSS, renderDoorClosed, renderFrontDoor } from "./page.ts";
+import { brandCss, DOOR_CSS, initials, renderDoorClosed, renderFrontDoor } from "./page.ts";
 import { qrSvg } from "./qr.ts";
-import { doorSource, doorStats, looksLikePerson, recordDoorVisit } from "./stats.ts";
+import { isOriginAllowed } from "../gateway/origin.ts";
+import type { QrDestination } from "../db/schema.ts";
+import { doorSource, doorStats, looksLikePerson, recordDoorVisit, type DoorSource } from "./stats.ts";
 
 const BUSINESS_ID = /^[a-z][a-z0-9-]{1,39}$/;
 
@@ -45,9 +51,56 @@ const DOOR_CSP = [
   "base-uri 'none'",
 ].join("; ");
 
-/** The address of a business's page, and the one its QR code carries (so scans are told from links). */
+/** The address of a business's page. */
 export const doorUrl = (baseUrl: string, businessId: string) => `${baseUrl}/c/${encodeURIComponent(businessId)}`;
-export const doorQrTarget = (baseUrl: string, businessId: string) => `${doorUrl(baseUrl, businessId)}?s=qr`;
+/**
+ * What a printed code carries: short (a smaller code reads from further away),
+ * and never changing, whatever the business later chooses as its destination.
+ */
+export const doorQrTarget = (baseUrl: string, businessId: string, on: "qr" | "card" = "qr") => `${baseUrl}/${on === "card" ? "k" : "q"}/${encodeURIComponent(businessId)}`;
+
+type Destination = { kind: QrDestination; url: string };
+
+/**
+ * Where a scan goes. The business's choice, when Zaina really works there:
+ * its website only when the chat may run on it (one of its allowed websites),
+ * its WhatsApp only when the number is connected to Zaina. Otherwise its page
+ * here, which always works.
+ */
+export function scanDestination(input: { base: string; businessId: string; name: string; choice: QrDestination; websiteUrl: string | null; allowedOrigins: string[]; whatsapp: string | null; on: DoorSource }): Destination {
+  const page: Destination = { kind: "page", url: `${doorUrl(input.base, input.businessId)}?s=${input.on}` };
+  if (input.choice === "website" && input.websiteUrl) {
+    const site = websiteWithChat(input.websiteUrl, input.allowedOrigins);
+    if (site) return { kind: "website", url: site };
+  }
+  if (input.choice === "whatsapp" && input.whatsapp && /^https:\/\/wa\.me\/\d{8,15}$/.test(input.whatsapp)) {
+    return { kind: "whatsapp", url: `${input.whatsapp}?text=${encodeURIComponent(`Hi ${input.name}!`)}` };
+  }
+  return page;
+}
+
+/** The business's website, opening the chat (#zaina), when the chat may run there; otherwise null. */
+export function websiteWithChat(websiteUrl: string, allowedOrigins: string[]): string | null {
+  try {
+    const url = new URL(websiteUrl);
+    if (url.protocol !== "https:" || !isOriginAllowed(url.origin, allowedOrigins)) return null;
+    url.hash = "zaina";
+    return url.toString();
+  } catch {
+    return null;
+  }
+}
+
+/** A business's logo as a data: URI, to sit in the centre of its code. */
+async function logoDataUri(businessId: string): Promise<string | null> {
+  const logo = await readBrandAsset(businessId, "logo");
+  return logo ? `data:${logo.contentType};base64,${logo.bytes.toString("base64")}` : null;
+}
+
+/** The business's premium code: its colour, and its logo or initials in the centre. */
+export async function premiumQr(target: string, business: { id: string; name: string }, color: string | null | undefined): Promise<string> {
+  return qrSvg(target, { style: "premium", color: color ?? undefined, logo: await logoDataUri(business.id), initials: initials(business.name) });
+}
 
 export function registerFrontDoorRoutes(app: Express, config: PlatformConfig): void {
   const staff = requireStaff(config.sessionTokenSecret);
@@ -76,14 +129,51 @@ export function registerFrontDoorRoutes(app: Express, config: PlatformConfig): v
     try {
       const business = await live(String(req.params.business));
       if (!business) return res.status(404).type("text/plain").send("Not found");
+      const settings = await getBusinessSettings(business.id);
+      const target = doorQrTarget(baseOf(req), business.id, req.query.for === "card" ? "card" : "qr");
+      const svg = req.query.style === "classic"
+        ? qrSvg(target)
+        : await premiumQr(target, { id: business.id, name: settings?.displayName ?? business.name }, settings?.widgetColor);
       res.setHeader("Cache-Control", "public, max-age=300");
-      res.setHeader("Content-Security-Policy", "default-src 'none'; sandbox");
+      res.setHeader("Content-Security-Policy", "default-src 'none'; img-src data:; style-src 'unsafe-inline'; sandbox");
       res.setHeader("X-Content-Type-Options", "nosniff");
-      res.type("image/svg+xml").send(qrSvg(doorQrTarget(baseOf(req), business.id)));
+      res.type("image/svg+xml").send(svg);
     } catch (error) {
       next(error);
     }
   });
+
+  // What printed codes carry. Counted, then on to wherever the business's Zaina works.
+  const scan = (on: "qr" | "card") => async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      res.setHeader("Cache-Control", "no-store");
+      res.setHeader("Referrer-Policy", "no-referrer");
+      res.setHeader("X-Robots-Tag", "noindex, nofollow");
+      const business = await live(String(req.params.business));
+      const settings = business ? await getBusinessSettings(business.id) : null;
+      if (!business || !settings) return res.status(404).type("html").send(renderDoorClosed());
+      const base = baseOf(req);
+      const number = settings.qrDestination === "whatsapp" ? await getNumber(business.id) : null;
+      const destination = scanDestination({
+        base,
+        businessId: business.id,
+        name: settings.displayName ?? business.name,
+        choice: settings.qrDestination,
+        websiteUrl: settings.websiteUrl,
+        allowedOrigins: business.allowedOrigins,
+        whatsapp: number?.status === "active" ? whatsappLink(number.displayPhoneNumber) : null,
+        on,
+      });
+      // The page counts its own visits; a scan that goes elsewhere is counted here.
+      if (destination.kind !== "page" && looksLikePerson(req.header("user-agent"))) void recordDoorVisit(business.id, on);
+      if (destination.kind === "page" && settings.frontDoor === false) return res.status(404).type("html").send(renderDoorClosed());
+      res.redirect(302, destination.url);
+    } catch (error) {
+      next(error);
+    }
+  };
+  app.get("/q/:business", scan("qr"));
+  app.get("/k/:business", scan("card"));
 
   app.get("/c/:business", async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -112,7 +202,8 @@ export function registerFrontDoorRoutes(app: Express, config: PlatformConfig): v
         phone: settings.contactPhone,
         phoneDisplay: settings.contactPhone ? settings.contactPhoneDisplay ?? settings.contactPhone : null,
         whatsapp: number?.status === "active" ? whatsappLink(number.displayPhoneNumber) : null,
-        via,
+        // The chat counts where it came from: a card's scan counts as a card.
+        via: via === "card" ? "card" : via,
         brandVersion: (settings.widgetColor ?? "0f766e").replace("#", ""),
       }));
     } catch (error) {
@@ -157,10 +248,29 @@ export function registerFrontDoorRoutes(app: Express, config: PlatformConfig): v
     try {
       const business = staffOf(req).business!;
       const baseUrl = baseOf(req);
-      const [settings, stats, brand] = await Promise.all([getBusinessSettings(business.id), doorStats(business.id, 30), brandView(business.id, baseUrl)]);
+      const [settings, stats, brand, number] = await Promise.all([getBusinessSettings(business.id), doorStats(business.id, 30), brandView(business.id, baseUrl), getNumber(business.id)]);
+      const name = settings?.displayName ?? business.name;
+      const whatsapp = number?.status === "active" ? whatsappLink(number.displayPhoneNumber) : null;
+      const target = doorQrTarget(baseUrl, business.id);
+      const cardTarget = doorQrTarget(baseUrl, business.id, "card");
+      const choice = settings?.qrDestination ?? "page";
+      const website = settings?.websiteUrl ? websiteWithChat(settings.websiteUrl, business.allowedOrigins) : null;
       res.json({
         url: doorUrl(baseUrl, business.id),
-        qr_svg: qrSvg(doorQrTarget(baseUrl, business.id)),
+        scan_url: target,
+        card_url: cardTarget,
+        qr_svg: await premiumQr(target, { id: business.id, name }, settings?.widgetColor),
+        qr_classic_svg: qrSvg(target),
+        card_qr_svg: await premiumQr(cardTarget, { id: business.id, name }, settings?.widgetColor),
+        // Where scans go, and which destinations Zaina really works at.
+        destination: {
+          chosen: choice,
+          effective: scanDestination({ base: baseUrl, businessId: business.id, name, choice, websiteUrl: settings?.websiteUrl ?? null, allowedOrigins: business.allowedOrigins, whatsapp, on: "qr" }).kind,
+          website: website ? { url: settings!.websiteUrl } : { url: settings?.websiteUrl ?? null, problem: settings?.websiteUrl ? "The chat isn't allowed on this website yet: add it under Website widget." : "Add your website's address under Business." },
+          whatsapp: whatsapp ? { number: number!.displayPhoneNumber } : { number: null, problem: "Connect your WhatsApp number to Zaina under WhatsApp." },
+        },
+        card: settings?.cardDetails ?? null,
+        contact: { phone: settings?.contactPhoneDisplay ?? settings?.contactPhone ?? null, email: settings?.supportEmail ?? null, website: settings?.websiteUrl ?? null },
         open: settings?.frontDoor !== false,
         // Customers reach it once the business is live.
         live: business.status === "active",

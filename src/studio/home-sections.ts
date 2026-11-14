@@ -123,7 +123,7 @@ const VALUE_ROWS: Array<{ feature: string; gain: string; starter: Cell; full: Ce
   { feature: "Leads captured and handed over", gain: "Your team starts with the name, the number and exactly what they want.", starter: true, full: true },
   { feature: "Your team takes over any chat", gain: "Step in for a VIP or a tricky question without losing the thread.", starter: true, full: true },
   { feature: "Notification emails, with takeover links and transcripts", gain: "The owner, reception and a manager each hear about it, wherever they are.", starter: "Up to 2", full: "Up to 5" },
-  { feature: "Your own QR code and page, with a poster, table cards and stickers", gain: "No website? Customers scan the code on your counter and reach you in seconds.", starter: true, full: true },
+  { feature: "Your own branded QR code, page and business cards", gain: "No website? Customers scan the code on your counter or your card and reach you in seconds, wherever you've chosen.", starter: true, full: true },
   { feature: "Your brand: logo, colours and welcome line", gain: "The chat, your page and your payment page look like your business, not ours.", starter: true, full: true },
   { feature: "Dashboard: chat history, leads and reports", gain: "See every conversation, what was asked and what it led to.", starter: true, full: true },
   { feature: "Help and support from our team", gain: "A real person answers when you're stuck.", starter: true, full: true },

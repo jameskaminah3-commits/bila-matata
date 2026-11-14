@@ -555,3 +555,87 @@ table.lines tr.total th, table.lines tr.total td { font-weight: 700; border-top:
   #root { display: none !important; }
   .print-root { position: static; left: auto; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
+
+/* ── Premium QR and where scans go ────────────────────────────────────── */
+.door-qr-col { display: grid; gap: 10px; justify-items: center; }
+.door-qr.premium { border-radius: 22px; padding: 12px; box-shadow: 0 14px 30px -20px rgba(0, 0, 0, .45); }
+.door-qr.premium img { image-rendering: auto; }
+.segmented { display: inline-flex; padding: 3px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--line); }
+.segmented button { border: 0; background: transparent; color: var(--text-2); font: inherit; font-size: 13px; font-weight: 600; padding: 5px 14px; border-radius: 999px; cursor: pointer; }
+.segmented button[aria-pressed="true"] { background: var(--surface); color: var(--text); box-shadow: 0 1px 3px rgba(0, 0, 0, .12); }
+.segmented button:focus-visible { outline: 2px solid var(--brand); outline-offset: 1px; }
+.check.destination { padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius); width: 100%; }
+.check.destination:has(input:checked) { border-color: var(--brand); background: var(--brand-soft); }
+.check.destination.unavailable { opacity: .7; cursor: default; }
+.print-qr.premium { image-rendering: auto; }
+.print-poster .print-qr.premium { border: 0; padding: 0; width: 120mm; height: 120mm; }
+
+/* ── Business cards (Settings → Business cards) ───────────────────────── */
+/* One card is 85 × 55 mm; on screen it scales with --u (1 mm). */
+.bcard-preview { --u: min(4.4px, calc((100vw - 120px) / 85)); display: flex; flex-wrap: wrap; gap: 22px; margin-top: 14px; }
+.bcard-preview figure { margin: 0; display: grid; gap: 8px; justify-items: center; }
+.bcard-preview figcaption { font-size: 12.5px; color: var(--muted); }
+.bcard-preview .bc { box-shadow: 0 18px 34px -22px rgba(0, 0, 0, .55), 0 2px 6px rgba(0, 0, 0, .08); border-radius: calc(var(--u) * 2.4); }
+.bcard-designs { border: 0; margin: 18px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
+.bcard-designs legend { font-weight: 600; font-size: 14px; margin-bottom: 8px; padding: 0; }
+.bcard-design { display: grid; gap: 4px; padding: 12px; border: 1px solid var(--line); border-radius: var(--radius); cursor: pointer; }
+.bcard-design.on { border-color: var(--brand); background: var(--brand-soft); }
+.bcard-design:has(input:focus-visible) { outline: 2px solid var(--brand); outline-offset: 2px; }
+.bcard-swatch { --card-brand: var(--brand); display: flex; gap: 6px; margin-bottom: 4px; }
+.bcard-swatch i { width: 44px; height: 28px; border-radius: 5px; border: 1px solid var(--line); background: #ffffff; }
+.bcard-swatch.signature i:last-child, .bcard-swatch.bold i:first-child { background: var(--card-brand); border-color: transparent; }
+.bcard-swatch.minimal i { box-shadow: inset 0 -3px 0 var(--card-brand); }
+
+.bc { --card-brand: var(--brand); --u: 1mm; width: calc(var(--u) * 85); height: calc(var(--u) * 55); position: relative; overflow: hidden; background: #ffffff; color: #111827;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.bc p { margin: 0; }
+.bc-front { display: flex; flex-direction: column; justify-content: space-between; padding: calc(var(--u) * 6) calc(var(--u) * 6.5) calc(var(--u) * 5.5); }
+.bc-top { display: flex; align-items: center; gap: calc(var(--u) * 3); min-width: 0; }
+.bc-logo { width: calc(var(--u) * 11); height: calc(var(--u) * 11); flex: none; border-radius: calc(var(--u) * 2.6); overflow: hidden; display: grid; place-items: center; background: #ffffff; border: calc(var(--u) * .25) solid #e5e7eb; font-weight: 750; font-size: calc(var(--u) * 4.2); letter-spacing: .02em; }
+.bc-logo img { width: 100%; height: 100%; object-fit: contain; display: block; }
+.bc-logo.letters { background: var(--card-brand); color: #ffffff; border-color: transparent; }
+.bc-logo.light.letters { background: #ffffff; color: var(--card-brand); }
+.bc-brand { min-width: 0; }
+.bc-name { font-size: calc(var(--u) * 4.4); font-weight: 750; letter-spacing: -.01em; line-height: 1.12; overflow-wrap: anywhere; }
+.bc-tagline { font-size: calc(var(--u) * 2.5); color: #4b5563; margin-top: calc(var(--u) * .8) !important; line-height: 1.3; }
+.bc-bottom { display: grid; gap: calc(var(--u) * 2.4); }
+.bc-person-name { font-size: calc(var(--u) * 3.3); font-weight: 700; line-height: 1.15; }
+.bc-person-title { font-size: calc(var(--u) * 2.4); color: var(--card-brand); font-weight: 600; letter-spacing: .06em; text-transform: uppercase; margin-top: calc(var(--u) * .5) !important; }
+.bc-lines { list-style: none; margin: 0; padding: 0; display: grid; gap: calc(var(--u) * 1); }
+.bc-lines li { display: flex; align-items: center; gap: calc(var(--u) * 1.8); font-size: calc(var(--u) * 2.45); line-height: 1.2; min-width: 0; }
+.bc-lines li span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.bc-lines svg { width: calc(var(--u) * 2.9); height: calc(var(--u) * 2.9); flex: none; color: var(--card-brand); }
+.bc-back { display: flex; align-items: center; gap: calc(var(--u) * 5); padding: calc(var(--u) * 6); }
+.bc-qr { width: calc(var(--u) * 33); height: calc(var(--u) * 33); flex: none; background: #ffffff; border-radius: calc(var(--u) * 3.5); padding: calc(var(--u) * 1.2); line-height: 0; }
+.bc-qr img { width: 100%; height: 100%; display: block; }
+.bc-call { display: grid; gap: calc(var(--u) * 1.6); min-width: 0; }
+.bc-call-title { font-size: calc(var(--u) * 4.4); font-weight: 800; line-height: 1.08; letter-spacing: -.01em; }
+.bc-call-text { font-size: calc(var(--u) * 2.4); line-height: 1.35; }
+/* Signature: white front with a band of colour along the foot; the back in the business's colour. */
+.bc-front.signature::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: calc(var(--u) * 2.2); background: var(--card-brand); }
+.bc-back.signature { background: var(--card-brand); color: #ffffff; }
+.bc-back.signature .bc-call-text { opacity: .92; }
+/* Minimal: white both sides; a fine rule of colour. */
+.bc-front.minimal .bc-top { padding-bottom: calc(var(--u) * 3); border-bottom: calc(var(--u) * .35) solid var(--card-brand); }
+.bc-back.minimal .bc-qr { border: calc(var(--u) * .35) solid #e5e7eb; }
+.bc-back.minimal .bc-call-title { color: var(--card-brand); }
+/* Bold: the front in the business's colour; a white back. */
+.bc-front.bold { background: var(--card-brand); color: #ffffff; }
+.bc-front.bold .bc-tagline, .bc-front.bold .bc-person-title { color: #ffffff; opacity: .9; }
+.bc-front.bold .bc-lines svg { color: #ffffff; }
+.bc-front.bold .bc-logo { border-color: transparent; }
+.bc-back.bold .bc-qr { border: calc(var(--u) * .7) solid var(--card-brand); }
+.bc-back.bold .bc-call-title { color: var(--card-brand); }
+
+/* The printed sheets: A4, ten cards, crop marks, a 2 mm bleed where an edge is coloured. */
+.print-root.cards { width: 210mm; }
+.bc-page { --card-brand: var(--brand); position: relative; width: 210mm; height: 297mm; overflow: hidden; background: #ffffff; break-after: page; page-break-after: always; }
+.bc-page:last-child { break-after: auto; page-break-after: auto; }
+.bc-grid { position: absolute; left: 20mm; top: 11mm; display: grid; grid-template-columns: repeat(2, 85mm); grid-template-rows: repeat(5, 55mm); }
+.bc-page .bc { border-radius: 0; box-shadow: none; }
+/* Where a side is all colour, a solid panel 2 mm larger than the cards sits behind them, so a cut a little off still lands in colour. */
+.bc-page.back.signature::before, .bc-page.front.bold::before { content: ""; position: absolute; left: 18mm; top: 9mm; width: 174mm; height: 279mm; background: var(--card-brand); -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.crop { position: absolute; background: #6b7280; }
+.crop.v { width: .2mm; height: 8mm; margin-left: -.1mm; }
+.crop.h { height: .2mm; width: 8mm; margin-top: -.1mm; }
+@media (max-width: 620px) { .bcard-preview { justify-content: center; } }

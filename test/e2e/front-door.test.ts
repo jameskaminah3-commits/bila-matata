@@ -184,3 +184,65 @@ test("customers pay the business's own account: the platform's account is offere
   assert.notEqual(allowed.body.error, "not_offered");
   assert.equal((await staff("PUT", "/payments/paystack", { mode: "subaccount", subaccount: "ACCT_abcd1234" }, "other", "other")).status, 403, "the other business is still not offered it");
 });
+
+test("printed codes carry a short address that never changes, and send each scan wherever the business chooses", async () => {
+  const scan = (path: string, agent = PHONE) => fetch(`${BASE}${path}`, { headers: { "user-agent": agent }, redirect: "manual" });
+  const door = await staff("GET", "/front-door");
+  assert.deepEqual([door.body.scan_url, door.body.card_url], [`${BASE}/q/palm`, `${BASE}/k/palm`]);
+  assert.match(door.body.qr_svg, /<svg[^>]+viewBox/);
+  assert.notEqual(door.body.qr_svg, door.body.qr_classic_svg);
+  assert.match(await (await page("/c/palm/qr.svg?style=classic")).text(), /shape-rendering="crispEdges"/);
+  assert.doesNotMatch(await (await page("/c/palm/qr.svg")).text(), /crispEdges/, "branded by default");
+
+  // By default a scan opens the business's page, counted as a code or a card.
+  let response = await scan("/q/palm");
+  assert.deepEqual([response.status, response.headers.get("location")], [302, `${BASE}/c/palm?s=qr`]);
+  response = await scan("/k/palm");
+  assert.equal(response.headers.get("location"), `${BASE}/c/palm?s=card`);
+  assert.equal((await scan("/q/nobody")).status, 404);
+
+  // The website, once the chat may run there: the scan opens it with the chat open.
+  assert.equal(door.body.destination.effective, "page");
+  assert.match(door.body.destination.website.problem, /Add your website's address/);
+  assert.equal((await staff("PATCH", "/settings", { qrDestination: "website", websiteUrl: "https://www.palmcove.example/rooms" })).status, 200);
+  response = await scan("/q/palm");
+  assert.equal(response.headers.get("location"), `${BASE}/c/palm?s=qr`, "not an allowed website yet: the page");
+  // The owner allows the chat on the website (Settings → Website widget).
+  assert.equal((await staff("PATCH", "/operations", { allowed_origins: [SITE, "https://www.palmcove.example"] })).status, 200);
+  const withSite = await staff("GET", "/front-door");
+  assert.deepEqual([withSite.body.destination.website.problem, withSite.body.destination.effective], [undefined, "website"]);
+  const before = (await staff("GET", "/front-door")).body.stats.qr.visits;
+  response = await scan("/q/palm");
+  assert.equal(response.headers.get("location"), "https://www.palmcove.example/rooms#zaina");
+  await scan("/q/palm", "WhatsApp/2.23.20");
+  const counted = await eventually(async () => {
+    const stats = (await staff("GET", "/front-door")).body.stats;
+    return stats.qr.visits === before + 1 ? stats : null;
+  }, "a scan that goes to the website is still counted (a link preview isn't)");
+  assert.equal(counted.qr.visits, before + 1);
+
+  // WhatsApp isn't connected to Zaina here, so choosing it sends scans to the page.
+  assert.equal((await staff("PATCH", "/settings", { qrDestination: "whatsapp" })).status, 200);
+  assert.equal((await scan("/k/palm")).headers.get("location"), `${BASE}/c/palm?s=card`);
+  assert.equal((await staff("GET", "/front-door")).body.destination.effective, "page");
+  assert.equal((await staff("PATCH", "/settings", { qrDestination: "page" })).status, 200);
+});
+
+test("a business card's details are saved with the business and its scans counted on their own", async () => {
+  const card = { design: "bold", personName: "Grace Wambui", personTitle: "Guest relations", phone: "+254 700 000 321", email: "stay@palmcove.example", website: "palmcove.example", address: "Diani Beach Road" };
+  assert.equal((await staff("PATCH", "/settings", { cardDetails: card }, "agent")).status, 403);
+  assert.equal((await staff("PATCH", "/settings", { cardDetails: { ...card, design: "neon" } })).status, 400);
+  assert.equal((await staff("PATCH", "/settings", { cardDetails: card })).status, 200);
+  const door = await staff("GET", "/front-door", undefined, "viewer");
+  assert.deepEqual(door.body.card, card);
+  assert.match(door.body.card_qr_svg, /<svg/);
+  const before = door.body.stats.card;
+  // A card is scanned: its address sends the phone on to the page, which counts the visit as a card's.
+  await fetch(`${BASE}/k/palm`, { headers: { "user-agent": PHONE } });
+  const opened = await fetch(`${BASE}/v1/sessions`, { method: "POST", headers: { "content-type": "application/json", origin: BASE }, body: JSON.stringify({ business: "palm", via: "card" }) });
+  assert.equal(opened.status, 201);
+  await eventually(async () => {
+    const stats = (await staff("GET", "/front-door")).body.stats.card;
+    return stats.visits === before.visits + 1 && stats.chats === before.chats + 1 ? stats : null;
+  }, "the card's visit and chat are counted as a card's");
+});

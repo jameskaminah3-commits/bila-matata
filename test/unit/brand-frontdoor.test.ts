@@ -54,7 +54,7 @@ test("the QR code is a clean picture of squares with its quiet margin, the same 
   // Four modules of white all round: no square starts in the margin.
   const size = Number(/viewBox="0 0 (\d+)/.exec(svg)![1]);
   for (const [, x, y] of svg.matchAll(/M(\d+) (\d+)h/g)) assert.ok(Number(x) >= 4 && Number(y) >= 4 && Number(x) < size - 4 && Number(y) < size - 4);
-  assert.match(qrSvg("x", { dark: "javascript:alert(1)" }), /fill="#111827"/, "only real colours are used");
+  assert.match(qrSvg("x", { style: "premium", color: "javascript:alert(1)" }), /fill="#111827"/, "only real colours are used");
 });
 
 const view = (over: Partial<DoorView> = {}): DoorView => ({
@@ -137,4 +137,65 @@ test("Zaina is told she is the receptionist, never the cashier", () => {
   assert.match(CONCIERGE_GUIDANCE, /the customer pays the business directly, through the business's own payment link/);
   assert.match(CONCIERGE_GUIDANCE, /Never ask for a card number, a PIN or a one-time code/);
   assert.match(CONCIERGE_GUIDANCE, /never say a payment has arrived unless a tool result says so/);
+});
+
+test("the premium code keeps the business's colour when it scans, and darkens it when it wouldn't", async () => {
+  const { contrastOnWhite, scannableInk } = await import("../../src/frontdoor/qr.ts");
+  assert.equal(scannableInk("#0f766e"), "#0f766e");
+  assert.equal(scannableInk("#7C3AED"), "#7c3aed");
+  for (const light of ["#fde68a", "#f59e0b", "#38bdf8", "#ffffff"]) {
+    const ink = scannableInk(light);
+    assert.notEqual(ink, light);
+    assert.ok(contrastOnWhite(ink) >= 4.5, `${light} → ${ink}`);
+  }
+  assert.equal(scannableInk(null), "#111827");
+  assert.equal(scannableInk("red"), "#111827");
+
+  const withLogo = qrSvg("https://bilamatata.co.ke/q/palm-cove", { style: "premium", color: "#7c3aed", logo: "data:image/png;base64,iVBORw0KGgo=" });
+  assert.match(withLogo, /<image href="data:image\/png;base64,iVBORw0KGgo="/);
+  assert.match(withLogo, /fill="#7c3aed"/);
+  assert.doesNotMatch(withLogo, /<script|on[a-z]+=|href="(?!data:image)/i);
+  // Only a picture can go in the middle: anything else is left out, and the initials take its place.
+  const sly = qrSvg("x", { style: "premium", logo: "javascript:alert(1)", initials: "P<C" });
+  assert.doesNotMatch(sly, /<image|javascript/);
+  assert.match(sly, />PC<\/text>/);
+  // With something in the middle the code carries the most error correction, so it is larger than the plain one.
+  const size = (svg: string) => Number(/viewBox="0 0 (\d+)/.exec(svg)![1]);
+  assert.ok(size(qrSvg("https://bilamatata.co.ke/q/palm-cove", { style: "premium", initials: "PC" })) > size(qrSvg("https://bilamatata.co.ke/q/palm-cove", { style: "premium" })));
+});
+
+test("a scan goes where the business's Zaina really works, and to its page when that isn't ready", async () => {
+  const { doorQrTarget, scanDestination, websiteWithChat } = await import("../../src/frontdoor/routes.ts");
+  assert.equal(doorQrTarget("https://bilamatata.co.ke", "palm-cove"), "https://bilamatata.co.ke/q/palm-cove");
+  assert.equal(doorQrTarget("https://bilamatata.co.ke", "palm-cove", "card"), "https://bilamatata.co.ke/k/palm-cove");
+  const base = { base: "https://bilamatata.co.ke", businessId: "palm-cove", name: "Palm Cove", websiteUrl: "https://www.palmcove.example/rooms", allowedOrigins: ["https://www.palmcove.example"], whatsapp: "https://wa.me/254700000321", on: "qr" as const };
+  assert.deepEqual(scanDestination({ ...base, choice: "page" }), { kind: "page", url: "https://bilamatata.co.ke/c/palm-cove?s=qr" });
+  assert.deepEqual(scanDestination({ ...base, choice: "website" }), { kind: "website", url: "https://www.palmcove.example/rooms#zaina" });
+  assert.deepEqual(scanDestination({ ...base, choice: "whatsapp" }), { kind: "whatsapp", url: "https://wa.me/254700000321?text=Hi%20Palm%20Cove!" });
+  // Not ready: the chat isn't allowed on the website, or WhatsApp isn't connected to Zaina. The page always works.
+  assert.equal(scanDestination({ ...base, choice: "website", allowedOrigins: [] }).kind, "page");
+  assert.equal(scanDestination({ ...base, choice: "website", websiteUrl: null }).kind, "page");
+  assert.equal(scanDestination({ ...base, choice: "whatsapp", whatsapp: null }).kind, "page");
+  assert.equal(scanDestination({ ...base, choice: "whatsapp", whatsapp: "https://evil.example/254700000321" }).kind, "page");
+  assert.equal(scanDestination({ ...base, choice: "page", on: "card" }).url, "https://bilamatata.co.ke/c/palm-cove?s=card");
+  assert.equal(websiteWithChat("http://www.palmcove.example", ["http://www.palmcove.example"]), null, "only https");
+  assert.equal(websiteWithChat("not a url", ["https://x.example"]), null);
+  assert.equal(websiteWithChat("https://www.palmcove.example/#book", ["https://www.palmcove.example"]), "https://www.palmcove.example/#zaina");
+});
+
+test("what a business card says is checked: short single lines, a real email, one of the designs", async () => {
+  const { checkCardDetails } = await import("../../src/businesses/settings.ts");
+  assert.deepEqual(checkCardDetails({ design: "bold", personName: "  Amani   Wanjiku ", personTitle: "Founder", phone: "+254 700 000 123", email: "hello@amani.example.com", website: "", address: null }), {
+    ok: true, value: { design: "bold", personName: "Amani Wanjiku", personTitle: "Founder", phone: "+254 700 000 123", email: "hello@amani.example.com", website: null, address: null },
+  });
+  assert.deepEqual(checkCardDetails({}), { ok: true, value: { design: "signature", personName: null, personTitle: null, phone: null, email: null, website: null, address: null } });
+  assert.deepEqual(checkCardDetails(null), { ok: true, value: null });
+  assert.equal(checkCardDetails({ design: "neon" }).ok, false);
+  assert.equal(checkCardDetails({ email: "not an email" }).ok, false);
+  assert.equal(checkCardDetails({ personName: "x".repeat(61) }).ok, false);
+  assert.equal(checkCardDetails({ phone: 700000123 }).ok, false);
+  assert.equal(checkCardDetails([]).ok, false);
+  assert.equal(checkCardDetails("card").ok, false);
+  assert.deepEqual(validateSettingsPatch({ qrDestination: "whatsapp" }), { ok: true, patch: { qrDestination: "whatsapp" } });
+  assert.equal(validateSettingsPatch({ qrDestination: "instagram" }).ok, false);
 });

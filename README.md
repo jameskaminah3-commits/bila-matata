@@ -119,6 +119,15 @@ or bookings (`src/billing/tier-gate.ts`, `workingType` in `src/db/schema.ts`).
   a poster, table cards and stickers and shows scans and chats by day). The
   service's own address is an allowed origin for every business for this
   page (`setFrontDoorOrigins`). `src/frontdoor/`.
+- **Printed codes and business cards.** Printed codes carry a short address
+  that never changes (`/q/<id>`, and `/k/<id>` on business cards). Each scan is
+  counted, then sent wherever the business chooses (Settings → QR code & link):
+  its page here, its website with the chat open (`#zaina`, only when the chat
+  is allowed there), or its WhatsApp (only when connected to Zaina). The code
+  is branded (its colour, darkened if too light to scan, and its logo in the
+  centre with the highest error correction) or classic. Settings → Business
+  cards prints ten 85 × 55 mm cards per A4 page with crop marks and bleed, or
+  asks the studio to print them (a support conversation).
 - **Brand.** Settings → Brand: logo and cover (PNG, JPEG or WebP, checked by
   their bytes, kept in the database inside the business and served from
   `/brand/<business id>/<logo|cover>`), colour, welcome line, and whether the

@@ -8,7 +8,8 @@
 // Optional attributes: data-currency="KES" (prices in shillings), and
 // data-open="true" (open on load). On the business's own page on this service
 // (/c/<business>) the chat fills the page instead of floating:
-// data-mode="page" with data-mount="<selector>", and data-via="qr" | "link". The page can also call
+// data-mode="page" with data-mount="<selector>", and data-via="qr" | "link" | "card".
+// A link to any page with the chat that ends in #zaina opens the chat. The page can also call
 // window.Zaina.open(), .close() and .setCurrency("USD" | "KES").
 //
 // When the business has WhatsApp connected (and offers it), the chat also
@@ -51,7 +52,7 @@ const POLL_OPEN_MS = 30_000;
   const storageKey = `zaina:${business}`;
   // On the business's own page the chat is the page: always open, no launcher.
   const pageMode = script.dataset.mode === "page";
-  const via = script.dataset.via === "qr" || script.dataset.via === "link" ? script.dataset.via : null;
+  const via = script.dataset.via === "qr" || script.dataset.via === "link" || script.dataset.via === "card" ? script.dataset.via : null;
 
   let config: Config;
   let currency: "USD" | "KES" | null = script.dataset.currency === "KES" || script.dataset.currency === "USD" ? script.dataset.currency : null;
@@ -498,7 +499,8 @@ textarea { flex: 1; resize: none; border: 1px solid var(--line); border-radius: 
       await sync(true).catch(() => {});
       schedulePoll();
     }
-    if (pageMode || script!.dataset.open === "true") void setOpen(true);
+    // Opened by the page itself, by data-open, or by a link to the website ending #zaina (the business's printed code can send scans there).
+    if (pageMode || script!.dataset.open === "true" || location.hash === "#zaina") void setOpen(true);
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", () => void boot(), { once: true });

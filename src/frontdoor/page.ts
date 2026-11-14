@@ -26,7 +26,7 @@ export type DoorView = {
   phoneDisplay: string | null;
   phone: string | null;
   whatsapp: string | null;
-  via: "qr" | "link";
+  via: "qr" | "link" | "card";
   /** Changes when the colours do, so the stylesheet can be kept. */
   brandVersion: string;
 };

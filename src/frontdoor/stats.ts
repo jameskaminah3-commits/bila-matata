@@ -6,8 +6,9 @@
 
 import { inBusiness } from "../db/tenant.ts";
 
-export type DoorSource = "qr" | "link";
-export const doorSource = (value: unknown): DoorSource => (value === "qr" ? "qr" : "link");
+/** qr: a printed code (poster, table card, sticker); card: a business card; link: the address shared some other way. */
+export type DoorSource = "qr" | "link" | "card";
+export const doorSource = (value: unknown): DoorSource => (value === "qr" || value === "card" ? value : "link");
 
 /** Link previews and crawlers open the page too; they aren't visitors. */
 const NOT_A_PERSON = /bot|crawl|spider|slurp|preview|facebookexternalhit|whatsapp|telegram|slack|discord|curl|wget|headless|monitor|uptime/i;
@@ -30,7 +31,8 @@ export async function recordDoorChat(businessId: string, source: DoorSource): Pr
   await count(businessId, source, "chats").catch((error) => console.error("[front-door] counting a chat failed:", error));
 }
 
-export type DoorStats = { days: number; qr: { visits: number; chats: number }; link: { visits: number; chats: number } };
+type Counts = { visits: number; chats: number };
+export type DoorStats = { days: number; qr: Counts; link: Counts; card: Counts };
 
 export async function doorStats(businessId: string, days = 30): Promise<DoorStats> {
   const rows = await inBusiness(async (_db, client) => (await client.query<{ source: DoorSource; visits: string; chats: string }>(
@@ -42,5 +44,5 @@ export async function doorStats(businessId: string, days = 30): Promise<DoorStat
     const row = rows.find((entry) => entry.source === source);
     return { visits: Number(row?.visits ?? 0), chats: Number(row?.chats ?? 0) };
   };
-  return { days, qr: of("qr"), link: of("link") };
+  return { days, qr: of("qr"), link: of("link"), card: of("card") };
 }

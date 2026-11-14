@@ -128,7 +128,7 @@ export function registerGatewayRoutes(app: Express, config: PlatformConfig, engi
         visitorKey: visitor,
       });
       // A chat opened from the business's own page on this service: counted, by how the visitor arrived (its QR code, or the link).
-      if ((req.body?.via === "qr" || req.body?.via === "link") && isOriginAllowed(req.header("origin"), consoleOrigin) && req.header("origin")) {
+      if ((req.body?.via === "qr" || req.body?.via === "link" || req.body?.via === "card") && isOriginAllowed(req.header("origin"), consoleOrigin) && req.header("origin")) {
         void recordDoorChat(business.id, doorSource(req.body.via));
       }
       res.status(201).json({

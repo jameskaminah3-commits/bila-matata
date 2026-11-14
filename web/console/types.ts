@@ -123,6 +123,7 @@ export type Settings = {
   brandTagline: string | null;
   chatAvatar: "zaina" | "logo";
   frontDoor: boolean;
+  qrDestination: "page" | "website" | "whatsapp";
   about: string;
   contactPhone: string | null;
   contactPhoneDisplay: string | null;

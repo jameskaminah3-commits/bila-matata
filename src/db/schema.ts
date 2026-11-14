@@ -221,6 +221,13 @@ export const staffPushSubscriptions = pgTable("staff_push_subscriptions", {
   lastUsedAt: at("last_used_at"),
 });
 
+export const qrDestinations = ["page", "website", "whatsapp"] as const;
+export type QrDestination = (typeof qrDestinations)[number];
+export const cardDesigns = ["signature", "minimal", "bold"] as const;
+export type CardDesign = (typeof cardDesigns)[number];
+/** What a business card says. Empty lines aren't printed. */
+export type CardDetails = { design: CardDesign; personName: string | null; personTitle: string | null; phone: string | null; email: string | null; website: string | null; address: string | null };
+
 export const businessSettings = pgTable("business_settings", {
   businessId: text("business_id").primaryKey(),
   displayName: text("display_name").notNull(),
@@ -245,6 +252,10 @@ export const businessSettings = pgTable("business_settings", {
   chatAvatar: text("chat_avatar").$type<"zaina" | "logo">().notNull().default("zaina"),
   /** Whether the business's own page on this service (/c/<business>, behind its QR code) is open. */
   frontDoor: boolean("front_door").notNull().default(true),
+  /** Where a printed code sends a customer (migration 0020): its page here, its website (the chat opens), or its WhatsApp number. */
+  qrDestination: text("qr_destination").$type<QrDestination>().notNull().default("page"),
+  /** What its business cards say, and which design (migration 0020). */
+  cardDetails: jsonb("card_details").$type<CardDetails | null>(),
   updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
   updatedBy: uuid("updated_by"),
 });

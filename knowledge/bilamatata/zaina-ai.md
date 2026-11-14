@@ -54,6 +54,12 @@ Zaina also speaks English and Swahili, and Bila Matata sets her up: the business
 
 A business does not need a website to use Zaina. Every business gets its own page with its name, logo and colours, where customers chat with Zaina, and a QR code that opens it. From the dashboard (Settings, then QR code & link) the business prints the code as a poster, table cards or stickers, downloads it, or shares the link on WhatsApp and social media. The dashboard shows how many people scanned the code and how many started a chat.
 
+### Where a scan goes, and business cards
+
+The printed code never changes, and the business chooses where a scan goes: its own page, its website with the chat already open (once the chat is set up there), or its WhatsApp number (once it is connected to Zaina). The code can carry the business's colour and logo in the centre, and stays fully readable, or be plain black and white.
+
+The business can also make premium business cards in the dashboard (Settings, then Business cards): its brand on the front, its QR code on the back, in three designs. They print ten to an A4 sheet at the standard 85 by 55 mm, or the business can ask Bila Matata to print and deliver them, with a price agreed before anything is printed. Card scans are counted separately.
+
 ## The business's own brand
 
 In the dashboard (Settings, then Brand) a business adds its logo, a cover picture, its colour and a welcome line, and chooses whether the chat shows Zaina's face or its logo. The brand appears on the chat, on the business's page behind its QR code, and on the page where its customers pay.

@@ -14,9 +14,22 @@ import { api, businessPath } from "../api.ts";
 import { atLeast, type Role } from "../types.ts";
 import { Button, ErrorLine, Message, Toggle, useAction, useLoad } from "../ui.tsx";
 
-type Door = {
+type Destination = "page" | "website" | "whatsapp";
+export type Door = {
   url: string;
+  scan_url: string;
+  card_url: string;
   qr_svg: string;
+  qr_classic_svg: string;
+  card_qr_svg: string;
+  destination: {
+    chosen: Destination;
+    effective: Destination;
+    website: { url: string | null; problem?: string };
+    whatsapp: { number: string | null; problem?: string };
+  };
+  card: CardDetails | null;
+  contact: { phone: string | null; email: string | null; website: string | null };
   open: boolean;
   live: boolean;
   name: string;
@@ -25,13 +38,14 @@ type Door = {
   role: string;
   color: string;
   logo_url: string | null;
-  stats: { days: number; qr: { visits: number; chats: number }; link: { visits: number; chats: number } };
+  stats: { days: number; qr: { visits: number; chats: number }; link: { visits: number; chats: number }; card: { visits: number; chats: number } };
 };
+export type CardDetails = { design: "signature" | "minimal" | "bold"; personName: string | null; personTitle: string | null; phone: string | null; email: string | null; website: string | null; address: string | null };
 type Sheet = "poster" | "cards" | "stickers";
 
-const svgUri = (svg: string) => `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+export const svgUri = (svg: string) => `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 
-function download(name: string, blob: Blob) {
+export function download(name: string, blob: Blob) {
   const link = document.createElement("a");
   link.href = URL.createObjectURL(blob);
   link.download = name;
@@ -42,14 +56,13 @@ function download(name: string, blob: Blob) {
 }
 
 /** The QR code as a PNG big enough to print well. */
-async function qrPng(svg: string, pixels = 1200): Promise<Blob> {
+export async function qrPng(svg: string, pixels = 2400): Promise<Blob> {
   const image = new Image();
   image.src = svgUri(svg);
   await image.decode();
   const canvas = document.createElement("canvas");
   canvas.width = canvas.height = pixels;
   const context = canvas.getContext("2d")!;
-  context.imageSmoothingEnabled = false;
   context.drawImage(image, 0, 0, pixels, pixels);
   return new Promise((resolve, reject) => canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error("no picture"))), "image/png"));
 }
@@ -59,7 +72,9 @@ export function FrontDoor(props: { businessId: string; role: Role }) {
   const [door, setDoor] = useState<Door | null>(null);
   const [copied, setCopied] = useState(false);
   const [sheet, setSheet] = useState<Sheet | null>(null);
+  const [classic, setClassic] = useState(false);
   const action = useAction();
+  const route = useAction();
   const canEdit = atLeast(props.role, "manager");
   useEffect(() => setDoor(loaded.data), [loaded.data]);
   // Print once the sheet is on the page, then put the dashboard back.
@@ -75,9 +90,15 @@ export function FrontDoor(props: { businessId: string; role: Role }) {
   }, [sheet]);
   if (!door) return <ErrorLine error={loaded.error} />;
   const file = props.businessId;
+  const svg = classic ? door.qr_classic_svg : door.qr_svg;
+  const where: Record<Destination, string> = {
+    page: "your page here, with the chat open",
+    website: "your website, with the chat open",
+    whatsapp: "your WhatsApp, with a first message ready",
+  };
   const scans = door.stats.qr.visits;
   const visits = door.stats.link.visits;
-  const chats = door.stats.qr.chats + door.stats.link.chats;
+  const chats = door.stats.qr.chats + door.stats.link.chats + door.stats.card.chats;
 
   return (
     <div className="stack">
@@ -90,15 +111,24 @@ export function FrontDoor(props: { businessId: string; role: Role }) {
         {!door.live ? <p className="message error">Customers can open this page once your business is live. You can print the code now: it won't change.</p> : null}
         {!door.open ? <p className="message error">Your page is closed: people who scan the code see "This page isn't available".</p> : null}
         <div className="door-grid">
-          <div className="door-qr"><img src={svgUri(door.qr_svg)} alt={`QR code for ${door.name}`} width={220} height={220} /></div>
+          <div className="door-qr-col">
+            <div className={`door-qr${classic ? "" : " premium"}`}><img src={svgUri(svg)} alt={`QR code for ${door.name}`} width={220} height={220} /></div>
+            <div className="segmented" role="group" aria-label="Style">
+              <button type="button" aria-pressed={!classic} onClick={() => setClassic(false)}>Branded</button>
+              <button type="button" aria-pressed={classic} onClick={() => setClassic(true)}>Classic</button>
+            </div>
+          </div>
           <div className="door-side">
             <p className="door-link"><a href={door.url} target="_blank" rel="noreferrer">{door.url.replace(/^https?:\/\//, "")}</a></p>
             <div className="actions start">
               <Button small onClick={() => void navigator.clipboard.writeText(door.url).then(() => setCopied(true))}>{copied ? "Copied" : "Copy the link"}</Button>
-              <Button small onClick={() => void qrPng(door.qr_svg).then((blob) => download(`${file}-qr.png`, blob))}>Download PNG</Button>
-              <Button small onClick={() => download(`${file}-qr.svg`, new Blob([door.qr_svg], { type: "image/svg+xml" }))}>Download SVG</Button>
+              <Button small onClick={() => void qrPng(svg).then((blob) => download(`${file}-qr${classic ? "-classic" : ""}.png`, blob))}>Download PNG</Button>
+              <Button small onClick={() => download(`${file}-qr${classic ? "-classic" : ""}.svg`, new Blob([svg], { type: "image/svg+xml" }))}>Download SVG</Button>
             </div>
-            <p className="muted small">The code never changes, so anything you print stays good. PNG suits documents and social posts; SVG stays sharp at any size for a printer or designer.</p>
+            <p className="muted small">
+              {classic ? "Classic is plain black and white: the most widely readable, for faxed, photocopied or very small prints." : "Branded carries your colour and your logo, and stays fully readable: the code is built to recover what the logo covers."}
+              {" "}The code never changes, so anything you print stays good. PNG suits documents and social posts; SVG stays sharp at any size for a printer or designer. Print it at least 2 cm wide.
+            </p>
             {canEdit ? (
               <Toggle
                 checked={door.open}
@@ -116,6 +146,39 @@ export function FrontDoor(props: { businessId: string; role: Role }) {
       </section>
 
       <section className="card">
+        <h2>Where a scan goes</h2>
+        <p className="muted">Wherever your {door.assistant} works for you. Change it any time: codes you've already printed follow your choice.</p>
+        <fieldset className="choice">
+          <legend className="visually-hidden">Where a scan goes</legend>
+          {(["page", "website", "whatsapp"] as Destination[]).map((kind) => {
+            const problem = kind === "website" ? door.destination.website.problem : kind === "whatsapp" ? door.destination.whatsapp.problem : undefined;
+            const detail = kind === "page" ? door.url.replace(/^https?:\/\//, "") : kind === "website" ? door.destination.website.url : door.destination.whatsapp.number;
+            return (
+              <label className={`check destination${problem ? " unavailable" : ""}`} key={kind}>
+                <input
+                  type="radio"
+                  name="destination"
+                  disabled={!canEdit || Boolean(problem) || route.busy}
+                  checked={door.destination.chosen === kind}
+                  onChange={() => void route.run(async () => {
+                    await api("PATCH", businessPath(props.businessId, "/settings"), { qrDestination: kind });
+                    setDoor({ ...door, destination: { ...door.destination, chosen: kind, effective: kind } });
+                  }, `Scans now go to ${where[kind]}.`)}
+                />
+                <span>
+                  <strong>{kind === "page" ? "Your page here" : kind === "website" ? "Your website" : "Your WhatsApp"}</strong>
+                  {detail ? <span className="muted small"> · {detail}</span> : null}
+                  <br /><span className="muted small">{problem ?? `Opens ${where[kind]}.`}</span>
+                </span>
+              </label>
+            );
+          })}
+        </fieldset>
+        {door.destination.chosen !== door.destination.effective ? <p className="message error">Your chosen destination isn't ready, so scans go to your page here for now.</p> : null}
+        <Message message={route.message} />
+      </section>
+
+      <section className="card">
         <h2>Print it</h2>
         <p className="muted">Each prints on ordinary A4 paper, with your name, logo and colour. Choose "Save as PDF" in the print window to send it to a print shop.</p>
         <div className="print-choices">
@@ -129,9 +192,10 @@ export function FrontDoor(props: { businessId: string; role: Role }) {
         <h2>Who came through it</h2>
         <p className="muted">The last {door.stats.days} days. Counts only: nothing about who.</p>
         <div className="kpis">
-          <div className="kpi"><span className="kpi-label">QR code scans</span><span className="kpi-value">{scans}</span><span className="kpi-detail">People who scanned your printed code</span></div>
+          <div className="kpi"><span className="kpi-label">QR code scans</span><span className="kpi-value">{scans}</span><span className="kpi-detail">Posters, table cards and stickers</span></div>
+          <div className="kpi"><span className="kpi-label">Business card scans</span><span className="kpi-value">{door.stats.card.visits}</span><span className="kpi-detail">{door.stats.card.chats} started a chat on your page</span></div>
           <div className="kpi"><span className="kpi-label">Link visits</span><span className="kpi-value">{visits}</span><span className="kpi-detail">People who opened the link</span></div>
-          <div className="kpi"><span className="kpi-label">Chats started</span><span className="kpi-value">{chats}</span><span className="kpi-detail">{door.stats.qr.chats} from the code, {door.stats.link.chats} from the link</span></div>
+          <div className="kpi"><span className="kpi-label">Chats started</span><span className="kpi-value">{chats}</span><span className="kpi-detail">On your page: {door.stats.qr.chats} from codes, {door.stats.card.chats} from cards, {door.stats.link.chats} from the link</span></div>
         </div>
       </section>
 
@@ -158,7 +222,7 @@ const lettersOf = (name: string) => {
 /** What goes to the printer: one A4 page in the business's own colours. */
 function PrintSheet(props: { door: Door; sheet: Sheet }) {
   const { door, sheet } = props;
-  const qr = <img className="print-qr" src={svgUri(door.qr_svg)} alt="" />;
+  const qr = <img className="print-qr premium" src={svgUri(door.qr_svg)} alt="" />;
   const logo = <span className={`print-logo${door.logo_url ? "" : " letters"}`}>{door.logo_url ? <img src={door.logo_url} alt="" /> : lettersOf(door.name)}</span>;
   const address = door.url.replace(/^https?:\/\//, "");
   const card = (key: number) => (
