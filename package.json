@@ -19,7 +19,8 @@
     "test:db": "tsx --test --test-concurrency=1 test/db/*.test.ts",
     "test:e2e": "tsx --test --test-concurrency=1 test/e2e/*.test.ts",
     "staff:create": "tsx src/cli/create-staff.ts",
-    "knowledge:import": "tsx src/cli/import-knowledge.ts"
+    "knowledge:import": "tsx src/cli/import-knowledge.ts",
+    "eval": "tsx scripts/eval.ts"
   },
   "dependencies": {
     "@fontsource/fraunces": "5.2.9",

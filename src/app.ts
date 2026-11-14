@@ -57,6 +57,7 @@ import { registerOneTapRoutes } from "./booking/one-tap.ts";
 import { registerMarkFullRoutes } from "./booking/mark-full.ts";
 import { registerLeadExtras, sweepCallbacks } from "./leads/extra-tools.ts";
 import { registerIntegrationRoutes } from "./integrations/routes.ts";
+import { registerReviewRoutes } from "./review/routes.ts";
 import { registerIntegrationExtras } from "./integrations/tools.ts";
 import { syncWebsites } from "./knowledge/website-import.ts";
 import { STUDIO } from "./studio/brand.ts";
@@ -174,6 +175,7 @@ export function createApp(config: PlatformConfig, engine: EngineOptions, whatsap
   registerOneTapRoutes(app, config);
   registerMarkFullRoutes(app, config);
   registerIntegrationRoutes(app, config);
+  registerReviewRoutes(app, config);
   registerConsoleRoutes(app, config);
 
   app.use((_req: Request, res: Response) => {
