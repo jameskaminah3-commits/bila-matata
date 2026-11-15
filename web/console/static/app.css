@@ -676,3 +676,11 @@ table.lines tr.total th, table.lines tr.total td { font-weight: 700; border-top:
 .tracker-step { display: grid; grid-template-columns: 1.4em minmax(0, 1fr) auto; gap: 4px 8px; align-items: baseline; }
 .tracker-mark { width: 1.2em; color: var(--muted); font-weight: 700; }
 .tracker-steps li.done .tracker-mark { color: var(--success); }
+
+/* ── Sign-in: Google, the emailed code ─────────────────────────────────── */
+.google-button { display: flex; align-items: center; justify-content: center; gap: 10px; min-height: 44px; border: 1px solid var(--line-strong); border-radius: 10px; background: var(--surface); color: var(--text); font-weight: 650; text-decoration: none; }
+.google-button:hover { background: var(--surface-2); }
+.signin-or { display: flex; align-items: center; gap: 10px; margin: 0; color: var(--muted); font-size: 13px; }
+.signin-or::before, .signin-or::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+.code-input { font-size: 24px; letter-spacing: 0.4em; text-align: center; font-variant-numeric: tabular-nums; }
+.signin-links { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }

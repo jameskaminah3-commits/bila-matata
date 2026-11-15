@@ -1,9 +1,13 @@
 // src/console/routes.ts
 //
-// The business console (a single-page app at /app/), the website widget
+// The business console (a single-page app at /app/, and for the studio's own
+// team at /admin/, the same app with the team's sign-in), the website widget
 // script (/zaina.js, also /widget.js), and the routes only the console uses:
 //
-//   POST   /v1/console/session              sign in: { email, password } → sets the console's cookie
+//   POST   /v1/console/session              sign in: { email, password, target?, device? } → sets the console's cookie,
+//                                           or 202 { code_required, challenge, sent_to } when a code was emailed
+//   POST   /v1/console/session/verify       { challenge, code, trust_device? } → sets the cookie (and a device_token)
+//   POST   /v1/console/session/resend       { challenge }: a fresh code
 //   DELETE /v1/console/session              sign out
 //   GET    /v1/console/me                   who is signed in, their businesses, alert settings
 //   POST   /v1/console/push-subscriptions   alerts on this phone or browser: { endpoint, keys: { p256dh, auth } }
@@ -18,7 +22,11 @@ import { fileURLToPath } from "node:url";
 import express, { type Express, type NextFunction, type Request, type Response } from "express";
 import type { PlatformConfig } from "../config.ts";
 import { pushPublicKey } from "../conversations/team-alerts.ts";
-import { deletePushSubscription, membershipsOf, pushSubscriptionCount, savePushSubscription } from "../db/platform-scope.ts";
+import { deletePushSubscription, getStaffUser, membershipsOf, pushSubscriptionCount, savePushSubscription } from "../db/platform-scope.ts";
+import { consumeLimits } from "../gateway/rate-limit.ts";
+import { visitorKey } from "../gateway/visitor.ts";
+import { canEmailLinks } from "../staff/password-links.ts";
+import { checkSignInCode, isTrustedDevice, maskEmail, resendSignInCode, sendSignInCode, trustDevice } from "../staff/two-step.ts";
 import { clearConsoleCookie, requireStaff, setConsoleCookie, staffOf } from "../staff/auth.ts";
 import { signIn } from "../staff/routes.ts";
 import { issueStaffToken } from "../staff/tokens.ts";
@@ -110,8 +118,9 @@ export function registerConsoleRoutes(app: Express, config: PlatformConfig): voi
   // ── The console ────────────────────────────────────────────────────────
   // Express matches "/app" and "/app/" alike: only the first is sent on.
   app.get("/app", (req: Request, res: Response, next: NextFunction) => (req.path.endsWith("/") ? next() : res.redirect(301, "/app/")));
-  if (directory) {
-    app.use("/app", express.static(path.join(directory, "console"), {
+  app.get("/admin", (req: Request, res: Response, next: NextFunction) => (req.path.endsWith("/") ? next() : res.redirect(301, "/admin/")));
+  for (const mount of directory ? ["/app", "/admin"] : []) {
+    app.use(mount, express.static(path.join(directory!, "console"), {
       index: "index.html",
       redirect: false,
       setHeaders: (res, file) => {
@@ -120,10 +129,13 @@ export function registerConsoleRoutes(app: Express, config: PlatformConfig): voi
         res.setHeader("Referrer-Policy", "no-referrer");
         res.setHeader("X-Content-Type-Options", "nosniff");
         res.setHeader("Cache-Control", "no-cache");
-        if (file.endsWith("sw.js")) res.setHeader("Service-Worker-Allowed", "/app/");
+        if (file.endsWith("sw.js")) res.setHeader("Service-Worker-Allowed", `${mount}/`);
       },
     }));
   }
+
+  // Two steps (a code emailed after the password) whenever email can be sent, unless SIGN_IN_CODES=off.
+  const twoStep = () => process.env.SIGN_IN_CODES !== "off" && canEmailLinks(config);
 
   app.post("/v1/console/session", async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -132,8 +144,49 @@ export function registerConsoleRoutes(app: Express, config: PlatformConfig): voi
         if (outcome.retryAfterSeconds) res.setHeader("Retry-After", String(outcome.retryAfterSeconds));
         return res.status(outcome.status).json(outcome.body);
       }
+      if (twoStep() && !(await isTrustedDevice(secret, outcome.user, req.body?.device))) {
+        const challenge = await sendSignInCode(secret, outcome.user, req.body?.target === "admin" ? "admin" : "app");
+        return res.status(202).json({ code_required: true, challenge, sent_to: maskEmail(outcome.user.email) });
+      }
       setConsoleCookie(res, issueStaffToken(secret, outcome.user));
       res.json({ user: publicUser(outcome.user), businesses: await membershipsOf(outcome.user.id) });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post("/v1/console/session/verify", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const verdict = await consumeLimits([{ key: `signin-code:visitor:${visitorKey(secret, req.ip)}`, limit: 30, windowSeconds: 900 }]);
+      if (!verdict.allowed) {
+        res.setHeader("Retry-After", String(verdict.retryAfterSeconds));
+        return res.status(429).json({ error: "rate_limited", message: "Too many tries. Please wait a few minutes." });
+      }
+      const checked = await checkSignInCode(secret, req.body?.challenge, req.body?.code);
+      if (!checked.ok) {
+        return checked.error === "wrong_code"
+          ? res.status(400).json({ error: "wrong_code", message: `That code isn't right. ${checked.attemptsLeft} ${checked.attemptsLeft === 1 ? "try" : "tries"} left.`, attempts_left: checked.attemptsLeft })
+          : res.status(410).json({ error: "code_expired", message: "That code has expired or was used too many times. Sign in again for a new one." });
+      }
+      const user = await getStaffUser(checked.userId);
+      if (!user || user.disabledAt) return res.status(410).json({ error: "code_expired", message: "Sign in again for a new code." });
+      const device = req.body?.trust_device === true ? await trustDevice(secret, user) : null;
+      setConsoleCookie(res, issueStaffToken(secret, user));
+      res.json({ user: publicUser(user), businesses: await membershipsOf(user.id), ...(device ? { device_token: device } : {}) });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post("/v1/console/session/resend", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const sent = await resendSignInCode(secret, req.body?.challenge, getStaffUser);
+      if (sent.ok) return res.json({ ok: true });
+      if (sent.error === "too_soon") {
+        res.setHeader("Retry-After", String(sent.retryAfterSeconds ?? 30));
+        return res.status(429).json({ error: "too_soon", message: `Please wait ${sent.retryAfterSeconds ?? 30} seconds before asking again.`, retry_after_seconds: sent.retryAfterSeconds });
+      }
+      res.status(410).json({ error: sent.error === "too_many" ? "too_many" : "code_expired", message: sent.error === "too_many" ? "That's the most codes for one sign-in. Sign in again." : "Sign in again for a new code." });
     } catch (error) {
       next(error);
     }

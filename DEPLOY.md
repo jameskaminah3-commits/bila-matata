@@ -297,13 +297,110 @@ are not.
   requests, none failed, slowest reply 1.25 s (the platform's own time;
   the AI model's time comes on top).
 
+## 9. Signing in
+
+| Who | Address | |
+|---|---|---|
+| Clients (their Zaina dashboard) | `https://bilamatata.com/app/` | linked from the site ("Client Login") |
+| The Bila Matata team (the studio's dashboard) | `https://bilamatata.com/admin/` | not linked anywhere: bookmark it |
+
+- **Two steps.** After the right password, a 6-digit code is emailed and
+  must be typed in (10 minutes, 5 tries). It's on by itself once email works
+  (section 4); `SIGN_IN_CODES=off` turns it off (not recommended). The API's
+  sign-in asks for the code too.
+- **Trust this device** (a tick box on the code screen) skips the code on
+  that browser for 30 days. Changing or resetting the password forgets every
+  trusted device.
+- **Continue with Google** appears once Google is set up (section 10). It
+  only lets in people already on a team (their Google email must be their
+  account's email), and asks for no code: Google has already checked them.
+- **Forgot your password?** works on both pages: the emailed link sets a new
+  password, then sign in again (the team at `/admin/`).
+- A client who opens `/admin/` is sent to their own dashboard.
+
+## 10. Google: "Continue with Google" and clients' calendars
+
+One Google client does both. At **console.cloud.google.com**, signed in as
+the studio's Google account:
+
+1. **Create a project** (top bar → project picker → *New project*): name
+   it `Bila Matata`.
+2. **Google Auth Platform → Branding** (older menus: *APIs & Services → OAuth
+   consent screen*): app name `Bila Matata`, support email
+   `hello@bilamatata.com`, app home page `https://bilamatata.com`, privacy
+   policy and terms `https://bilamatata.com/terms`, authorised domain
+   `bilamatata.com`. **Audience**: *External*.
+3. **Data access → Add or remove scopes**: `openid`, `.../auth/userinfo.email`,
+   `.../auth/userinfo.profile` (sign-in), and for clients' calendars
+   `.../auth/calendar.readonly` and `.../auth/calendar.events`.
+4. **For calendars only**: *APIs & Services → Library* → **Google Calendar
+   API** → *Enable*.
+5. **Clients → Create client** → *Web application*, name `bilamatata.com`:
+   - Authorised JavaScript origins: `https://bilamatata.com`
+   - Authorised redirect URIs (both):
+     `https://bilamatata.com/v1/staff/google/callback` and
+     `https://bilamatata.com/v1/calendar/google/callback`
+   - *Create*, then copy the **Client ID** and **Client secret**.
+6. Railway → Variables: `PLATFORM_GOOGLE_CLIENT_ID=<client id>` and
+   `PLATFORM_GOOGLE_CLIENT_SECRET=<client secret>` → deploy. The Google
+   button appears on both sign-in pages.
+7. **Who can use it** (*Audience → Publishing status*):
+   - While **Testing**, only the Google accounts listed under *Test users*
+     (up to 100) can sign in or connect a calendar: add your team's.
+   - Sign-in alone uses basic scopes: *Publish app* needs no review.
+   - The calendar scopes are "sensitive": until Google verifies the app
+     (it asks for the privacy page, a short video of the calendar
+     connection, and a few days), clients connecting a calendar see an
+     "unverified app" warning. Submit for verification under
+     *Verification centre* when you're ready to offer calendars widely.
+
+## 11. WhatsApp: Zaina on a client's WhatsApp number
+
+The platform answers WhatsApp through each client's own WhatsApp Business
+number, on the official WhatsApp Business Platform (run by Meta). At
+**developers.facebook.com**, signed in with the studio's Facebook account
+linked to its Meta Business portfolio:
+
+1. **Create an app**: *My Apps → Create app*, type **Business**, name `Bila
+   Matata`, and connect the studio's business portfolio.
+2. **Add WhatsApp**: on the app's dashboard, *Add product → WhatsApp → Set
+   up*. Meta gives you a free **test number** to try it with.
+3. **App settings → Basic**: copy the **App ID** and the **App secret**
+   (*Show*). Set *Privacy policy URL* and *Terms of service URL* to
+   `https://bilamatata.com/terms`, *App domains* `bilamatata.com`. Save.
+4. **Railway → Variables**, then deploy:
+   ```
+   WHATSAPP_APP_SECRET=<the app secret>
+   WHATSAPP_VERIFY_TOKEN=<a long random phrase you make up, 16+ characters>
+   ```
+5. **The webhook**: *WhatsApp → Configuration → Webhook → Edit*: callback URL
+   `https://bilamatata.com/v1/whatsapp/webhook`, verify token: the same
+   phrase → *Verify and save* (the service must be deployed with it first).
+   Then under *Webhook fields*, **subscribe to `messages`**.
+6. **Connect a client's number** (Settings → WhatsApp in their dashboard):
+   - **By hand** (works now): in their WhatsApp Business account the client
+     (or you, with them) creates a *System user* with the
+     `whatsapp_business_messaging` and `whatsapp_business_management`
+     permissions and generates a **permanent token**; then they enter the
+     **Phone number ID**, the **WhatsApp Business Account ID** and that
+     token in Settings → WhatsApp. They type the token themselves: never
+     ask for it by message.
+   - **"Connect with Facebook" in one click** (later): needs the app to be
+     a *Tech Provider* (Meta business verification, then *App Review* for
+     those two permissions with advanced access, which takes days to weeks).
+     Once approved: *Facebook Login for Business → Configurations → Create*
+     (type *WhatsApp Embedded Signup*), and set
+     `WHATSAPP_APP_ID=<app id>` and `WHATSAPP_CONFIG_ID=<configuration id>`.
+     The button then appears in Settings → WhatsApp.
+7. **Go live**: switch the app from *Development* to **Live** (top bar) once
+   the privacy URL is set. Send a WhatsApp message to the connected number
+   and watch it arrive in that business's Inbox.
+
 ## Optional, later
 
 | What | Variables |
 |---|---|
 | Alerts on staff phones | `WEB_PUSH_PUBLIC_KEY`, `WEB_PUSH_PRIVATE_KEY`, `WEB_PUSH_SUBJECT` (`npx web-push generate-vapid-keys`) |
-| WhatsApp | `WHATSAPP_APP_SECRET`, `WHATSAPP_VERIFY_TOKEN`; webhook `https://<domain>/v1/whatsapp/webhook` |
-| Google Calendar for clients | `PLATFORM_GOOGLE_CLIENT_ID`, `PLATFORM_GOOGLE_CLIENT_SECRET` |
 | Businesses signing up by themselves | `PLATFORM_SIGNUP=open` (needs email), `PLATFORM_TERMS_URL=https://bilamatata.com/terms` |
 | A stronger AI model for Zaina | `ZAINA_MODEL=<model id>`. The default is the fast, low-cost "lite" model. A larger model in the same family reasons better (smarter recommendations, fewer missed details) and costs more per conversation: try one on staging and compare real chats before changing it for everyone |
 | A cheaper model near the daily budget | On by default: once a business has used 80% of its daily AI budget, Zaina answers with `gemini-3.5-flash-lite` for the rest of the day instead of stopping at the cap. Change the model with `ZAINA_SAVER_MODEL=<model id>` (or `off`), and the point with `ZAINA_SAVER_AT_PERCENT=<1-100>`. Cost reports price every turn at `MODEL_PRICE_*`, so they overstate days that switched |

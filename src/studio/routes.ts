@@ -166,6 +166,7 @@ export function registerStudioRoutes(app: Express, config: PlatformConfig): void
       "Allow: /",
       // The dashboard and the APIs are not pages; invoice pages say noindex themselves.
       "Disallow: /app/",
+      "Disallow: /admin/",
       "Disallow: /api/",
       "Disallow: /v1/",
       ...(config.publicBaseUrl ? ["", `Sitemap: ${config.publicBaseUrl}/sitemap.xml`] : []),

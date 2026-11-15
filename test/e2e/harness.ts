@@ -97,6 +97,8 @@ export async function startPlatform(options: { port: number; env?: Record<string
       BUSINESS_CACHE_MS: "100",
       MODEL_PRICE_INPUT_USD_PER_MTOK: "0.1",
       MODEL_PRICE_OUTPUT_USD_PER_MTOK: "0.4",
+      // Most tests sign in in one step; the sign-in test turns emailed codes on.
+      SIGN_IN_CODES: "off",
       FAKE_EMAIL_LOG: logs.emails,
       FAKE_GEMINI_LOG: logs.model,
       FAKE_WHATSAPP_LOG: logs.whatsapp,

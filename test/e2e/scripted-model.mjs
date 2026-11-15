@@ -366,6 +366,12 @@ async function fakeGoogle(url, init) {
     if (body.get("client_id") !== "123-zaina.apps.googleusercontent.com" || body.get("client_secret") !== "google-test-secret") return answer(401, { error: "invalid_client" });
     if (body.get("grant_type") === "authorization_code") {
       logGoogle({ kind: "exchange", code: body.get("code"), redirect_uri: body.get("redirect_uri") });
+      // "Continue with Google": codes like signin-owner@example.com (or signin-unverified-…) name who signed in.
+      const signin = /^signin-(unverified-)?(.+@.+)$/.exec(body.get("code") ?? "");
+      if (signin) {
+        const claims = { iss: "https://accounts.google.com", aud: body.get("client_id"), sub: "g-1", email: signin[2], email_verified: !signin[1], name: "Google Person", exp: Math.floor(Date.now() / 1000) + 3600 };
+        return answer(200, { access_token: "ya29.signin", expires_in: 3599, token_type: "Bearer", id_token: `e30.${Buffer.from(JSON.stringify(claims)).toString("base64url")}.sig` });
+      }
       if (body.get("code") !== "consent-ok") return answer(400, { error: "invalid_grant" });
       googleCounter += 1;
       const idToken = `e30.${Buffer.from(JSON.stringify({ email: "owner@example.com", sub: "1234" })).toString("base64url")}.sig`;

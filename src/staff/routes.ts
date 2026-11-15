@@ -45,6 +45,7 @@ import { consumeLimits } from "../gateway/rate-limit.ts";
 import { visitorKey } from "../gateway/visitor.ts";
 import { sendEmail } from "../platform/mailer.ts";
 import { requireBusinessRole, requireStaff, ROLE_RANK, setConsoleCookie, staffOf } from "./auth.ts";
+import { checkSignInCode, isTrustedDevice, maskEmail, sendSignInCode, trustDevice } from "./two-step.ts";
 import { addedEmail, canEmailLinks, inviteEmail, passwordChangedEmail, passwordLink, passwordLinkToken, readPasswordLinkToken, resetEmail, unknownPassword } from "./password-links.ts";
 import { hashPassword, passwordProblem, verifyAgainstNothing, verifyPassword } from "./passwords.ts";
 import { issueStaffToken } from "./tokens.ts";
@@ -146,11 +147,35 @@ export function registerStaffAccountRoutes(app: Express, config: PlatformConfig)
         if (outcome.retryAfterSeconds) res.setHeader("Retry-After", String(outcome.retryAfterSeconds));
         return res.status(outcome.status).json(outcome.body);
       }
+      // The same two steps as the dashboard: the API is no way around the emailed code.
+      if (process.env.SIGN_IN_CODES !== "off" && canEmailLinks(config) && !(await isTrustedDevice(secret, outcome.user, req.body?.device))) {
+        const challenge = await sendSignInCode(secret, outcome.user, req.body?.target === "admin" ? "admin" : "app");
+        return res.status(202).json({ code_required: true, challenge, sent_to: maskEmail(outcome.user.email) });
+      }
       res.json({
         token: issueStaffToken(secret, outcome.user),
         user: publicUser(outcome.user),
         businesses: await membershipsOf(outcome.user.id),
       });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.post("/v1/staff/login/verify", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const verdict = await consumeLimits([{ key: `signin-code:visitor:${visitorKey(secret, req.ip)}`, limit: 30, windowSeconds: 900 }]);
+      if (!verdict.allowed) return res.status(429).json({ error: "rate_limited", message: "Too many tries. Please wait a few minutes." });
+      const checked = await checkSignInCode(secret, req.body?.challenge, req.body?.code);
+      if (!checked.ok) {
+        return checked.error === "wrong_code"
+          ? res.status(400).json({ error: "wrong_code", message: "That code isn't right.", attempts_left: checked.attemptsLeft })
+          : res.status(410).json({ error: "code_expired", message: "That code has expired. Sign in again for a new one." });
+      }
+      const user = await getStaffUser(checked.userId);
+      if (!user || user.disabledAt) return res.status(410).json({ error: "code_expired", message: "Sign in again for a new code." });
+      const device = req.body?.trust_device === true ? await trustDevice(secret, user) : null;
+      res.json({ token: issueStaffToken(secret, user), user: publicUser(user), businesses: await membershipsOf(user.id), ...(device ? { device_token: device } : {}) });
     } catch (error) {
       next(error);
     }

@@ -60,6 +60,8 @@ import { registerLeadExtras, sweepCallbacks } from "./leads/extra-tools.ts";
 import { registerIntegrationRoutes } from "./integrations/routes.ts";
 import { registerReviewRoutes } from "./review/routes.ts";
 import { registerOnboardingTrackerRoutes } from "./onboarding/tracker.ts";
+import { registerGoogleSignInRoutes } from "./staff/google-sign-in.ts";
+import { pruneSignInRecords } from "./staff/two-step.ts";
 import { jobFinished, jobStarted, monitorHealth, registerHealthRoutes } from "./ops/health.ts";
 import { registerIntegrationExtras } from "./integrations/tools.ts";
 import { syncWebsites } from "./knowledge/website-import.ts";
@@ -206,6 +208,7 @@ export function createApp(config: PlatformConfig, engine: EngineOptions, whatsap
   registerReviewRoutes(app, config);
   registerOnboardingTrackerRoutes(app, config);
   registerHealthRoutes(app, config);
+  registerGoogleSignInRoutes(app, config);
   registerConsoleRoutes(app, config);
 
   app.use((_req: Request, res: Response) => {
@@ -311,6 +314,7 @@ export async function startServer(config: PlatformConfig): Promise<{ server: Ser
       if (deleted) console.log(`[platform] deleted ${deleted} expired conversation(s)`);
     }),
     every("rate-limit counters", 60 * 60_000, () => pruneRateLimitCounters()),
+    every("sign-in codes", 6 * 60 * 60_000, () => pruneSignInRecords()),
     // Unpaid bookings let go of their rooms; payments a provider settled without telling us are asked about.
     every("bookings and payments", Number(process.env.BOOKING_SWEEP_INTERVAL_MS ?? "") || 60_000, async () => {
       const expired = await expireHolds();

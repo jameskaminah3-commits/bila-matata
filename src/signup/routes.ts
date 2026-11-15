@@ -109,6 +109,8 @@ export function registerSignupRoutes(app: Express, config: PlatformConfig): void
       privacy_url: config.privacyUrl,
       // "Forgot your password?" works (it needs email).
       password_reset: canEmailLinks(config),
+      // "Continue with Google" works (the platform's Google client is set up).
+      google_sign_in: Boolean(config.google && config.publicBaseUrl),
     });
   });
 
