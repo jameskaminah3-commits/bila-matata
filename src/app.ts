@@ -146,7 +146,7 @@ export function createApp(config: PlatformConfig, engine: EngineOptions, whatsap
     if (req.secure) res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
     next();
   });
-  // Other addresses of this same service (the old bilamatata.co.ke, www.): pages move to the main address
+  // Other addresses of this same service (its Railway address, an old domain): pages move to the main address
   // (PUBLIC_BASE_URL) with a permanent redirect, so search engines and people follow. What code and other
   // systems call keeps answering where it is: the chat API and the widget script on clients' sites,
   // webhooks, and anything that isn't a GET. Printed QR codes on the old address still work (they redirect).

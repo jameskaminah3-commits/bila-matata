@@ -152,29 +152,37 @@ Settings (alerts with take-over links, conversation transcripts).
 
 ## 5. The domain: bilamatata.com on Cloudflare, in front of Railway
 
-The service answers on **bilamatata.com**. The old **bilamatata.co.ke**
-stays attached too: printed QR codes, business cards and clients' chat
-snippets point at it. Its pages redirect permanently to bilamatata.com;
-the chat, its script and webhooks keep answering there, so nothing a client
-already has breaks. **Keep renewing bilamatata.co.ke.**
+The service answers on **bilamatata.com**. Railway gets only that one custom
+domain; Cloudflare sends `www.bilamatata.com` to it by itself. The service's
+own Railway address (`…up.railway.app`) stays: QR codes, business cards and
+chat snippets made before the move point at it. Its pages redirect to
+bilamatata.com; the chat, its script and webhooks keep answering there, so
+nothing already handed out breaks.
 
-**A. Point the domain at Railway** (records grey first, so the certificate can be issued)
+**A. Point the domain at Railway** (grey cloud first, so the certificate can be issued)
 
 1. Railway → the service → **Settings → Networking → Custom Domain** → add
-   `bilamatata.com`, then `www.bilamatata.com`. For each, Railway shows the
-   records to create (a `CNAME` target, and sometimes a `TXT` to verify).
-2. Cloudflare → bilamatata.com → **DNS → Records**: add each record exactly
-   as Railway shows it. For the bare domain use name `@`: Cloudflare accepts a
-   `CNAME` there (it flattens it). Set each to **DNS only** (grey cloud) for now.
-3. Wait until Railway shows both domains as active with a certificate (usually
-   minutes, sometimes up to an hour).
+   `bilamatata.com`. Railway shows the records to create (a `CNAME` target,
+   and sometimes a `TXT` to verify).
+2. Cloudflare → bilamatata.com → **DNS → Records**:
+   - Each record exactly as Railway shows it. For the bare domain use name
+     `@`: Cloudflare accepts a `CNAME` there (it flattens it). **DNS only**
+     (grey cloud) for now.
+   - `www`: type `CNAME`, target `bilamatata.com`, **Proxied** (orange cloud).
+3. Cloudflare → **Rules → Redirect Rules** → *Create rule* → use the template
+   **Redirect from WWW to root** (or: when hostname equals
+   `www.bilamatata.com`, dynamic redirect to
+   `concat("https://bilamatata.com", http.request.uri.path)`, status 301,
+   preserve query string). Deploy it.
+4. Wait until Railway shows `bilamatata.com` as active with a certificate
+   (usually minutes, sometimes up to an hour).
 
 **B. Turn on Cloudflare's protection**
 
 1. **SSL/TLS → Overview**: encryption mode **Full (strict)**. Never
    *Flexible* (it loops redirects).
-2. Switch both DNS records to **Proxied** (orange cloud). The Resend and email
-   records stay grey.
+2. Switch the `@` record to **Proxied** (orange cloud). The email records
+   stay as they are (Email Routing's are locked; Resend's are grey).
 3. **SSL/TLS → Edge Certificates**: *Always Use HTTPS* **on**, *Minimum TLS
    Version* **1.2**, *Automatic HTTPS Rewrites* **on**. Leave Cloudflare's
    HSTS off: the service already sends it.
@@ -187,25 +195,28 @@ already has breaks. **Keep renewing bilamatata.co.ke.**
 6. **Scrape Shield → Email Address Obfuscation**: **off**, and don't turn on
    Rocket Loader or automatic Web Analytics: they inject scripts the site's
    security policy blocks (an email address would show as "[email protected]").
-7. If Railway ever shows a certificate warning (renewal), set the two records
+7. If Railway ever shows a certificate warning (renewal), set the `@` record
    back to grey for a few minutes, then orange again.
 
 **C. Tell the service its new address** (Railway → Variables, then redeploy)
 
 ```
 PUBLIC_BASE_URL=https://bilamatata.com
-REDIRECT_HOSTS=www.bilamatata.com,bilamatata.co.ke,www.bilamatata.co.ke
+REDIRECT_HOSTS=<the service's own address, e.g. bila-matata-production.up.railway.app>
 CLIENT_IP_HEADER=cf-connecting-ip
 PLATFORM_TERMS_URL=https://bilamatata.com/terms   (only if you set it before)
 ```
 
-- `REDIRECT_HOSTS`: those addresses' pages move permanently to bilamatata.com.
-- `CLIENT_IP_HEADER`: tells visitors apart behind Cloudflare. Then **remove
-  Railway's own `…up.railway.app` domain** (Settings → Networking) once
-  bilamatata.com works, so nobody can reach the service around Cloudflare.
-
-Keep **bilamatata.co.ke** (and `www`) in the service's custom domains, with
-its DNS wherever it is today.
+- `REDIRECT_HOSTS`: that address's pages move permanently to bilamatata.com
+  (the chat API, the widget script and webhooks keep working on it).
+- `CLIENT_IP_HEADER`: tells visitors apart behind Cloudflare. Requests that
+  reach the Railway address directly could pass a made-up visitor address;
+  that only affects the per-visitor limits (the per-business limits and the
+  daily AI budget still hold). Once nothing uses the Railway address any more,
+  remove it (Settings → Networking) and every request comes through Cloudflare.
+- If you also own another domain (bilamatata.co.ke), add it to Cloudflare as
+  its own site and make one Redirect Rule sending everything to
+  `https://bilamatata.com` with the same path. Railway needn't know about it.
 
 **D. Update the services that call back**
 
@@ -215,8 +226,8 @@ its DNS wherever it is today.
   dashboards now show the new one, to change when convenient.
 - **Google Cloud** (Calendar for clients) → OAuth client → *Authorized
   redirect URIs*: add `https://bilamatata.com/v1/calendar/google/callback`
-  (keep the old one until every business has reconnected or it's unused), and
-  add `bilamatata.com` to the consent screen's authorised domains.
+  (keep the old one until it's unused), and add `bilamatata.com` to the
+  consent screen's authorised domains.
 - **WhatsApp** (your WhatsApp Business developer app) → webhook callback URL
   `https://bilamatata.com/v1/whatsapp/webhook`, same verify token.
 - **M-Pesa**: nothing to change; each payment request carries its callback
@@ -224,24 +235,22 @@ its DNS wherever it is today.
 
 **E. Check it**
 
-- `https://bilamatata.com` loads with a padlock; `http://` and `www.` end at
-  `https://bilamatata.com/`.
-- `https://bilamatata.co.ke/terms` redirects to `https://bilamatata.com/terms`.
+- `https://bilamatata.com` loads with a padlock; `http://bilamatata.com` and
+  `https://www.bilamatata.com/terms` end at `https://bilamatata.com/…`.
+- The Railway address's home page redirects to `https://bilamatata.com/`.
 - `https://bilamatata.com/status` says everything is working.
 - The chat on the home page answers; a test invoice on `/pay` opens Paystack
   and comes back.
 - Point your uptime monitor (section 8) at `https://bilamatata.com/v1/status`.
 
-The studio's own chat is allowed on bilamatata.com, www.bilamatata.com and the
-old addresses (migration 0026).
-
 ## 6. Search engines
 
 In Google Search Console, add `bilamatata.com` (a *Domain* property,
 verified with the `TXT` record it gives you, added in Cloudflare as DNS only)
-and submit `https://bilamatata.com/sitemap.xml`. Then, in the old
-`bilamatata.co.ke` property, use **Settings → Change of address** to tell
-Google it moved; the permanent redirects carry its ranking across. The home
+and submit `https://bilamatata.com/sitemap.xml`. If the site was ever in
+Search Console under its Railway address or another domain, use **Settings →
+Change of address** there to tell Google it moved; the permanent redirects
+carry its ranking across. The home
 page, `/terms` and `/pay` are indexable; invoices, the dashboard and the APIs
 are not.
 
