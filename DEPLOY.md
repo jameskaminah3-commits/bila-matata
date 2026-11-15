@@ -63,7 +63,7 @@ studio's own business (`bilamatata`), its price list and what its Zaina knows.
    GEMINI_API_KEY=<your Google AI Studio key>
    PUBLIC_BASE_URL=https://<the Railway domain from step 2>
    PLATFORM_ADMIN_EMAIL=<your email>
-   PLATFORM_ADMIN_PASSWORD=<a starting password: 10+ characters, letters and digits>
+   PLATFORM_ADMIN_NAME=<your name>
    ```
 
    Add **`PLATFORM_DATABASE_CA`** as its own variable (**+ New Variable**)
@@ -77,8 +77,12 @@ studio's own business (`bilamatata`), its price list and what its Zaina knows.
 4. **Deploy.** The release log shows the migrations, `zaina_app can sign in`,
    the admin account and `studio knowledge: 5 document(s)`.
 5. Open the staging link. You should see the home page with the chat bubble
-   bottom-right. Sign in at `/app/` with `PLATFORM_ADMIN_EMAIL`, change the
-   password, then delete the `PLATFORM_ADMIN_PASSWORD` variable.
+   bottom-right. Once email works (section 4), the release emails
+   `PLATFORM_ADMIN_EMAIL` a link to choose your password ("Your Bila Matata
+   admin account"); then sign in at `/admin/` (section 9). Before email works,
+   you can set `PLATFORM_ADMIN_PASSWORD` too (remove it after the first
+   release). An existing account named by `PLATFORM_ADMIN_EMAIL` is made an
+   admin; its password is never changed.
 
 If the release step fails, the log says what to check:
 
@@ -317,6 +321,28 @@ are not.
 - **Forgot your password?** works on both pages: the emailed link sets a new
   password, then sign in again (the team at `/admin/`).
 - A client who opens `/admin/` is sent to their own dashboard.
+
+**Your admin account.** Set `PLATFORM_ADMIN_EMAIL` (and `PLATFORM_ADMIN_NAME`)
+in Railway and deploy: if there's no account with that email yet, it's
+created and you're emailed a link to choose your password (72 hours). More
+studio admins: the same variable with their email, one deploy each, or the
+`staff:create` command with `--platform-admin`.
+
+**How a business gets in.**
+
+1. The studio adds it: `/admin/` → Businesses → **Add a business**, with the
+   owner's email. The owner is emailed a link to choose their password
+   (or you give them the *Starting password* you typed there).
+2. The owner signs in at `/app/` (email, password, then the emailed code; or
+   **Continue with Google** with the same email) and lands on their Zaina
+   dashboard.
+3. The owner adds their own people under **Team**: each gets an email to
+   choose a password, with the role the owner chose.
+4. Or, with `PLATFORM_SIGNUP=open`, businesses sign themselves up from
+   `/app/` and confirm their email.
+
+Studio clients for websites, data or research don't need an account: they
+pay with the invoice link (`/pay`).
 
 ## 10. Google: "Continue with Google" and clients' calendars
 

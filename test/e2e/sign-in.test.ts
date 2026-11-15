@@ -6,6 +6,10 @@
 // their own sign-in.
 
 import assert from "node:assert/strict";
+import { existsSync, mkdtempSync, readFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { after, before, test } from "node:test";
 import { apiFor, eventually, PASSWORD, startPlatform, type Api, type Platform } from "./harness.ts";
 
@@ -155,4 +159,51 @@ test("Continue with Google: only people on a team, no code, through a one-time h
   // The console's sign-in works with it.
   const me = await fetch(`${BASE}/v1/console/me`, { headers: { cookie: session.cookie!.split(";")[0], "x-zaina-console": "1" } });
   assert.equal(((await me.json()) as any).user.email, "ops@example.com");
+});
+
+test("the studio's admin from PLATFORM_ADMIN_EMAIL: created on release, emailed a link to choose the password, signs in at /admin/", async () => {
+  const log = path.join(mkdtempSync(path.join(tmpdir(), "zaina-release-")), "emails.jsonl");
+  const scripted = path.join(path.dirname(fileURLToPath(import.meta.url)), "scripted-model.mjs");
+  const release = (email: string) => platform.cli("release.ts", [], {
+    NODE_OPTIONS: `--import ${scripted}`,
+    PLATFORM_ADMIN_EMAIL: email,
+    PLATFORM_ADMIN_NAME: "Studio Admin",
+    PUBLIC_BASE_URL: BASE,
+    SESSION_TOKEN_SECRET: "channels-session-secret-long-enough-123456",
+    RESEND_API_KEY: "re_scripted",
+    ALERT_FROM_EMAIL: "Bila Matata <hello@bilamatata.example>",
+    FAKE_EMAIL_LOG: log,
+  });
+  const sent = () => (existsSync(log) ? readFileSync(log, "utf8").trim().split("\n").filter(Boolean).map((line) => JSON.parse(line)) : []) as Email[];
+
+  release("studio-admin@example.com");
+  const welcome = sent().find((entry) => entry.to.includes("studio-admin@example.com"));
+  assert.equal(welcome?.subject, "Your Bila Matata admin account");
+  const token = new RegExp(`${BASE}/admin/#/welcome/(\\S+)`).exec(welcome!.text)?.[1];
+  assert.ok(token, welcome!.text);
+  const chosen = await post("/v1/staff/password/reset", { token, password: "Studio-LocalTest#2026" });
+  assert.equal(chosen.status, 200, JSON.stringify(chosen.body));
+  // Signing in: the two steps, and it's an admin.
+  const before = emails().length;
+  const step = await post("/v1/console/session", { email: "studio-admin@example.com", password: "Studio-LocalTest#2026", target: "admin" });
+  assert.equal(step.status, 202);
+  const { code, subject } = await codeFor("studio-admin@example.com", before);
+  assert.match(subject, /Bila Matata sign-in code/);
+  const done = await post("/v1/console/session/verify", { challenge: step.body.challenge, code });
+  assert.equal(done.body.user.is_platform_admin, true);
+
+  // Released again: nothing new; an existing account named by the variable becomes an admin; passwords are never touched.
+  release("studio-admin@example.com");
+  assert.equal(sent().filter((entry) => entry.to.includes("studio-admin@example.com")).length, 1);
+  release("owner@example.com");
+  const { rows: [owner] } = await platform.db.query("select is_platform_admin from staff_users where email = 'owner@example.com'");
+  assert.equal(owner.is_platform_admin, true);
+  assert.ok(!sent().some((entry) => entry.to.includes("owner@example.com")));
+
+  // An admin's "Forgot your password?" link opens the studio's door.
+  const count = emails().length;
+  await post("/v1/staff/password/forgot", { email: "studio-admin@example.com" });
+  const reset = await eventually(() => emails().slice(count).find((entry) => entry.to.includes("studio-admin@example.com") && /new password/.test(entry.subject)), "the reset link");
+  assert.equal(reset.subject, "Choose a new password for Bila Matata");
+  assert.match(reset.text, new RegExp(`${BASE}/admin/#/reset/`));
 });

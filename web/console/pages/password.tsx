@@ -12,6 +12,9 @@ import { useEffect, useState } from "react";
 import { api } from "../api.ts";
 import { Button, Field, Message, useAction, useLoad } from "../ui.tsx";
 
+/** /admin/ is the studio team's door: the same screens, in the studio's name. */
+const STUDIO_DOOR = location.pathname.startsWith("/admin");
+
 export function ForgotPassword(props: { email: string; onBack: () => void }) {
   const [email, setEmail] = useState(props.email);
   const [sent, setSent] = useState<string | null>(null);
@@ -26,7 +29,7 @@ export function ForgotPassword(props: { email: string; onBack: () => void }) {
           if (await action.run(async () => { reply = (await api<{ message: string }>("POST", "/v1/staff/password/forgot", { email })).message; })) setSent(reply);
         }}
       >
-        <div className="brand-mark" aria-hidden="true">Z</div>
+        <div className="brand-mark" aria-hidden="true">{STUDIO_DOOR ? "B" : "Z"}</div>
         <h1>Forgot your password?</h1>
         {sent ? (
           <>
@@ -76,8 +79,8 @@ export function ChoosePassword(props: { token: string; welcome: boolean; onDone:
           if (await action.run(async () => Object.assign(done, await api<typeof done>("POST", "/v1/staff/password/reset", { token, password })))) props.onDone(done.email, done.message);
         }}
       >
-        <div className="brand-mark" aria-hidden="true">Z</div>
-        <h1>{welcome ? "Welcome to Zaina" : "Choose a new password"}</h1>
+        <div className="brand-mark" aria-hidden="true">{STUDIO_DOOR ? "B" : "Z"}</div>
+        <h1>{welcome ? (STUDIO_DOOR ? "Welcome to Bila Matata" : "Welcome to Zaina") : "Choose a new password"}</h1>
         {account.data ? (
           <>
             <p className="muted">{welcome ? `Choose a password for ${account.data.email} to sign in.` : `For ${account.data.email}. Every device signed in with the old password is signed out.`}</p>

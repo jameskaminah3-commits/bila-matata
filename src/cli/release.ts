@@ -8,9 +8,10 @@
 //      (PLATFORM_APP_DATABASE_URL), make sure it can: if the password in the
 //      URL doesn't work yet, give the role that password, then wait until
 //      the database (or Supabase's pooler) lets it in;
-//   3. create the first platform admin when PLATFORM_ADMIN_EMAIL and
-//      PLATFORM_ADMIN_PASSWORD are set and the account doesn't exist yet
-//      (remove the password variable afterwards);
+//   3. the studio's admin from PLATFORM_ADMIN_EMAIL: when there's no account
+//      yet, create it and email a link to choose the password (or, with
+//      PLATFORM_ADMIN_PASSWORD, use that and remove the variable afterwards);
+//      when there is one that isn't an admin, make it one;
 //   4. import the studio's own knowledge documents, for the Zaina on its
 //      website (unchanged ones are left alone; documents staff added in the
 //      console are kept).
@@ -27,7 +28,11 @@ import { closePlatformDb, explainConnectionError, initPlatformDb, ownerPool, APP
 import { createStaffUser, findStaffByEmail } from "../db/platform-scope.ts";
 import { migrate } from "../db/migrate.ts";
 import { describeOutcome, saveImportedSources, sourcesInDirectory } from "../knowledge/import-files.ts";
+import { alertEmailConfig } from "../config.ts";
+import { configureMailer, sendEmail } from "../platform/mailer.ts";
+import { adminWelcomeEmail, passwordLink, passwordLinkToken } from "../staff/password-links.ts";
 import { hashPassword, passwordProblem } from "../staff/passwords.ts";
+import { randomBytes } from "node:crypto";
 
 const log = (message: string) => console.log(`[release] ${message}`);
 
@@ -113,18 +118,7 @@ async function main() {
   if (appUrl) await ensureAppRoleSignsIn(url, appUrl, ca);
 
   const adminEmail = process.env.PLATFORM_ADMIN_EMAIL?.trim().toLowerCase();
-  if (adminEmail) {
-    if (await findStaffByEmail(adminEmail)) {
-      log(`platform admin ${adminEmail} exists`);
-    } else {
-      const password = process.env.PLATFORM_ADMIN_PASSWORD ?? "";
-      const problem = passwordProblem(password);
-      if (problem) throw new Error(`PLATFORM_ADMIN_PASSWORD: ${problem}`);
-      const name = process.env.PLATFORM_ADMIN_NAME?.trim() || adminEmail.split("@")[0];
-      await createStaffUser({ email: adminEmail, name, passwordHash: await hashPassword(password), isPlatformAdmin: true });
-      log(`created platform admin ${adminEmail}; you can now remove PLATFORM_ADMIN_PASSWORD`);
-    }
-  }
+  if (adminEmail) await ensurePlatformAdmin(adminEmail);
 
   // What the Zaina on bilamatata.com knows about the studio, kept in the repository.
   const directory = studioKnowledgeDirectory();
@@ -145,4 +139,38 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
       process.exitCode = 1;
     })
     .finally(() => closePlatformDb());
+}
+
+/**
+ * The studio's admin, from PLATFORM_ADMIN_EMAIL. No account yet: created, and
+ * (without PLATFORM_ADMIN_PASSWORD) emailed a link to choose the password, so
+ * no password ever sits in the service's settings. An account that isn't an
+ * admin: made one. Never changes an existing password.
+ */
+async function ensurePlatformAdmin(email: string): Promise<void> {
+  const existing = await findStaffByEmail(email);
+  if (existing) {
+    if (existing.isPlatformAdmin) return log(`platform admin ${email} exists`);
+    await ownerPool().query("update staff_users set is_platform_admin = true, updated_at = now() where id = $1", [existing.id]);
+    return log(`made ${email} a platform admin`);
+  }
+  const name = process.env.PLATFORM_ADMIN_NAME?.trim() || email.split("@")[0];
+  const password = process.env.PLATFORM_ADMIN_PASSWORD ?? "";
+  if (password) {
+    const problem = passwordProblem(password);
+    if (problem) throw new Error(`PLATFORM_ADMIN_PASSWORD: ${problem}`);
+    await createStaffUser({ email, name, passwordHash: await hashPassword(password), isPlatformAdmin: true });
+    return log(`created platform admin ${email}; you can now remove PLATFORM_ADMIN_PASSWORD`);
+  }
+  const user = await createStaffUser({ email, name, passwordHash: await hashPassword(randomBytes(32).toString("base64url")), isPlatformAdmin: true });
+  const base = process.env.PUBLIC_BASE_URL?.trim().replace(/\/+$/, "");
+  const secret = process.env.SESSION_TOKEN_SECRET?.trim();
+  const mail = alertEmailConfig(process.env);
+  if (!base || !secret || !mail) {
+    return log(`created platform admin ${email}; email isn't set up, so choose the password with "Forgot your password?" at /admin/ once it is`);
+  }
+  configureMailer(mail);
+  const link = passwordLink(base, passwordLinkToken(secret, user, "invite"), "invite", "admin");
+  const sent = await sendEmail({ to: email, ...adminWelcomeEmail(user, link, `${base}/admin/`) });
+  log(sent ? `created platform admin ${email} and emailed a link to choose the password` : `created platform admin ${email}; the email didn't go out: use "Forgot your password?" at /admin/`);
 }

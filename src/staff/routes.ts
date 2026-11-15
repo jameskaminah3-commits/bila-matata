@@ -241,10 +241,11 @@ export function registerStaffAccountRoutes(app: Express, config: PlatformConfig)
       // The same answer whether or not the email has an account.
       const user = await findStaffByEmail(email);
       if (user && !user.disabledAt) {
-        const link = passwordLink(config.publicBaseUrl!, passwordLinkToken(secret, user, "reset"), "reset");
-        void sendEmail({ to: user.email, ...resetEmail(user, link) });
+        const door = user.isPlatformAdmin ? "admin" : "app";
+        const link = passwordLink(config.publicBaseUrl!, passwordLinkToken(secret, user, "reset"), "reset", door);
+        void sendEmail({ to: user.email, ...resetEmail(user, link, user.isPlatformAdmin ? "Bila Matata" : "Zaina") });
       }
-      res.status(202).json({ ok: true, message: "If that email has a Zaina account, a link to choose a new password is on its way. It works for an hour." });
+      res.status(202).json({ ok: true, message: "If that email has an account, a link to choose a new password is on its way. It works for an hour." });
     } catch (error) {
       next(error);
     }

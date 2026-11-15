@@ -65,20 +65,21 @@ export const canEmailLinks = (config: Pick<PlatformConfig, "publicBaseUrl">) => 
 export const unknownPassword = () => hashPassword(randomBytes(32).toString("base64url"));
 
 /** Where the link opens: the console's screen for choosing a password. */
-export function passwordLink(origin: string, token: string, purpose: PasswordLinkPurpose): string {
-  return `${origin}/app/#/${purpose === "invite" ? "welcome" : "reset"}/${token}`;
+/** The page that sets the password: the clients' door (/app/), or the studio team's (/admin/). */
+export function passwordLink(origin: string, token: string, purpose: PasswordLinkPurpose, door: "app" | "admin" = "app"): string {
+  return `${origin}/${door}/#/${purpose === "invite" ? "welcome" : "reset"}/${token}`;
 }
 
 const firstName = (name: string) => name.trim().split(/\s+/)[0] || "there";
 
 /** The emails around passwords: a reset link, an invitation, and "your password was changed". */
-export function resetEmail(user: { name: string }, link: string) {
+export function resetEmail(user: { name: string }, link: string, product = "Zaina") {
   return {
-    subject: "Choose a new password for Zaina",
+    subject: `Choose a new password for ${product}`,
     text: [
       `Hi ${firstName(user.name)},`,
       "",
-      "Someone (probably you) asked to choose a new password for your Zaina account. Choose it here:",
+      `Someone (probably you) asked to choose a new password for your ${product} account. Choose it here:`,
       link,
       "",
       "The link works once, for an hour. If you didn't ask, ignore this email: your password stays as it is.",
@@ -120,6 +121,21 @@ export function passwordChangedEmail(user: { name: string }, consoleUrl: string)
       "",
       "Your Zaina password was just changed, and every device signed in with the old one was signed out.",
       `If this wasn't you, choose a new password now with "Forgot your password?" at ${consoleUrl}, and tell your team.`,
+    ].join("\n"),
+  };
+}
+
+/** The studio's first admin, created from PLATFORM_ADMIN_EMAIL: choose a password, then sign in at /admin/. */
+export function adminWelcomeEmail(user: { name: string }, link: string, adminUrl: string) {
+  return {
+    subject: "Your Bila Matata admin account",
+    text: [
+      `Hi ${firstName(user.name)},`,
+      "",
+      "Your admin account for the Bila Matata dashboard is ready. Choose your password here:",
+      link,
+      "",
+      `The link works once, for 72 hours. Then sign in at ${adminUrl} (bookmark it): after your password, a code is emailed to you.`,
     ].join("\n"),
   };
 }

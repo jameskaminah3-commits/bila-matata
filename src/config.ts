@@ -162,7 +162,7 @@ function webPushConfig(env: NodeJS.ProcessEnv): WebPushConfig | null {
   return { publicKey, privateKey, subject };
 }
 
-function alertEmailConfig(env: NodeJS.ProcessEnv): AlertEmailConfig | null {
+export function alertEmailConfig(env: NodeJS.ProcessEnv): AlertEmailConfig | null {
   const resendApiKey = env.RESEND_API_KEY?.trim();
   const from = env.ALERT_FROM_EMAIL?.trim() || env.RESEND_FROM_EMAIL?.trim();
   if (!resendApiKey || !from) return null;
