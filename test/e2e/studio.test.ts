@@ -1,4 +1,4 @@
-// End-to-end: bilamatata.co.ke's own site and the studio's invoices.
+// End-to-end: bilamatata.com's own site and the studio's invoices.
 //
 //   site      the home page, terms, robots and sitemap; the studio's own
 //             Zaina works on the service's own address (and nowhere it
@@ -133,6 +133,8 @@ test("the studio's own Zaina answers on the service's own address, and only wher
   assert.equal(reply.status, 200, await reply.clone().text());
   assert.ok(((await reply.json()) as { reply?: string }).reply);
   assert.equal((await open("https://bilamatata.co.ke")).status, 201, "the live address, from the migration");
+  assert.equal((await open("https://bilamatata.com")).status, 201, "the new address");
+  assert.equal((await open("https://www.bilamatata.com")).status, 201);
   assert.equal((await open("https://someone-else.example")).status, 403);
 });
 

@@ -1,7 +1,7 @@
 ---
 title: Studio services
 kind: page
-url: https://bilamatata.co.ke/#services
+url: https://bilamatata.com/#services
 ---
 
 # Studio services
@@ -49,4 +49,4 @@ We report what the evidence shows. We cannot promise that a proposal or applicat
 
 Each service has a starting price on the price list: use the price list for the amounts, and say they are starting prices. The exact price depends on the project and comes in a free written quote, before the client pays anything.
 
-To book a free consultation, the client can fill in the short form at https://bilamatata.co.ke/start, tell us what they need on WhatsApp at +254 707 255 598, or leave their details in this chat.
+To book a free consultation, the client can fill in the short form at https://bilamatata.com/start, tell us what they need on WhatsApp at +254 707 255 598, or leave their details in this chat.

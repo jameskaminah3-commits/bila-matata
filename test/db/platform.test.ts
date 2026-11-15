@@ -358,7 +358,7 @@ test("each business has its own settings; the studio's are the ones it starts wi
   const studioSettings = await getBusinessSettings("bilamatata");
   assert.equal(studioSettings?.displayName, "Bila Matata");
   assert.equal(studioSettings?.contactPhone, "+254707255598");
-  assert.deepEqual(studioSettings?.allowedLinkHosts, ["bilamatata.co.ke", "wa.me", "whatsapp.com", "api.whatsapp.com"]);
+  assert.deepEqual(studioSettings?.allowedLinkHosts, ["bilamatata.co.ke", "wa.me", "whatsapp.com", "api.whatsapp.com", "bilamatata.com"]);
   assert.deepEqual(studioSettings?.allowedLinkHostSuffixes, []);
 
   const updated = await updateBusinessSettings("acme", { about: "Six rooms in Diani, breakfast included.", contactPhone: "+254700111222" }, null);

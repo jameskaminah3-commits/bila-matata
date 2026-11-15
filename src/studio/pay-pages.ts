@@ -1,6 +1,6 @@
 // src/studio/pay-pages.ts
 //
-// bilamatata.co.ke/pay as HTML: finding an invoice by its reference, and the
+// bilamatata.com/pay as HTML: finding an invoice by its reference, and the
 // invoice's own page (what it's for, how much, and the button to pay).
 // The pages never name the payment provider: a client only needs to know they
 // can pay by M-Pesa or card, on a secure page.

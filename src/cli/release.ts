@@ -126,7 +126,7 @@ async function main() {
     }
   }
 
-  // What the Zaina on bilamatata.co.ke knows about the studio, kept in the repository.
+  // What the Zaina on bilamatata.com knows about the studio, kept in the repository.
   const directory = studioKnowledgeDirectory();
   if (directory) {
     const outcomes = await saveImportedSources(STUDIO_BUSINESS, sourcesInDirectory(directory));

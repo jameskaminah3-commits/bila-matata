@@ -21,7 +21,7 @@ import { renderStart, renderStartThanks } from "../../src/studio/start-pages.ts"
 import { validateMessage, validateNewThread } from "../../src/support/store.ts";
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
-const PAGE = { baseUrl: "https://bilamatata.co.ke" };
+const PAGE = { baseUrl: "https://bilamatata.com" };
 const text = (html: string) => html.replace(/<script[\s\S]*?<\/script>/g, " ").replace(/<[^>]+>/g, " ").replace(/&amp;/g, "&").replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/\s+/g, " ");
 
 test("on Starter a business works as a general one, whatever it sells; on Full as what it is", async () => {

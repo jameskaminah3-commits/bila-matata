@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "bilamatata.co.ke: the Bila Matata studio site, Zaina (the AI sales and booking assistant) as a service, and the studio's payment page.",
+  "description": "bilamatata.com: the Bila Matata studio site, Zaina (the AI sales and booking assistant) as a service, and the studio's payment page.",
   "engines": {
     "node": ">=20 <24"
   },

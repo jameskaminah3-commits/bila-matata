@@ -1,7 +1,7 @@
 ---
 title: How we work, payments and refunds
 kind: policy
-url: https://bilamatata.co.ke/terms
+url: https://bilamatata.com/terms
 ---
 
 # How we work, payments and refunds
@@ -24,8 +24,8 @@ Work outside the quote is quoted separately before we start it. After delivery y
 
 ## How to pay
 
-- Project invoices and Zaina set-up fees: at https://bilamatata.co.ke/pay with your invoice reference (it starts with BM-), by M-Pesa or card.
-- Zaina monthly invoices: from your dashboard at https://bilamatata.co.ke/app/ under Settings, then Plan & billing.
+- Project invoices and Zaina set-up fees: at https://bilamatata.com/pay with your invoice reference (it starts with BM-), by M-Pesa or card.
+- Zaina monthly invoices: from your dashboard at https://bilamatata.com/app/ under Settings, then Plan & billing.
 - You pay on a secure payment page. Bila Matata never sees your card number or M-Pesa PIN.
 - A receipt is emailed after each payment.
 
@@ -37,7 +37,7 @@ Work outside the quote is quoted separately before we start it. After delivery y
 - Zaina set-up fee: refundable before set-up begins; not refundable once Zaina has been set up and shown to you.
 - Zaina monthly fee: not refunded for part of a month.
 
-To ask for a refund, email hello@bilamatata.co.ke with your invoice reference.
+To ask for a refund, email hello@bilamatata.com with your invoice reference.
 
 ## Ownership
 
@@ -45,4 +45,4 @@ Once a project is paid in full, the work created for the client belongs to the c
 
 ## Privacy
 
-We handle personal data under Kenya's Data Protection Act, 2019. Each Zaina client's conversations are kept separate, and conversations are deleted after the retention period (90 days unless agreed otherwise). The full terms and privacy notice are at https://bilamatata.co.ke/terms
+We handle personal data under Kenya's Data Protection Act, 2019. Each Zaina client's conversations are kept separate, and conversations are deleted after the retention period (90 days unless agreed otherwise). The full terms and privacy notice are at https://bilamatata.com/terms

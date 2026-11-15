@@ -1,4 +1,4 @@
-# Deploying bilamatata.co.ke
+# Deploying bilamatata.com
 
 One service on **Railway**, one database on **Supabase**. This is separate
 from Tembea Bila Matata in every way: its own repository, service, database,
@@ -126,41 +126,124 @@ analysis and research). Other businesses use their own accounts.
 the **Live Secret Key** (`sk_live_…`), set the **Live Webhook URL** to the
 same address, and redeploy. The test notice disappears.
 
-## 4. Email (receipts, invoice links, password links)
+## 4. Email: receiving and sending as hello@bilamatata.com
 
-1. Create a [Resend](https://resend.com) account and verify
-   `bilamatata.co.ke` (it gives you DNS records to add).
-2. Set `RESEND_API_KEY` and `ALERT_FROM_EMAIL=Bila Matata <hello@bilamatata.co.ke>`.
+**Receiving** (free, Cloudflare): Cloudflare → bilamatata.com → **Email →
+Email Routing** → *Enable*. Add the records it offers (it adds them for you),
+then a custom address `hello@bilamatata.com` → your own inbox, and confirm the
+email it sends you. Mail to hello@ now reaches you.
+
+**Sending** (receipts, password links, alerts):
+
+1. In [Resend](https://resend.com) → **Domains** → *Add domain* →
+   `bilamatata.com`. Resend lists a few records (a DKIM `TXT` named like
+   `resend._domainkey`, and an `MX` and `TXT` on a `send` subdomain). In
+   Cloudflare → **DNS → Records**, add each exactly as shown, as **DNS only**
+   (grey cloud). Back in Resend, press *Verify*.
+2. Add `_dmarc` as a `TXT` record: `v=DMARC1; p=none; rua=mailto:hello@bilamatata.com`.
+   After a few weeks of clean reports, change `p=none` to `p=quarantine`.
+3. In Railway → Variables: `ALERT_FROM_EMAIL=Bila Matata <hello@bilamatata.com>`
+   (keep `RESEND_API_KEY`), and `STUDIO_NOTIFY_EMAIL` to the inbox that should
+   hear about payments and problems.
 
 Without email the site and payments still work; receipts and "Forgot your
 password?" are off, and so are the notification emails a business adds in
 Settings (alerts with take-over links, conversation transcripts).
 
-## 5. The domain
+## 5. The domain: bilamatata.com on Cloudflare, in front of Railway
 
-1. Railway → the service → **Settings → Networking → Custom Domain** →
-   `bilamatata.co.ke` (and `www.bilamatata.co.ke` if you want it). Railway
-   shows the DNS record to create.
-2. At your registrar's DNS:
-   - `www` → **CNAME** to the target Railway shows.
-   - The bare domain (`bilamatata.co.ke`) can't take a plain CNAME. Use your
-     DNS host's **ALIAS / ANAME / CNAME flattening** record to the same
-     target. If your registrar has none, move the domain's DNS to Cloudflare
-     (free), which flattens automatically; set the record to **DNS only**
-     until Railway shows the certificate as issued.
-3. When Railway shows the domain as active, change
-   `PUBLIC_BASE_URL=https://bilamatata.co.ke` and redeploy.
-4. Update Paystack's webhook URL to
-   `https://bilamatata.co.ke/api/paystack/webhook`.
+The service answers on **bilamatata.com**. The old **bilamatata.co.ke**
+stays attached too: printed QR codes, business cards and clients' chat
+snippets point at it. Its pages redirect permanently to bilamatata.com;
+the chat, its script and webhooks keep answering there, so nothing a client
+already has breaks. **Keep renewing bilamatata.co.ke.**
 
-The studio's own chat is already allowed on `https://bilamatata.co.ke` and
-`https://www.bilamatata.co.ke`.
+**A. Point the domain at Railway** (records grey first, so the certificate can be issued)
+
+1. Railway → the service → **Settings → Networking → Custom Domain** → add
+   `bilamatata.com`, then `www.bilamatata.com`. For each, Railway shows the
+   records to create (a `CNAME` target, and sometimes a `TXT` to verify).
+2. Cloudflare → bilamatata.com → **DNS → Records**: add each record exactly
+   as Railway shows it. For the bare domain use name `@`: Cloudflare accepts a
+   `CNAME` there (it flattens it). Set each to **DNS only** (grey cloud) for now.
+3. Wait until Railway shows both domains as active with a certificate (usually
+   minutes, sometimes up to an hour).
+
+**B. Turn on Cloudflare's protection**
+
+1. **SSL/TLS → Overview**: encryption mode **Full (strict)**. Never
+   *Flexible* (it loops redirects).
+2. Switch both DNS records to **Proxied** (orange cloud). The Resend and email
+   records stay grey.
+3. **SSL/TLS → Edge Certificates**: *Always Use HTTPS* **on**, *Minimum TLS
+   Version* **1.2**, *Automatic HTTPS Rewrites* **on**. Leave Cloudflare's
+   HSTS off: the service already sends it.
+4. **DNS → Settings**: **DNSSEC** → *Enable* (one click, the domain is
+   registered at Cloudflare).
+5. **Security → WAF**: turn on the free **Cloudflare managed ruleset**.
+   Security level: *Medium*. Leave **Bot Fight Mode off**: it challenges
+   payment and WhatsApp webhooks and the chat's own requests, and on the free
+   plan it can't be told to skip them. The service has its own rate limits.
+6. **Scrape Shield → Email Address Obfuscation**: **off**, and don't turn on
+   Rocket Loader or automatic Web Analytics: they inject scripts the site's
+   security policy blocks (an email address would show as "[email protected]").
+7. If Railway ever shows a certificate warning (renewal), set the two records
+   back to grey for a few minutes, then orange again.
+
+**C. Tell the service its new address** (Railway → Variables, then redeploy)
+
+```
+PUBLIC_BASE_URL=https://bilamatata.com
+REDIRECT_HOSTS=www.bilamatata.com,bilamatata.co.ke,www.bilamatata.co.ke
+CLIENT_IP_HEADER=cf-connecting-ip
+PLATFORM_TERMS_URL=https://bilamatata.com/terms   (only if you set it before)
+```
+
+- `REDIRECT_HOSTS`: those addresses' pages move permanently to bilamatata.com.
+- `CLIENT_IP_HEADER`: tells visitors apart behind Cloudflare. Then **remove
+  Railway's own `…up.railway.app` domain** (Settings → Networking) once
+  bilamatata.com works, so nobody can reach the service around Cloudflare.
+
+Keep **bilamatata.co.ke** (and `www`) in the service's custom domains, with
+its DNS wherever it is today.
+
+**D. Update the services that call back**
+
+- **Paystack** (the studio's own account) → Settings → API Keys & Webhooks →
+  webhook URL `https://bilamatata.com/api/paystack/webhook` (test and live).
+  Clients' own Paystack webhooks keep working on the old address; their
+  dashboards now show the new one, to change when convenient.
+- **Google Cloud** (Calendar for clients) → OAuth client → *Authorized
+  redirect URIs*: add `https://bilamatata.com/v1/calendar/google/callback`
+  (keep the old one until every business has reconnected or it's unused), and
+  add `bilamatata.com` to the consent screen's authorised domains.
+- **WhatsApp** (your WhatsApp Business developer app) → webhook callback URL
+  `https://bilamatata.com/v1/whatsapp/webhook`, same verify token.
+- **M-Pesa**: nothing to change; each payment request carries its callback
+  address from `PUBLIC_BASE_URL`.
+
+**E. Check it**
+
+- `https://bilamatata.com` loads with a padlock; `http://` and `www.` end at
+  `https://bilamatata.com/`.
+- `https://bilamatata.co.ke/terms` redirects to `https://bilamatata.com/terms`.
+- `https://bilamatata.com/status` says everything is working.
+- The chat on the home page answers; a test invoice on `/pay` opens Paystack
+  and comes back.
+- Point your uptime monitor (section 8) at `https://bilamatata.com/v1/status`.
+
+The studio's own chat is allowed on bilamatata.com, www.bilamatata.com and the
+old addresses (migration 0026).
 
 ## 6. Search engines
 
-In Google Search Console, add `bilamatata.co.ke` and submit
-`https://bilamatata.co.ke/sitemap.xml`. The home page, `/terms` and `/pay`
-are indexable; invoices, the dashboard and the APIs are not.
+In Google Search Console, add `bilamatata.com` (a *Domain* property,
+verified with the `TXT` record it gives you, added in Cloudflare as DNS only)
+and submit `https://bilamatata.com/sitemap.xml`. Then, in the old
+`bilamatata.co.ke` property, use **Settings → Change of address** to tell
+Google it moved; the permanent redirects carry its ranking across. The home
+page, `/terms` and `/pay` are indexable; invoices, the dashboard and the APIs
+are not.
 
 ## 7. Zaina for a client
 
@@ -172,7 +255,7 @@ are indexable; invoices, the dashboard and the APIs are not.
 3. Their website gets one line:
 
    ```html
-   <script src="https://bilamatata.co.ke/zaina.js" data-business="<their id>" async></script>
+   <script src="https://bilamatata.com/zaina.js" data-business="<their id>" async></script>
    ```
 
 4. Their plan: the first time, open **Bila Matata → Plans & billing** and
@@ -212,7 +295,7 @@ are indexable; invoices, the dashboard and the APIs are not.
 | Alerts on staff phones | `WEB_PUSH_PUBLIC_KEY`, `WEB_PUSH_PRIVATE_KEY`, `WEB_PUSH_SUBJECT` (`npx web-push generate-vapid-keys`) |
 | WhatsApp | `WHATSAPP_APP_SECRET`, `WHATSAPP_VERIFY_TOKEN`; webhook `https://<domain>/v1/whatsapp/webhook` |
 | Google Calendar for clients | `PLATFORM_GOOGLE_CLIENT_ID`, `PLATFORM_GOOGLE_CLIENT_SECRET` |
-| Businesses signing up by themselves | `PLATFORM_SIGNUP=open` (needs email), `PLATFORM_TERMS_URL=https://bilamatata.co.ke/terms` |
+| Businesses signing up by themselves | `PLATFORM_SIGNUP=open` (needs email), `PLATFORM_TERMS_URL=https://bilamatata.com/terms` |
 | A stronger AI model for Zaina | `ZAINA_MODEL=<model id>`. The default is the fast, low-cost "lite" model. A larger model in the same family reasons better (smarter recommendations, fewer missed details) and costs more per conversation: try one on staging and compare real chats before changing it for everyone |
 | A cheaper model near the daily budget | On by default: once a business has used 80% of its daily AI budget, Zaina answers with `gemini-3.5-flash-lite` for the rest of the day instead of stopping at the cap. Change the model with `ZAINA_SAVER_MODEL=<model id>` (or `off`), and the point with `ZAINA_SAVER_AT_PERCENT=<1-100>`. Cost reports price every turn at `MODEL_PRICE_*`, so they overstate days that switched |
 | A staging site that embeds clients' chats | `EXTRA_ALLOWED_ORIGINS=https://staging.example.com` (staging only) |

@@ -4,6 +4,7 @@
 // routes and the background jobs (unclaimed handoffs, retention, rate-limit
 // counters, bookings and payments, calendars, billing).
 
+import { isIP } from "node:net";
 import express, { type Express, type NextFunction, type Request, type Response } from "express";
 import type { Server } from "node:http";
 import { GoogleGenAI } from "@google/genai";
@@ -128,12 +129,37 @@ export function createApp(config: PlatformConfig, engine: EngineOptions, whatsap
   const app = express();
   app.disable("x-powered-by");
   app.set("trust proxy", config.trustProxy);
+  // Behind Cloudflare, the visitor's own address is in the header Cloudflare sets (CLIENT_IP_HEADER=cf-connecting-ip).
+  // Without it every visitor would look like one of Cloudflare's addresses and share one visitor's limits.
+  // Only trustworthy when every request comes through Cloudflare (DEPLOY.md, section 5).
+  const clientIpHeader = process.env.CLIENT_IP_HEADER?.trim().toLowerCase();
+  if (clientIpHeader) {
+    app.use((req: Request, _res: Response, next: NextFunction) => {
+      const value = String(req.headers[clientIpHeader] ?? "").trim();
+      if (isIP(value)) Object.defineProperty(req, "ip", { value, configurable: true, enumerable: true });
+      next();
+    });
+  }
   // Once a browser has reached the service over https, it never uses plain http for it again (HSTS, a year).
   // Behind Railway's proxy, req.secure comes from X-Forwarded-Proto.
   app.use((req: Request, res: Response, next: NextFunction) => {
     if (req.secure) res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
     next();
   });
+  // Other addresses of this same service (the old bilamatata.co.ke, www.): pages move to the main address
+  // (PUBLIC_BASE_URL) with a permanent redirect, so search engines and people follow. What code and other
+  // systems call keeps answering where it is: the chat API and the widget script on clients' sites,
+  // webhooks, and anything that isn't a GET. Printed QR codes on the old address still work (they redirect).
+  const canonical = config.publicBaseUrl ? new URL(config.publicBaseUrl) : null;
+  const redirectHosts = new Set((process.env.REDIRECT_HOSTS ?? "").split(",").map((host) => host.trim().toLowerCase()).filter(Boolean));
+  if (canonical) redirectHosts.delete(canonical.hostname);
+  if (canonical && redirectHosts.size) {
+    app.use((req: Request, res: Response, next: NextFunction) => {
+      if (!redirectHosts.has(req.hostname.toLowerCase()) || (req.method !== "GET" && req.method !== "HEAD")) return next();
+      if (/^\/(api|v1)\//.test(req.path) || req.path === "/zaina.js" || req.path === "/widget.js") return next();
+      res.redirect(301, `${canonical.origin}${req.originalUrl}`);
+    });
+  }
   // /api/zaina/* is the public name of the API (the widget and embeds use it);
   // it is the same API as /v1/*, which webhooks and the dashboard keep using.
   app.use((req: Request, _res: Response, next: NextFunction) => {

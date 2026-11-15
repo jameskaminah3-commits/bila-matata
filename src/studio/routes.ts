@@ -1,6 +1,6 @@
 // src/studio/routes.ts
 //
-// bilamatata.co.ke's own pages and the studio's invoices:
+// bilamatata.com's own pages and the studio's invoices:
 //
 //   GET  /                         the home page (with the studio's own Zaina)
 //   GET  /terms                    terms of service and privacy

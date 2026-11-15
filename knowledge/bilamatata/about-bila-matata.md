@@ -1,7 +1,7 @@
 ---
 title: About Bila Matata
 kind: page
-url: https://bilamatata.co.ke/
+url: https://bilamatata.com/
 ---
 
 # About Bila Matata
@@ -23,14 +23,14 @@ Small and medium businesses, organisations and founders across Kenya, and client
 ## How to reach us
 
 - WhatsApp or call: +254 707 255 598
-- Email: hello@bilamatata.co.ke
-- Website: https://bilamatata.co.ke
+- Email: hello@bilamatata.com
+- Website: https://bilamatata.com
 - Based in Mombasa, Kenya. We work with clients anywhere, online.
 
 The team replies on WhatsApp during working hours, Monday to Saturday. Zaina answers on the website at any hour and passes your details to the team.
 
 ## Client login and payments
 
-- Zaina clients sign in to their dashboard at https://bilamatata.co.ke/app/
-- Invoices are paid securely by M-Pesa or card at https://bilamatata.co.ke/pay
-- Terms and privacy: https://bilamatata.co.ke/terms
+- Zaina clients sign in to their dashboard at https://bilamatata.com/app/
+- Invoices are paid securely by M-Pesa or card at https://bilamatata.com/pay
+- Terms and privacy: https://bilamatata.com/terms

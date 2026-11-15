@@ -1,6 +1,6 @@
 // src/studio/pages.ts
 //
-// bilamatata.co.ke's own pages, as HTML: the home page and the terms. The
+// bilamatata.com's own pages, as HTML: the home page and the terms. The
 // pages are plain documents (everything is in the HTML a crawler reads); the
 // only scripts are /site/site.js (the phone menu and the "Try Zaina" buttons)
 // and the studio's own Zaina chat, the same one-line embed any client uses.
@@ -303,7 +303,7 @@ ${renderCalculator({ starter: PLANS[0].monthlyMinor, full: PLANS[1].monthlyMinor
       </div>
     </article>
     <p class="fine">Prices are in Kenya shillings. Set-up is paid once and covers loading your catalogue and prices, tuning Zaina's answers with you, and installation. Monthly plans are billed in advance and you can cancel at any time; see the <a href="/terms">terms</a>. Already a client? <a href="/app/">Sign in</a> or <a href="/pay">pay an invoice</a>.</p>
-    <div class="snippet" role="img" aria-label="The one line of code that adds Zaina to a website">&lt;script src="https://bilamatata.co.ke/zaina.js" data-business="your-business" async&gt;&lt;/script&gt;</div>
+    <div class="snippet" role="img" aria-label="The one line of code that adds Zaina to a website">&lt;script src="${esc(page.baseUrl ?? "https://bilamatata.com")}/zaina.js" data-business="your-business" async&gt;&lt;/script&gt;</div>
     <p class="fine">That one line adds Zaina to any website: WordPress, Shopify, Wix or custom-built.</p>
   </div>
 </section>
@@ -383,7 +383,7 @@ ${header("terms")}
   <div class="wrap">
     <h1>Terms of Service and Privacy</h1>
     <p class="updated">Last updated: ${esc(TERMS_UPDATED)}</p>
-    <p>These terms apply when you use bilamatata.co.ke, buy a service from ${esc(STUDIO.name)} ("we", "us"), or subscribe to Zaina AI. ${esc(STUDIO.name)} is an AI, software development, data analysis and research studio based in ${esc(STUDIO.city)}. A written quote or agreement we both accept adds to these terms and, where the two differ, the quote or agreement applies.</p>
+    <p>These terms apply when you use bilamatata.com, buy a service from ${esc(STUDIO.name)} ("we", "us"), or subscribe to Zaina AI. ${esc(STUDIO.name)} is an AI, software development, data analysis and research studio based in ${esc(STUDIO.city)}. A written quote or agreement we both accept adds to these terms and, where the two differ, the quote or agreement applies.</p>
 
     <nav class="toc" aria-label="On this page">
       <strong>On this page</strong>

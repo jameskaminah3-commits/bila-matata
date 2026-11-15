@@ -4,7 +4,7 @@ The home of **Bila Matata**, an AI, software development, data analysis and
 research studio in Mombasa, and of **Zaina AI**, its 24/7 sales and booking
 concierge for businesses.
 
-One Node service serves everything on `bilamatata.co.ke`:
+One Node service serves everything on `bilamatata.com`:
 
 | Address | What it is |
 |---|---|
@@ -20,7 +20,7 @@ One Node service serves everything on `bilamatata.co.ke`:
 ## Adding Zaina to a website
 
 ```html
-<script src="https://bilamatata.co.ke/zaina.js" data-business="your-business-id" async></script>
+<script src="https://bilamatata.com/zaina.js" data-business="your-business-id" async></script>
 ```
 
 The chat only opens on websites the business has allowed (Dashboard →

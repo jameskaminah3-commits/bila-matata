@@ -1,7 +1,7 @@
 ---
 title: Zaina AI
 kind: page
-url: https://bilamatata.co.ke/#zaina
+url: https://bilamatata.com/#zaina
 ---
 
 # Zaina AI: a 24/7 AI sales and booking concierge
@@ -89,7 +89,7 @@ We load the business's catalogue, prices, opening hours and policies, tune Zaina
 
 ## The dashboard
 
-Clients sign in at https://bilamatata.co.ke/app/ to read conversations, reply to customers, see leads and bookings, update their catalogue, prices and calendar, and view reports. When the business updates its prices or calendar, Zaina uses the new information straight away.
+Clients sign in at https://bilamatata.com/app/ to read conversations, reply to customers, see leads and bookings, update their catalogue, prices and calendar, and view reports. When the business updates its prices or calendar, Zaina uses the new information straight away.
 
 ## Customer payments
 

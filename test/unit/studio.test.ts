@@ -16,7 +16,7 @@ import { renderInvoicePage, renderPayHome } from "../../src/studio/pay-pages.ts"
 import { renderHome, renderTerms } from "../../src/studio/pages.ts";
 
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
-const PAGE = { baseUrl: "https://bilamatata.co.ke" };
+const PAGE = { baseUrl: "https://bilamatata.com" };
 const text = (html: string) => html.replace(/<script[\s\S]*?<\/script>/g, " ").replace(/<[^>]+>/g, " ").replace(/&amp;/g, "&").replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/\s+/g, " ");
 
 const invoice = (fields: Partial<StudioInvoice> = {}): StudioInvoice => ({
@@ -147,7 +147,7 @@ test("the home page carries the agreed offer: headline, navigation, both plans, 
   assert.deepEqual(services.map((card) => /href="(\/start\?service=[a-z]+)">Book a free consultation/.exec(card)?.[1]), ["/start?service=software", "/start?service=automation", "/start?service=data", "/start?service=research"]);
   assert.match(html, /href="\/start\?service=zaina_starter">Get Starter for my business/);
   assert.match(html, /href="\/start\?service=zaina_full">Get Full for my business/);
-  assert.match(words, /Serving businesses across Kenya and globally · WhatsApp\/Call: \+254 707 255 598 · Email: hello@bilamatata\.co\.ke/);
+  assert.match(words, /Serving businesses across Kenya and globally · WhatsApp\/Call: \+254 707 255 598 · Email: hello@bilamatata\.com/);
   assert.match(html, /<a href="\/terms">/);
 
   // The studio's own Zaina, embedded the way a client embeds theirs, and nothing inline that a strict policy would block.
@@ -155,7 +155,7 @@ test("the home page carries the agreed offer: headline, navigation, both plans, 
   assert.doesNotMatch(html, / style="/);
   assert.doesNotMatch(html, / on[a-z]+="/);
   assert.equal([...html.matchAll(/<script(?![^>]*\bsrc=)([^>]*)>/g)].filter((match) => !match[1].includes("application/ld+json")).length, 0, "no inline scripts");
-  assert.match(html, /<link rel="canonical" href="https:\/\/bilamatata\.co\.ke\/">/);
+  assert.match(html, /<link rel="canonical" href="https:\/\/bilamatata\.com\/">/);
   const data = JSON.parse(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/.exec(html)![1]);
   assert.deepEqual(data.makesOffer.map((offer: { price: number }) => offer.price), [6700, 11000]);
 });
@@ -211,7 +211,7 @@ test("nothing a client or their customer reads names the payment provider", () =
   };
   for (const [name, html] of Object.entries(pages)) assert.doesNotMatch(text(html), provider, name);
   assert.match(text(pages.open), /You pay on a secure payment page by M-Pesa or card\./);
-  configureStudioPay({ paystackKey: "sk_test_abcdefghij0001", publicBaseUrl: "https://bilamatata.co.ke", notifyEmail: null });
+  configureStudioPay({ paystackKey: "sk_test_abcdefghij0001", publicBaseUrl: "https://bilamatata.com", notifyEmail: null });
   const sent = invoiceEmail(invoice())!;
   const receipt = receiptEmail(invoice({ status: "paid", paidAt: new Date(), method: "paystack", receipt: "5000001" }));
   for (const email of [sent, receipt]) assert.doesNotMatch(`${email.subject}\n${email.text}`, provider);
@@ -302,12 +302,12 @@ test("an invoice's page says what is owed and for what; a paid or cancelled one 
 });
 
 test("the invoice and receipt emails say what was bought, in the studio's own name", () => {
-  configureStudioPay({ paystackKey: "sk_test_abcdefghij0001", publicBaseUrl: "https://bilamatata.co.ke", notifyEmail: null });
+  configureStudioPay({ paystackKey: "sk_test_abcdefghij0001", publicBaseUrl: "https://bilamatata.com", notifyEmail: null });
   const sent = invoiceEmail(invoice({ dueAt: new Date("2026-12-01T20:59:59Z") }))!;
   assert.equal(sent.subject, "Invoice BM-7K2Q9XHD from Bila Matata (KES 45,000)");
   assert.match(sent.text, /Service: Website and app development/);
   assert.match(sent.text, /Details: 50% deposit: company website, 6 pages/);
-  assert.match(sent.text, /Pay securely by M-Pesa or card: https:\/\/bilamatata\.co\.ke\/pay\/BM-7K2Q9XHD/);
+  assert.match(sent.text, /Pay securely by M-Pesa or card: https:\/\/bilamatata\.com\/pay\/BM-7K2Q9XHD/);
   const receipt = receiptEmail(invoice({ status: "paid", paidAt: new Date("2026-11-14T09:00:00Z"), method: "paystack", receipt: "5000001" }));
   assert.equal(receipt.subject, "Receipt: invoice BM-7K2Q9XHD paid (KES 45,000)");
   assert.match(receipt.text, /Paid on: 14 November 2026/);

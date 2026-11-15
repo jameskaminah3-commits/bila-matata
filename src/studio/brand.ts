@@ -9,7 +9,7 @@ export const STUDIO = {
   city: "Mombasa, Kenya",
   phone: "+254707255598",
   phoneDisplay: "+254 707 255 598",
-  email: "hello@bilamatata.co.ke",
+  email: "hello@bilamatata.com",
   /** The studio's business id on the platform: the Zaina on its own website. */
   businessId: "bilamatata",
 } as const;

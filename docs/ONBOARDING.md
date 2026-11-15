@@ -81,7 +81,7 @@ Do this together, on the owner's phone if that's what they'll use.
 
 - **Website widget** (Settings): add their site's address, then the one
   line on their site (their developer, or you with their permission):
-  `<script src="https://bilamatata.co.ke/zaina.js" data-business="<id>" async></script>`
+  `<script src="https://bilamatata.com/zaina.js" data-business="<id>" async></script>`
 - **Knowledge → Read your website**, with *keep in step weekly* on, so
   a change to their site reaches Zaina by itself.
 - Bookings on request (as in A), or time slots for a salon or restaurant.

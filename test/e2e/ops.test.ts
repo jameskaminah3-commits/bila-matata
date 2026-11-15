@@ -4,6 +4,7 @@
 // addresses stop a flood.
 
 import assert from "node:assert/strict";
+import http from "node:http";
 import { after, before, test } from "node:test";
 import { apiFor, eventually, PASSWORD, startPlatform, type Api, type Platform } from "./harness.ts";
 
@@ -23,7 +24,7 @@ async function login(email: string) {
 }
 
 before(async () => {
-  platform = await startPlatform({ port: PORT, env: { PUBLIC_BASE_URL: BASE, RESEND_API_KEY: "re_scripted", ALERT_FROM_EMAIL: "alerts@zaina.example", STUDIO_NOTIFY_EMAIL: "studio@example.com", HEALTH_CHECK_INTERVAL_MS: "400" } });
+  platform = await startPlatform({ port: PORT, env: { PUBLIC_BASE_URL: BASE, RESEND_API_KEY: "re_scripted", ALERT_FROM_EMAIL: "alerts@zaina.example", STUDIO_NOTIFY_EMAIL: "studio@example.com", HEALTH_CHECK_INTERVAL_MS: "400", REDIRECT_HOSTS: "bilamatata.co.ke, www.bilamatata.co.ke, www.bilamatata.com", CLIENT_IP_HEADER: "cf-connecting-ip" } });
   api = apiFor(platform.base);
   platform.cli("create-staff.ts", ["--email", "ops@example.com", "--name", "Ops", "--platform-admin"], { STAFF_PASSWORD: PASSWORD });
   ops = await login("ops@example.com");
@@ -74,10 +75,36 @@ test("public one-tap and QR addresses stop a flood", async () => {
   assert.equal(last, 429);
   const refused = await fetch(`${BASE}/act/not-a-real-token`);
   assert.ok(Number(refused.headers.get("retry-after")) > 0);
+  // Behind Cloudflare each visitor is told apart by the address it passes on, not lumped together.
+  assert.equal((await fetch(`${BASE}/act/not-a-real-token`, { headers: { "cf-connecting-ip": "203.0.113.9" } })).status, 410, "another visitor isn't blocked");
   // Another address still works.
   assert.equal((await fetch(`${BASE}/c/palm`)).status, 200);
   const statuses: number[] = [];
   for (let index = 0; index < 125; index += 1) statuses.push((await fetch(`${BASE}/q/palm`, { redirect: "manual" })).status);
   assert.ok(statuses.slice(0, 100).every((status) => status === 302 || status === 301 || status === 307), statuses.slice(0, 5).join(","));
   assert.equal(statuses.at(-1), 429);
+});
+
+/** A request as if it came to another of the service's addresses. */
+function asHost(host: string, method: string, path: string, body?: string): Promise<{ status: number; location?: string }> {
+  return new Promise((resolve, reject) => {
+    const sent = http.request({ host: "127.0.0.1", port: PORT, method, path, headers: { host, ...(body ? { "content-type": "application/json", origin: "https://palmcove.example" } : {}) } }, (response) => {
+      response.resume();
+      resolve({ status: response.statusCode ?? 0, location: response.headers.location });
+    });
+    sent.on("error", reject);
+    sent.end(body);
+  });
+}
+
+test("the old domain and www send pages to the main address; the chat, its script and webhooks keep working where they are", async () => {
+  assert.deepEqual(await asHost("bilamatata.co.ke", "GET", "/"), { status: 301, location: `${BASE}/` });
+  assert.deepEqual(await asHost("www.bilamatata.com", "GET", "/terms?ref=card"), { status: 301, location: `${BASE}/terms?ref=card` });
+  assert.deepEqual(await asHost("bilamatata.co.ke", "GET", "/q/palm"), { status: 301, location: `${BASE}/q/palm` }, "printed codes follow");
+  assert.notEqual((await asHost("bilamatata.co.ke", "GET", "/zaina.js")).status, 301, "clients' sites keep loading the chat from where it is");
+  assert.equal((await asHost("bilamatata.co.ke", "GET", "/v1/health")).status, 200);
+  const chat = await asHost("bilamatata.co.ke", "POST", "/api/zaina/sessions", JSON.stringify({ business: "palm" }));
+  assert.equal(chat.status, 201, "the chat API answers on the old address");
+  assert.equal((await asHost("bilamatata.co.ke", "POST", "/api/paystack/webhook", "{}")).location, undefined, "webhooks are never redirected");
+  assert.equal((await fetch(`${BASE}/`)).status, 200, "the main address serves the page");
 });

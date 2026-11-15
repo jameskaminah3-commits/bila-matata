@@ -1,6 +1,6 @@
 // src/studio/site-css.ts
 //
-// The styles of bilamatata.co.ke's own pages (home, terms, pay), served at
+// The styles of bilamatata.com's own pages (home, terms, pay), served at
 // /site/site.css. One file, no outside fonts or frameworks; light and dark.
 
 export const SITE_CSS = String.raw`

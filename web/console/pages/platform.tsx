@@ -100,7 +100,7 @@ function OverviewTab(props: { attention: Attention | null; error: string | null 
   const cards: Array<{ n: number | undefined; label: string; hint: string; action: string; onClick: () => void; urgent: boolean }> = [
     { n: a?.support_open, label: "Support questions", hint: "Businesses waiting for your answer", action: "Answer them", onClick: () => goPlatform("support"), urgent: true },
     { n: a?.project_requests_new, label: "New requests", hint: "From the website's Book buttons and from Zaina", action: "Open requests", onClick: () => go({ businessId: studio, page: "leads" }), urgent: true },
-    { n: a?.site_chats_waiting, label: "Site chats waiting", hint: "Visitors on bilamatata.co.ke who asked for a person", action: "Open the inbox", onClick: () => go({ businessId: studio, page: "inbox" }), urgent: true },
+    { n: a?.site_chats_waiting, label: "Site chats waiting", hint: "Visitors on bilamatata.com who asked for a person", action: "Open the inbox", onClick: () => go({ businessId: studio, page: "inbox" }), urgent: true },
     { n: a?.studio_invoices_open, label: "Unpaid studio invoices", hint: "Set-up fees and project work", action: "See invoices", onClick: () => goPlatform("invoices"), urgent: false },
   ];
   const platform = overview.data?.platform;
