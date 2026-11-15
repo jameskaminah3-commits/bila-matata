@@ -79,15 +79,27 @@ export function repliesState(total: number, failed: number): State {
   return share >= DEGRADED_SHARE ? "degraded" : "ok";
 }
 
+const SLOW_DATABASE_MS = Number(process.env.HEALTH_SLOW_DATABASE_MS ?? "") || 1500;
+
+/**
+ * Whether the database answers, and how fast once connected. The first query
+ * may include opening a connection (a secure handshake, often across regions,
+ * about a second), so it only has to answer; the second, on that open
+ * connection, is the one timed.
+ */
 async function databaseCheck(): Promise<Check> {
-  const started = Date.now();
-  try {
+  const timed = async (limitMs: number) => {
+    const started = Date.now();
     await Promise.race([
       ownerPool().query("select 1"),
-      new Promise((_, reject) => setTimeout(() => reject(new Error("no answer within 2 s")), 2000)),
+      new Promise((_, reject) => setTimeout(() => reject(new Error(`no answer within ${limitMs / 1000} s`)), limitMs)),
     ]);
-    const ms = Date.now() - started;
-    return { name: "database", state: ms > 1000 ? "degraded" : "ok", detail: `answered in ${ms} ms` };
+    return Date.now() - started;
+  };
+  try {
+    const first = await timed(5000);
+    const warm = await timed(3000);
+    return { name: "database", state: warm > SLOW_DATABASE_MS ? "degraded" : "ok", detail: `answered in ${warm} ms (${first} ms including connecting)` };
   } catch (error) {
     return { name: "database", state: "down", detail: (error as Error).message.slice(0, 200) };
   }

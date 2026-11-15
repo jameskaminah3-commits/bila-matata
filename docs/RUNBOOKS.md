@@ -9,6 +9,18 @@ Where to look first: `/app/` → Bila Matata → **Overview** (failed replies,
 waiting chats, last activity per business), the service's logs on Railway,
 and `GET /v1/health`.
 
+## An alert email: "[Zaina] Not working properly" or "Down"
+
+- **Read the line under the check's name.** *database: answered in … ms*
+  means it answered but slowly (over 1.5 s on an open connection): usually
+  the database provider being busy, or the service and the database in far
+  apart regions. *no answer* means it's down: check the database provider's
+  status page and the service's logs.
+- *replies: n of m failed* is Zaina's AI model: see "Zaina's replies fail"
+  below. *background: …* names the job that's stuck or failing.
+- A "Back to normal" email follows on its own when it recovers. Right after a
+  deploy, one slow check can happen; an alert needs two bad checks in a row.
+
 ## The chat doesn't appear on a client's website
 
 - **Check:** Settings → Website widget for that business: is their site's
