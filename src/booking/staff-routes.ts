@@ -45,7 +45,7 @@ import type { PlatformConfig } from "../config.ts";
 import { deleteSecret, listSecrets, putSecret } from "../businesses/secrets.ts";
 import { booksTime, offeringBlocks, offerings, payments, type Booking, type Business, type Offering, type Payment } from "../db/schema.ts";
 import { inBusiness } from "../db/tenant.ts";
-import { requireBusinessRole, requireStaff, ROLE_RANK, staffOf } from "../staff/auth.ts";
+import { KEYS_BY_STUDIO, requireBusinessRole, requireStaff, requireStudioForKeys, ROLE_RANK, staffOf } from "../staff/auth.ts";
 import { afterSettlement, amountDue, paystackAccountFor, platformPaystackKey } from "../payments/checkout.ts";
 import { checkCredentials, type MpesaAccount } from "../payments/mpesa.ts";
 import { checkSecretKey, checkSubaccount } from "../payments/paystack.ts";
@@ -189,7 +189,7 @@ export function registerBookingRoutes(app: Express, config: PlatformConfig): voi
     res.json(await settingsView(business));
   }));
 
-  app.put(`${base}/payments/paystack`, ...role("owner"), handle(async (req, res, { business, userId }) => {
+  app.put(`${base}/payments/paystack`, ...role("owner"), requireStudioForKeys, handle(async (req, res, { business, userId }) => {
     const mode = req.body?.mode;
     if (mode === "own_keys") {
       const key = typeof req.body?.secret_key === "string" ? req.body.secret_key.trim() : "";
@@ -215,7 +215,7 @@ export function registerBookingRoutes(app: Express, config: PlatformConfig): voi
     res.status(400).json({ error: "invalid_mode", message: "mode is own_keys or subaccount." });
   }));
 
-  app.put(`${base}/payments/mpesa-express`, ...role("owner"), handle(async (req, res, { business, userId }) => {
+  app.put(`${base}/payments/mpesa-express`, ...role("owner"), requireStudioForKeys, handle(async (req, res, { business, userId }) => {
     const body = req.body ?? {};
     const text = (value: unknown) => (typeof value === "string" ? value.trim() : "");
     const environment = body.environment === "sandbox" ? "sandbox" : body.environment === "production" ? "production" : null;
@@ -251,6 +251,10 @@ export function registerBookingRoutes(app: Express, config: PlatformConfig): voi
   }));
 
   app.delete(`${base}/payments/:method`, ...role("owner"), handle(async (req, res, { business, userId }) => {
+    // Removing keys is the studio's, like adding them; the M-Pesa number paid by hand is the business's own.
+    if ((req.params.method === "paystack" || req.params.method === "mpesa-express") && !staffOf(req).user.isPlatformAdmin) {
+      return res.status(403).json({ error: "keys_by_studio", message: KEYS_BY_STUDIO });
+    }
     switch (req.params.method) {
       case "paystack":
         await saveBookingSettings(business.id, { paystackMode: "off", paystackSubaccount: null }, userId);

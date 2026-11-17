@@ -27,6 +27,7 @@ import { createSession, customerVisibleEvents, getSession, setDisplayCurrency } 
 import { handleChatTurn, type EngineOptions } from "../engine/agent.ts";
 import { recordTurn, TurnRecorder } from "../engine/telemetry.ts";
 import { isOriginAllowed } from "./origin.ts";
+import { noteWidgetSighting } from "../widget/install.ts";
 import { consumeLimits, type LimitRule } from "./rate-limit.ts";
 import { bearerToken, issueSessionToken, verifySessionToken } from "./session-token.ts";
 import { visitorKey } from "./visitor.ts";
@@ -203,8 +204,12 @@ export function registerGatewayRoutes(app: Express, config: PlatformConfig, engi
     try {
       const business = await namedBusiness(req.query.business ?? req.query.key);
       if (!business) return refuse(res, 404, "unknown_business", "This chat is not available.");
-      if (!isOriginAllowed(req.header("origin"), allowedOriginsFor(business))) {
-        return refuse(res, 403, "origin_not_allowed", "This website can't use this chat.");
+      const origin = req.header("origin");
+      const allowed = isOriginAllowed(origin, allowedOriginsFor(business));
+      // Where the chat opens (or is refused), for the business's dashboard; not its own pages here.
+      if (origin && !isOriginAllowed(origin, consoleOrigin)) void noteWidgetSighting(business.id, origin, allowed);
+      if (!allowed) {
+        return refuse(res, 403, "origin_not_allowed", "This website can't use this chat yet: add it in the dashboard, under Settings → Website widget.");
       }
       const settings = await getBusinessSettings(business.id);
       // "Chat on WhatsApp", when the business has a number connected and offers it.

@@ -43,7 +43,7 @@ const EVENT_LABELS: Array<[string, string]> = [
   ["chat.handoff", "A chat needs a person"],
 ];
 
-export function Integration(props: { businessId: string; role: Role }) {
+export function Integration(props: { businessId: string; role: Role; admin?: boolean }) {
   const loaded = useLoad(() => api<{ integration: View }>("GET", businessPath(props.businessId, "/integration")).then((result) => result.integration), [props.businessId]);
   const [view, setView] = useState<View | null>(null);
   const [form, setForm] = useState({ endpoint: "", label: "", actions: [] as string[], allowWrites: false, eventsUrl: "", events: [] as string[] });
@@ -52,7 +52,9 @@ export function Integration(props: { businessId: string; role: Role }) {
   const [tested, setTested] = useState<{ ok: boolean; ms: number; system?: string | null; error?: string } | null>(null);
   const save = useAction();
   const act = useAction();
-  const canEdit = atLeast(props.role, "manager");
+  // The address, choices and secret are set up by Bila Matata's admins; the business's managers see them and test.
+  const canEdit = props.admin === true;
+  const canTest = atLeast(props.role, "manager");
 
   const take = (next: View) => {
     setView(next);
@@ -89,7 +91,7 @@ export function Integration(props: { businessId: string; role: Role }) {
           {view.last_ok_at ? <span className="muted small">Last answered {timeAgo(view.last_ok_at)}</span> : null}
         </div>
         <h2>Your system</h2>
-        <p className="muted">Zaina asks your system for live answers, signed with a secret only you and Zaina know. You choose what she may ask, and you can switch any of it off at any time. Your developer will find everything they need in our connection guide.</p>
+        <p className="muted">Zaina asks your system for live answers, signed with a secret only your system and Zaina know. Bila Matata sets up the connection and its secret with your developer; to change what she may ask, or switch it off, ask under <a href={`#/b/${props.businessId}/support`}>Help &amp; support</a>.</p>
         {view.last_error && (!view.last_ok_at || (view.last_error_at && view.last_error_at > view.last_ok_at)) ? <p className="message error" role="alert">Last problem{view.last_error_at ? ` (${timeAgo(view.last_error_at)})` : ""}: {view.last_error}</p> : null}
       </section>
 
@@ -156,7 +158,9 @@ export function Integration(props: { businessId: string; role: Role }) {
             </div>
           </div>
         ) : (
-          <p className="muted">{view.has_secret ? "A secret is set. Make a new one if it may have been seen by someone else: the old one stops working at once." : "Make a secret, then give it to your developer. Zaina signs every request with it, and your system checks it."}</p>
+          <p className="muted">{canEdit
+            ? (view.has_secret ? "A secret is set. Make a new one if it may have been seen by someone else: the old one stops working at once." : "Make a secret, then give it to the business's developer. Zaina signs every request with it, and their system checks it.")
+            : (view.has_secret ? "A secret is set. Bila Matata keeps it; if it may have been seen by someone else, ask them for a new one." : "Bila Matata makes the secret and gives it to your developer.")}</p>
         )}
         {confirm === "secret" ? (
           <div className="confirm-row">
@@ -164,9 +168,9 @@ export function Integration(props: { businessId: string; role: Role }) {
             <Button small onClick={() => setConfirm(null)}>Keep the old one</Button>
             <Button small kind="danger" busy={act.busy} onClick={() => void act.run(async () => { setSecret((await api<{ secret: string }>("POST", businessPath(props.businessId, "/integration/secret"))).secret); setConfirm(null); setView({ ...view, has_secret: true }); })}>Make a new secret</Button>
           </div>
-        ) : canEdit ? (
+        ) : canTest ? (
           <div className="actions">
-            <Button busy={act.busy} onClick={() => (view.has_secret ? setConfirm("secret") : void act.run(async () => { setSecret((await api<{ secret: string }>("POST", businessPath(props.businessId, "/integration/secret"))).secret); setView({ ...view, has_secret: true }); }))}>{view.has_secret ? "Make a new secret" : "Make the secret"}</Button>
+            {canEdit ? <Button busy={act.busy} onClick={() => (view.has_secret ? setConfirm("secret") : void act.run(async () => { setSecret((await api<{ secret: string }>("POST", businessPath(props.businessId, "/integration/secret"))).secret); setView({ ...view, has_secret: true }); }))}>{view.has_secret ? "Make a new secret" : "Make the secret"}</Button> : null}
             <Button kind="primary" busy={act.busy} onClick={() => void act.run(async () => setTested(await api("POST", businessPath(props.businessId, "/integration/test"))))}>Test the connection</Button>
           </div>
         ) : null}

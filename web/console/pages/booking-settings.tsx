@@ -6,15 +6,17 @@
 // cancellation) and the payment accounts deposits go into: the business's
 // own Paystack account (or its subaccount of the platform's), M-Pesa Express
 // on its own paybill or till, or a paybill or till the guest pays by hand.
-// Payment accounts are connected by an owner; keys are checked with
-// Paystack or Safaricom, then kept encrypted and never shown again.
+// Payment keys (Paystack, M-Pesa Express) are added by Bila Matata's admins,
+// never by the business; they're checked with Paystack or Safaricom, then
+// kept encrypted and never shown again. The M-Pesa number paid by hand is the
+// owner's to set.
 
 import { useEffect, useState } from "react";
 import { api, businessPath } from "../api.ts";
 import { atLeast, type BookingSettingsView, type DepositType, type PaymentWay, type Role } from "../types.ts";
 import { Button, ErrorLine, Field, Message, Toggle, useAction, useLoad } from "../ui.tsx";
 
-export function BookingSettings(props: { businessId: string; role: Role; slots?: boolean; rooms?: boolean }) {
+export function BookingSettings(props: { businessId: string; role: Role; admin?: boolean; slots?: boolean; rooms?: boolean }) {
   // Rooms have check-in times and nights; times have neither. A hotel with a spa has rooms.
   const rooms = props.rooms ?? !props.slots;
   const loaded = useLoad(() => api<BookingSettingsView>("GET", businessPath(props.businessId, "/booking-settings")), [props.businessId]);
@@ -22,6 +24,7 @@ export function BookingSettings(props: { businessId: string; role: Role; slots?:
   useEffect(() => setSettings(loaded.data), [loaded.data]);
   if (!settings) return <ErrorLine error={loaded.error} />;
   const owner = atLeast(props.role, "owner");
+  const admin = props.admin === true;
   return (
     <div className="stack">
       <Deposit key={`deposit-${settings.deposit_type}`} businessId={props.businessId} settings={settings} onSaved={setSettings} />
@@ -30,9 +33,9 @@ export function BookingSettings(props: { businessId: string; role: Role; slots?:
       {!settings.payments.takes_deposits ? (
         <p className="message error">No payment account is connected, so bookings with a deposit become requests the team handles. Connect at least one below.</p>
       ) : null}
-      {!owner ? <p className="muted">Only an owner can connect or change payment accounts.</p> : null}
-      <Paystack businessId={props.businessId} settings={settings} owner={owner} onSaved={setSettings} />
-      <MpesaExpress businessId={props.businessId} settings={settings} owner={owner} onSaved={setSettings} />
+      {!owner ? <p className="muted">Only an owner can change the M-Pesa number paid by hand.</p> : null}
+      <Paystack businessId={props.businessId} settings={settings} owner={admin} onSaved={setSettings} />
+      <MpesaExpress businessId={props.businessId} settings={settings} owner={admin} onSaved={setSettings} />
       <MpesaManual businessId={props.businessId} settings={settings} owner={owner} onSaved={setSettings} />
       <WaysToPay businessId={props.businessId} settings={settings} onSaved={setSettings} />
       <Limits businessId={props.businessId} settings={settings} onSaved={setSettings} slots={!rooms} />
@@ -274,6 +277,7 @@ function Paystack(props: { businessId: string; settings: BookingSettingsView; ow
       {paystack.mode === "own_keys" ? (
         <p className="small">In your Paystack dashboard (Settings → API Keys &amp; Webhooks), set the webhook URL to <code>{props.settings.webhooks.paystack}</code>, so payments confirm bookings the moment they arrive.</p>
       ) : null}
+      {!props.owner ? <p className="muted small">Bila Matata adds these keys for you. Ask under <a href={`#/b/${props.businessId}/support`}>Help &amp; support</a>; never send a key in a message.</p> : null}
       {props.owner ? (
         <form
           className="form"
@@ -326,6 +330,7 @@ function MpesaExpress(props: { businessId: string; settings: BookingSettingsView
         {mpesa.on ? `Connected: ${mpesa.type === "till" ? `till ${mpesa.till} (store ${mpesa.shortcode})` : `paybill ${mpesa.shortcode}`}${mpesa.environment === "sandbox" ? ", in Safaricom's sandbox" : ""}.` : "Not connected."}
         {" "}The guest enters their M-Pesa PIN; the money goes straight to your paybill or till, and the booking confirms by itself.
       </p>
+      {!props.owner ? <p className="muted small">Bila Matata adds these keys for you. Ask under <a href={`#/b/${props.businessId}/support`}>Help &amp; support</a>; never send a key in a message.</p> : null}
       {props.owner ? (
         <form
           className="form"

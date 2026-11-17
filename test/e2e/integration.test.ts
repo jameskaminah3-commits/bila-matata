@@ -93,6 +93,7 @@ before(async () => {
   api = apiFor(platform.base);
   platform.cli("create-staff.ts", ["--email", "ops@example.com", "--name", "Ops", "--platform-admin"], { STAFF_PASSWORD: PASSWORD });
   ops = await login("ops@example.com");
+  tokens.ops = ops;
   for (const [id, email] of [["coast", "owner@example.com"], ["other", "other@example.com"]]) {
     const created = await api("POST", "/v1/platform/businesses", { id, name: id === "coast" ? "Coast Crafts" : "Other Shop", tier: "full", business_type: "general", allowed_origins: [ORIGIN], owner: { email, name: "Owner", password: PASSWORD } }, ops);
     assert.equal(created.status, 201, JSON.stringify(created.body));
@@ -112,7 +113,7 @@ test("nothing connects until the studio switches it on for the business", async 
   const view = await staff("GET", "/integration");
   assert.equal(view.status, 200);
   assert.deepEqual([view.body.integration.available, view.body.integration.connected], [false, false]);
-  const refused = await staff("PUT", "/integration", { endpoint: `${STORE}/zaina`, actions: ["catalog.search"] });
+  const refused = await staff("PUT", "/integration", { endpoint: `${STORE}/zaina`, actions: ["catalog.search"] }, "ops");
   assert.deepEqual([refused.status, refused.body.error], [403, "integration_not_enabled"]);
   assert.equal((await staff("POST", "/integration/secret")).status, 403);
   assert.equal((await api("PATCH", "/v1/platform/businesses/coast/integration", { enabled: true }, tokens.owner)).status, 403, "only the studio");
@@ -122,23 +123,26 @@ test("nothing connects until the studio switches it on for the business", async 
   assert.equal(on.body.integration.available, true);
 });
 
-test("the manager connects: a public https address only, a secret shown once, a signed test call", async () => {
+test("the studio connects it: a public https address only, a secret shown once, a signed test call", async () => {
+  // The address and its secret are set up by Bila Matata's admins; the business's managers see them and test.
+  assert.equal((await staff("PUT", "/integration", { endpoint: `${STORE}/zaina`, actions: ["catalog.search"] })).body.error, "keys_by_studio");
+  assert.equal((await staff("POST", "/integration/secret")).body.error, "keys_by_studio");
   assert.equal((await staff("GET", "/integration", undefined, "agent")).status, 403);
   assert.equal((await api("GET", "/v1/staff/businesses/coast/integration", undefined, tokens.other)).status, 404);
   for (const endpoint of ["http://localhost:3000/zaina", "https://10.0.0.5/zaina", "https://private.example/zaina", "https://shop.example:8443/zaina", "ftp://shop.example/"]) {
-    const response = await staff("PUT", "/integration", { endpoint, actions: ["catalog.search"] });
+    const response = await staff("PUT", "/integration", { endpoint, actions: ["catalog.search"] }, "ops");
     assert.equal(response.status, 400, endpoint);
   }
-  assert.equal((await staff("PUT", "/integration", { endpoint: `${STORE}/zaina`, actions: ["catalog.everything"] })).body.error, "unknown_action");
-  assert.equal((await staff("PUT", "/integration", { endpoint: `${STORE}/zaina`, actions: ["booking.create"] })).body.error, "writes_not_allowed");
-  assert.equal((await staff("PUT", "/integration", { endpoint: `${STORE}/zaina`, actions: [], events: ["lead.created"] })).body.error, "events_url_required");
+  assert.equal((await staff("PUT", "/integration", { endpoint: `${STORE}/zaina`, actions: ["catalog.everything"] }, "ops")).body.error, "unknown_action");
+  assert.equal((await staff("PUT", "/integration", { endpoint: `${STORE}/zaina`, actions: ["booking.create"] }, "ops")).body.error, "writes_not_allowed");
+  assert.equal((await staff("PUT", "/integration", { endpoint: `${STORE}/zaina`, actions: [], events: ["lead.created"] }, "ops")).body.error, "events_url_required");
 
-  const saved = await staff("PUT", "/integration", { endpoint: `${STORE}/zaina`, label: "the Coast Crafts shop", actions: ["catalog.search", "catalog.item", "availability", "order.status", "checkout.link"], events_url: `${STORE}/events`, events: ["lead.created"] });
+  const saved = await staff("PUT", "/integration", { endpoint: `${STORE}/zaina`, label: "the Coast Crafts shop", actions: ["catalog.search", "catalog.item", "availability", "order.status", "checkout.link"], events_url: `${STORE}/events`, events: ["lead.created"] }, "ops");
   assert.equal(saved.status, 200, JSON.stringify(saved.body));
   assert.equal(saved.body.integration.connected, true);
   assert.equal(saved.body.integration.has_secret, false);
 
-  const made = await staff("POST", "/integration/secret");
+  const made = await staff("POST", "/integration/secret", undefined, "ops");
   assert.equal(made.status, 201);
   assert.match(made.body.secret, /^zk_[A-Za-z0-9_-]{40,}$/);
   secret = made.body.secret;
@@ -153,7 +157,7 @@ test("the manager connects: a public https address only, a secret shown once, a 
 
   // A new secret: the old one stops working at once.
   const old = secret;
-  const rotated = (await staff("POST", "/integration/secret")).body.secret;
+  const rotated = (await staff("POST", "/integration/secret", undefined, "ops")).body.secret;
   assert.notEqual(rotated, old);
   // The shop still has the old one: Zaina's calls are refused until it's updated.
   const refused = await staff("POST", "/integration/test");
@@ -225,7 +229,7 @@ test("checkout hands the customer to the shop's own checkout; booking writes onl
   assert.deepEqual(seen.at(-1)!.body.args, { items: [{ id: "kikoi-01", quantity: 2 }], contact: { name: "Wanjiru Kamau", phone: "0722 111 333" } });
 
   // Booking in the shop's system needs both the action and "let Zaina write".
-  assert.equal((await staff("PUT", "/integration", { endpoint: `${STORE}/zaina`, actions: ["catalog.search", "booking.create"], allow_writes: true, events_url: `${STORE}/events`, events: ["lead.created"] })).status, 200);
+  assert.equal((await staff("PUT", "/integration", { endpoint: `${STORE}/zaina`, actions: ["catalog.search", "booking.create"], allow_writes: true, events_url: `${STORE}/events`, events: ["lead.created"] }, "ops")).status, 200);
   const writer = await openChat();
   assert.match(await say(writer, "TEST:whoami"), /store_booking/);
   await say(writer, "Book me on the weaving class. Wanjiru Kamau, 0722 111 333");
@@ -257,7 +261,8 @@ test("the shop hears about a lead; a system that's down is said plainly, and log
   assert.ok(view.calls.some((call: any) => call.ok && call.action === "event:lead.created"));
 
   // Disconnecting removes the tools and the secret; the studio's switch stays.
-  const off = await staff("DELETE", "/integration");
+  assert.equal((await staff("DELETE", "/integration")).body.error, "keys_by_studio");
+  const off = await staff("DELETE", "/integration", undefined, "ops");
   assert.deepEqual([off.body.integration.connected, off.body.integration.has_secret, off.body.integration.available], [false, false, true]);
   assert.doesNotMatch(await say(await openChat(), "TEST:whoami"), /store_search/);
 });

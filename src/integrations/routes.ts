@@ -6,10 +6,10 @@
 //   PATCH /v1/platform/businesses/:businessId/integration   platform admin  { enabled }  the studio's switch
 //
 //   GET    /v1/staff/businesses/:businessId/integration          manager   settings, whether a secret is set, recent calls
-//   PUT    /v1/staff/businesses/:businessId/integration          manager   { endpoint, label?, actions[], allow_writes?, events_url?, events[] }
-//   POST   /v1/staff/businesses/:businessId/integration/secret   manager   a new secret, shown once (the old one stops working)
+//   PUT    /v1/staff/businesses/:businessId/integration          admin     { endpoint, label?, actions[], allow_writes?, events_url?, events[] }
+//   POST   /v1/staff/businesses/:businessId/integration/secret   admin     a new secret, shown once (the old one stops working)
 //   POST   /v1/staff/businesses/:businessId/integration/test     manager   asks the system "ping" and says what came back
-//   DELETE /v1/staff/businesses/:businessId/integration          manager   disconnects (address, choices and secret go)
+//   DELETE /v1/staff/businesses/:businessId/integration          admin     disconnects (address, choices and secret go)
 //
 // Nothing works until the studio has switched it on for the business.
 
@@ -18,7 +18,7 @@ import type { Express, NextFunction, Request, Response } from "express";
 import { anyBusinessById } from "../businesses/registry.ts";
 import type { PlatformConfig } from "../config.ts";
 import { privateAddress, PublicFetchError, publicUrl } from "../net/public-fetch.ts";
-import { requireBusinessRole, requirePlatformAdmin, requireStaff, staffOf } from "../staff/auth.ts";
+import { requireBusinessRole, requirePlatformAdmin, requireStaff, requireStudioForKeys, staffOf } from "../staff/auth.ts";
 import { ACTIONS, EVENTS, IntegrationError, isAction, isEvent, isWriteAction } from "./client.ts";
 import { ask, disconnectIntegration, getIntegration, hasSecret, newSecret, NotAllowed, recentCalls, saveIntegration, setStudioEnabled, type Integration } from "./store.ts";
 
@@ -100,7 +100,7 @@ export function registerIntegrationRoutes(app: Express, config: PlatformConfig):
     return integration;
   }
 
-  app.put(base, staff, requireBusinessRole("manager"), async (req: Request, res: Response, next: NextFunction) => {
+  app.put(base, staff, requireBusinessRole("manager"), requireStudioForKeys, async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { business, user } = staffOf(req);
       if (!(await available(req, res))) return;
@@ -129,7 +129,7 @@ export function registerIntegrationRoutes(app: Express, config: PlatformConfig):
     }
   });
 
-  app.post(`${base}/secret`, staff, requireBusinessRole("manager"), async (req: Request, res: Response, next: NextFunction) => {
+  app.post(`${base}/secret`, staff, requireBusinessRole("manager"), requireStudioForKeys, async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { business, user } = staffOf(req);
       if (!(await available(req, res))) return;
@@ -158,7 +158,7 @@ export function registerIntegrationRoutes(app: Express, config: PlatformConfig):
     }
   });
 
-  app.delete(base, staff, requireBusinessRole("manager"), async (req: Request, res: Response, next: NextFunction) => {
+  app.delete(base, staff, requireBusinessRole("manager"), requireStudioForKeys, async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { business, user } = staffOf(req);
       await disconnectIntegration(business!.id, user.id);

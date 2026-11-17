@@ -17,6 +17,7 @@
 // not in documents). A PDF is read in the console, in the browser, and saved
 // as text like any other source.
 
+import { allowWebsite } from "../widget/routes.ts";
 import express, { type Express, type NextFunction, type Request, type Response } from "express";
 import { consumeLimits } from "../gateway/rate-limit.ts";
 import { PublicFetchError } from "../net/public-fetch.ts";
@@ -200,7 +201,13 @@ export function registerKnowledgeRoutes(app: Express, secret: string): void {
       await updateBusinessSettings(business!.id, { websiteSync: { url: address, maxPages, weekly, lastReadAt: new Date().toISOString(), lastPages: result.pages.length, lastSkipped: result.skipped.length, lastError: null } }, user.id);
       const read = { site: result.site, skipped: result.skipped, pages: [{ description: result.description }] };
       const pages = result.pages.map((page) => ({ ...saved(page.saved), url: page.url }));
-      res.json({ site: read.site, pages, skipped: read.skipped, description: read.pages[0]?.description ?? null, weekly });
+      // The owner's own website: the chat may run there too (and on its www twin), with nothing more to set.
+      let chatAllowed: string[] = [];
+      if (staffOf(req).role === "owner") {
+        const allowed = await allowWebsite(business!, address, user.id);
+        if (!("error" in allowed)) chatAllowed = allowed.added;
+      }
+      res.json({ site: read.site, pages, skipped: read.skipped, description: read.pages[0]?.description ?? null, weekly, chat_allowed: chatAllowed });
     } catch (error) {
       next(error);
     }

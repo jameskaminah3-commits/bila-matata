@@ -6,6 +6,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { allowedBy, disallowedPaths, kindOfPage, linksOn, pageKey, pageTitles } from "../../src/knowledge/website.ts";
 import { privateAddress, PublicFetchError, publicLookup, publicUrl } from "../../src/net/public-fetch.ts";
+import { pageDataText, shopifyProductsPage, sitemapEntries, sitemapsIn, structuredDataText, wooProductsPage, wordpressPages } from "../../src/knowledge/website-data.ts";
 
 test("only public https addresses on the standard port", () => {
   assert.equal(publicUrl("coralcove.co.ke").toString(), "https://coralcove.co.ke/");
@@ -85,4 +86,47 @@ test("titles stay apart, and each page gets its kind", () => {
   assert.equal(kindOfPage(page("https://coralcove.example/house-rules", "Before you arrive")), "policy");
   assert.equal(kindOfPage(page("https://coralcove.example/cancellation-policy", "Cancellations")), "policy");
   assert.equal(kindOfPage(page("https://coralcove.example/rooms", "Rooms")), "page");
+});
+
+// ── Websites built by JavaScript (website-data.ts) ──
+
+test("a page built by script is read from its structured data, description and <noscript> text, never prices", () => {
+  const ld = { "@type": "Store", name: "Jiko", description: "Wholesale groceries in Nairobi.", priceRange: "KSh 100 - 9,000", offers: { price: "4500" }, address: { streetAddress: "Kirinyaga Road", addressLocality: "Nairobi" } };
+  const faq = { "@type": "FAQPage", mainEntity: [{ "@type": "Question", name: "Do you deliver?", acceptedAnswer: { text: "Yes, within Nairobi." } }] };
+  const html = `<html><head><title>Jiko</title><meta name="description" content="Wholesale groceries."><script type="application/ld+json">${JSON.stringify({ "@context": "https://schema.org", "@graph": [ld] })}</script><script type="application/ld+json">${JSON.stringify(faq)}</script></head><body><div id="root"></div></body></html>`;
+  const text = pageDataText(html);
+  assert.match(text, /^# Jiko/);
+  assert.match(text, /## Jiko\n\nWholesale groceries in Nairobi\./);
+  assert.match(text, /### Do you deliver\?\n\nYes, within Nairobi\./);
+  assert.match(text, /Kirinyaga Road/);
+  assert.doesNotMatch(text, /9,000|4500/);
+  assert.equal(structuredDataText('<script type="application/ld+json">{ not json</script>'), "");
+
+  const noscript = '<html><head><title>About</title></head><body><noscript>Please enable JavaScript to use this site.</noscript><noscript><p>Run by the Kamau family since 2004, supplying shops across Nairobi.</p></noscript></body></html>';
+  assert.match(pageDataText(noscript), /Kamau family since 2004/);
+  assert.doesNotMatch(pageDataText(noscript), /enable JavaScript/);
+  assert.equal(pageDataText('<html><head><title>App</title><meta name="description" content="Shop."></head><body><div id="app"></div></body></html>'), "", "a title and one line aren't a page");
+});
+
+test("sitemaps: pages, an index's sitemaps, and the ones robots.txt names", () => {
+  assert.deepEqual(sitemapEntries("<urlset><url><loc> https://a.example/rooms?x=1&amp;y=2 </loc></url></urlset>"), { pages: ["https://a.example/rooms?x=1&y=2"], sitemaps: [] });
+  assert.deepEqual(sitemapEntries("<sitemapindex><sitemap><loc>https://a.example/pages.xml</loc></sitemap></sitemapindex>"), { pages: [], sitemaps: ["https://a.example/pages.xml"] });
+  assert.deepEqual(sitemapsIn("User-agent: *\nDisallow: /cart\nSitemap: https://a.example/sitemap_index.xml\n"), ["https://a.example/sitemap_index.xml"]);
+});
+
+test("WordPress pages, WooCommerce and Shopify products, without prices", () => {
+  const pages = wordpressPages([{ link: "https://a.example/returns", title: { rendered: "Returns &amp; refunds" }, content: { rendered: "<p>Damaged cartons are replaced within 48 hours.</p>" } }, { link: "https://a.example/x", title: { rendered: "Short" }, content: { rendered: "<p>Hi</p>" } }]);
+  assert.deepEqual(pages.map((page) => [page.url, page.title]), [["https://a.example/returns", "Returns & refunds"]]);
+  assert.deepEqual(wordpressPages({ code: "rest_no_route" }), []);
+
+  const woo = wooProductsPage([{ name: "Cooking oil 20L", categories: [{ name: "Oils" }], short_description: "<p>In a jerrican.</p>", prices: { price: "450000" } }], "a.example");
+  assert.equal(woo?.url, "https://a.example/shop");
+  assert.match(woo!.text, /## Cooking oil 20L \(Oils\)\n\nIn a jerrican\./);
+  assert.doesNotMatch(woo!.text, /450000/);
+  assert.equal(wooProductsPage([], "a.example"), null);
+
+  const shopify = shopifyProductsPage({ products: [{ title: "Kikoi", product_type: "Textiles", body_html: "<p>Handwoven in Lamu.</p>", variants: [{ price: "2500.00" }] }] }, "a.example");
+  assert.equal(shopify?.url, "https://a.example/collections/all");
+  assert.match(shopify!.text, /## Kikoi \(Textiles\)\n\nHandwoven in Lamu\./);
+  assert.doesNotMatch(shopify!.text, /2500/);
 });

@@ -9,7 +9,12 @@
 //   POST  /v1/platform/businesses      { id, name, allowed_origins, business_type?, time_zone?, daily_token_cap?,
 //                                        retention_days?, owner: { email, name, password? } }
 //                                      → the business, its settings and its first owner (a new owner without
-//                                        a password is emailed a link to choose one)
+//                                        a password is emailed a link to choose one). Never an admin's own
+//                                        account; an account that already has a business only with
+//                                        owner.add_to_existing (so each business gets its own dashboard)
+//   GET   /v1/platform/businesses/:id/owner   its owners
+//   POST  /v1/platform/businesses/:id/owner   { email, name?, password? } hand it to its owner: they become
+//                                      its owner and the studio's admins stop being its members
 //
 // Plans, subscriptions and invoices: billing/routes.ts.
 //
@@ -22,7 +27,7 @@ import type { PlatformConfig } from "../config.ts";
 import { anyBusinessById, clearBusinessCache, everyBusiness } from "../businesses/registry.ts";
 import { inBusiness, runForBusiness } from "../db/tenant.ts";
 import { businessDay } from "../gateway/spend-cap.ts";
-import { createBusinessWithOwner, findStaffByEmail, setBusinessStatus } from "../db/platform-scope.ts";
+import { createBusinessWithOwner, findStaffByEmail, handOverBusiness, membershipsOf, ownersOf, setBusinessStatus } from "../db/platform-scope.ts";
 import { businessTiers, businessTypes, workingType, type BusinessTier, type BusinessType } from "../db/schema.ts";
 import { BillingError, choosePlan, planById, setBusinessTier, setPlatformPayments } from "../billing/store.ts";
 import { createStudioInvoice } from "../studio/invoices.ts";
@@ -36,6 +41,7 @@ import { addedEmail, canEmailLinks, inviteEmail, passwordLink, passwordLinkToken
 import { hashPassword, passwordProblem } from "../staff/passwords.ts";
 
 export const DEFAULT_DAILY_TOKEN_CAP = 5_000_000;
+const ADMIN_AS_OWNER = "That's a Bila Matata admin's account. Use the business owner's own email: admins already reach every business from Bila Matata → Businesses.";
 export const DEFAULT_RETENTION_DAYS = 90;
 
 /** A positive whole number from the request, the default when absent, or null when invalid. */
@@ -233,6 +239,18 @@ export function registerPlatformRoutes(app: Express, config: PlatformConfig): vo
       // name, and either a good starting password or (left out) an emailed
       // link to choose their own.
       const existing = await findStaffByEmail(ownerEmail);
+      // Each business its own dashboard: never an admin's, and another business's owner only when meant.
+      if (existing?.isPlatformAdmin) return res.status(400).json({ error: "owner_is_admin", message: ADMIN_AS_OWNER });
+      if (existing && owner.add_to_existing !== true) {
+        const others = await membershipsOf(existing.id);
+        if (others.length) {
+          return res.status(409).json({
+            error: "owner_has_business",
+            message: `${ownerEmail} already has a dashboard, for ${others.map((entry) => entry.businessName).join(", ")}. Add this business to it only if it's the same owner; otherwise use the new business's own email.`,
+            businesses: others.map((entry) => entry.businessName),
+          });
+        }
+      }
       const invite = !existing && (owner.password === undefined || owner.password === null || owner.password === "");
       if (!existing) {
         if (typeof owner.name !== "string" || !owner.name.trim()) return res.status(400).json({ error: "owner_name_required" });
@@ -282,6 +300,47 @@ export function registerPlatformRoutes(app: Express, config: PlatformConfig): vo
         setup_invoice: setupInvoice,
         owner: { id: ownerUser.id, email: ownerUser.email, invited: invite },
       });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  app.get("/v1/platform/businesses/:businessId/owner", staff, requirePlatformAdmin, async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const business = await anyBusinessById(String(req.params.businessId));
+      if (!business) return res.status(404).json({ error: "not_found" });
+      const owners = await ownersOf(business.id);
+      res.json({ owners: owners.map((owner) => ({ email: owner.email, name: owner.name, is_admin: owner.isPlatformAdmin })) });
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  // A business the studio set up under an admin's own account, handed to its real owner.
+  app.post("/v1/platform/businesses/:businessId/owner", staff, requirePlatformAdmin, async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const business = await anyBusinessById(String(req.params.businessId));
+      if (!business) return res.status(404).json({ error: "not_found" });
+      const email = typeof req.body?.email === "string" ? req.body.email.trim().toLowerCase() : "";
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) return res.status(400).json({ error: "owner_email_required" });
+      const existing = await findStaffByEmail(email);
+      if (existing?.isPlatformAdmin) return res.status(400).json({ error: "owner_is_admin", message: ADMIN_AS_OWNER });
+      const password = req.body?.password;
+      const invite = !existing && (password === undefined || password === null || password === "");
+      if (!existing) {
+        if (typeof req.body?.name !== "string" || !req.body.name.trim()) return res.status(400).json({ error: "owner_name_required", message: "The owner's name, please." });
+        if (invite && !canEmailLinks(config)) return res.status(400).json({ error: "password_required", message: "Emails aren't set up on the platform yet: give the owner a starting password." });
+        const problem = invite ? null : passwordProblem(password);
+        if (problem) return res.status(400).json({ error: "weak_password", message: problem });
+      }
+      const handed = await handOverBusiness(business.id, { email, name: String(req.body?.name ?? ""), passwordHash: existing ? null : invite ? await unknownPassword() : await hashPassword(password) });
+      if (invite) {
+        const link = passwordLink(config.publicBaseUrl!, passwordLinkToken(config.sessionTokenSecret, handed.owner, "invite"), "invite");
+        void sendEmail({ to: handed.owner.email, ...inviteEmail(handed.owner, business.name, "owner", link, null) });
+      } else if (canEmailLinks(config)) {
+        void sendEmail({ to: handed.owner.email, ...addedEmail(handed.owner, business.name, "owner", `${config.publicBaseUrl}/app/`, null) });
+      }
+      res.json({ owner: { email: handed.owner.email, invited: invite }, removed_admins: handed.removedAdmins });
     } catch (error) {
       next(error);
     }

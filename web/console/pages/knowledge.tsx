@@ -21,6 +21,7 @@ type WebsiteImport = {
   pages: Array<{ url: string; source: { title: string; kind: string; status: string }; passages: number; hidden_amounts: number; unchanged: boolean }>;
   skipped: Array<{ url: string; reason: string }>;
   weekly?: boolean;
+  chat_allowed?: string[];
   description: string | null;
 };
 
@@ -257,6 +258,7 @@ function ReadWebsite(props: { businessId: string; onClose: () => void; onRead: (
       {result ? (
         <div className="stack-tight">
           <p>Read <strong>{result.site}</strong>: {result.pages.length} page{result.pages.length === 1 ? "" : "s"} saved{status === "draft" ? " as drafts" : ", and Zaina answers from them now"}.</p>
+          {result.chat_allowed?.length ? <p className="small">The chat may now run on {result.chat_allowed.join(" and ")}. To show it there, add its code: <a href={`#/b/${props.businessId}/settings/widget`}>Settings → Website widget</a>.</p> : null}
           <ul className="plain-list">
             {result.pages.map((page) => (
               <li key={page.url}>

@@ -482,7 +482,11 @@ textarea { flex: 1; resize: none; border: 1px solid var(--line); border-radius: 
       return;
     }
     if (result.status !== 200) {
-      console.warn(`[zaina] The chat isn't available on this website (${result.body?.error ?? result.status}).`);
+      if (result.body?.error === "origin_not_allowed") {
+        console.warn(`[zaina] ${location.origin} isn't on this business's list of websites for the chat yet. In the Zaina dashboard: Settings → Website widget → Allow this website.`);
+      } else {
+        console.warn(`[zaina] The chat isn't available on this website (${result.body?.error ?? result.status}).`);
+      }
       return;
     }
     config = result.body as Config;

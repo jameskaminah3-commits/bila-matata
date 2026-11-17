@@ -123,6 +123,39 @@ export async function createBusinessWithOwner(input: {
   });
 }
 
+/** A business's owners: who they are, and whether one is one of the studio's admins. */
+export async function ownersOf(businessId: string): Promise<Array<{ id: string; email: string; name: string; isPlatformAdmin: boolean }>> {
+  return ownerDb()
+    .select({ id: staffUsers.id, email: staffUsers.email, name: staffUsers.name, isPlatformAdmin: staffUsers.isPlatformAdmin })
+    .from(staffMemberships)
+    .innerJoin(staffUsers, eq(staffUsers.id, staffMemberships.userId))
+    .where(and(eq(staffMemberships.businessId, businessId), eq(staffMemberships.role, "owner")));
+}
+
+/**
+ * A business handed to its own owner (an existing account, or a new one):
+ * they become its owner, and the studio's admins stop being its members (they
+ * still reach every business from Bila Matata → Businesses), so it never
+ * shows among an admin's own businesses. All or nothing.
+ */
+export async function handOverBusiness(businessId: string, owner: { email: string; name: string; passwordHash: string | null }): Promise<{ owner: StaffUser; removedAdmins: number }> {
+  return ownerDb().transaction(async (tx) => {
+    const email = owner.email.trim().toLowerCase();
+    let [user] = await tx.select().from(staffUsers).where(eq(staffUsers.email, email)).limit(1);
+    if (!user) {
+      if (!owner.passwordHash) throw new Error("A new owner needs a password");
+      [user] = await tx.insert(staffUsers).values({ email, name: owner.name.trim(), passwordHash: owner.passwordHash }).returning();
+    }
+    if (user.isPlatformAdmin) throw new Error("An admin can't be a business's owner");
+    await tx.insert(staffMemberships).values({ businessId, userId: user.id, role: "owner" })
+      .onConflictDoUpdate({ target: [staffMemberships.businessId, staffMemberships.userId], set: { role: "owner" } });
+    const removed = await tx.delete(staffMemberships)
+      .where(and(eq(staffMemberships.businessId, businessId), sql`${staffMemberships.userId} in (select id from staff_users where is_platform_admin)`))
+      .returning({ userId: staffMemberships.userId });
+    return { owner: user, removedAdmins: removed.length };
+  });
+}
+
 // ── Alerts on a person's phones and browsers ─────────────────────────
 // Subscriptions belong to the person, not to one business: written here on
 // their behalf; each business reads only its own people's (row-level security).

@@ -114,6 +114,17 @@ export function requireBusinessRole(minimum: StaffRole) {
   };
 }
 
+export const KEYS_BY_STUDIO = "API keys are added by the Bila Matata team, not in your dashboard. Ask under Help & support and they'll set it up with you. Never send a key in a message.";
+
+/** API keys and other secrets are added, changed and removed only by the studio's admins, never by a business's own people. */
+export function requireStudioForKeys(req: Request, res: Response, next: NextFunction) {
+  if (!staffOf(req).user.isPlatformAdmin) {
+    res.status(403).json({ error: "keys_by_studio", message: KEYS_BY_STUDIO });
+    return;
+  }
+  next();
+}
+
 export function requirePlatformAdmin(req: Request, res: Response, next: NextFunction) {
   if (!staffOf(req).user.isPlatformAdmin) {
     res.status(403).json({ error: "forbidden" });

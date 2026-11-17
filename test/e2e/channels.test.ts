@@ -142,13 +142,16 @@ test("an owner connects Acme's WhatsApp number; Meta checks the token before any
 
   const connection = { phone_number_id: ACME_NUMBER_ID, waba_id: ACME_WABA_ID, access_token: ACCESS_TOKEN };
   assert.equal((await api("PUT", "/v1/staff/businesses/acme/whatsapp", connection, agentToken)).status, 403, "an agent can't");
-  const wrongToken = await api("PUT", "/v1/staff/businesses/acme/whatsapp", { ...connection, access_token: "EAAG-wrong-token-000000000" }, ownerToken);
+  const byOwner = await api("PUT", "/v1/staff/businesses/acme/whatsapp", connection, ownerToken);
+  assert.equal(byOwner.status, 403, "a token typed in by hand is the studio's to add");
+  assert.equal(byOwner.body.error, "keys_by_studio");
+  const wrongToken = await api("PUT", "/v1/staff/businesses/acme/whatsapp", { ...connection, access_token: "EAAG-wrong-token-000000000" }, opsToken);
   assert.equal(wrongToken.status, 400);
   assert.equal(wrongToken.body.error, "whatsapp_check_failed");
   assert.match(wrongToken.body.message, /access token/i);
   assert.equal((await api("GET", "/v1/staff/businesses/acme/whatsapp", undefined, ownerToken)).body.connection, null, "nothing saved");
 
-  const connected = await api("PUT", "/v1/staff/businesses/acme/whatsapp", connection, ownerToken);
+  const connected = await api("PUT", "/v1/staff/businesses/acme/whatsapp", connection, opsToken);
   assert.equal(connected.status, 200, JSON.stringify(connected.body));
   assert.equal(connected.body.connection.display_phone_number, "+254 700 123 456");
   assert.equal(connected.body.connection.has_token, true);
@@ -156,13 +159,13 @@ test("an owner connects Acme's WhatsApp number; Meta checks the token before any
   assert.ok(platform.log("whatsapp").some((entry) => entry.kind === "subscribed" && entry.waba === ACME_WABA_ID), "the platform's app subscribed to Acme's account");
 
   // The token is a business secret: stored encrypted, never shown again.
-  const secrets = await api("GET", "/v1/staff/businesses/acme/secrets", undefined, ownerToken);
+  const secrets = await api("GET", "/v1/staff/businesses/acme/secrets", undefined, opsToken);
   assert.deepEqual(secrets.body.secrets.map((secret: any) => secret.name), ["whatsapp_access_token"]);
   const stored = (await platform.db.query("select ciphertext from business_secrets where business_id = 'acme'")).rows[0];
   assert.ok(!stored.ciphertext.toString("utf8").includes(ACCESS_TOKEN));
 
   // Another business can't take the same number.
-  const taken = await api("PUT", "/v1/staff/businesses/beta/whatsapp", connection, betaToken);
+  const taken = await api("PUT", "/v1/staff/businesses/beta/whatsapp", connection, opsToken);
   assert.equal(taken.status, 409);
   assert.equal(taken.body.error, "number_in_use");
 });

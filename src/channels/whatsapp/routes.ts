@@ -22,7 +22,7 @@ import express, { type Express, type NextFunction, type Request, type Response }
 import type { PlatformConfig } from "../../config.ts";
 import { followupParameters, type FollowupParameter } from "../../db/schema.ts";
 import { inBusiness } from "../../db/tenant.ts";
-import { requireBusinessRole, requireStaff, staffOf } from "../../staff/auth.ts";
+import { KEYS_BY_STUDIO, requireBusinessRole, requireStaff, staffOf } from "../../staff/auth.ts";
 import type { WhatsappContext } from "./context.ts";
 import { putSecret } from "../../businesses/secrets.ts";
 import { whatsappLink } from "../../gateway/routes.ts";
@@ -115,6 +115,8 @@ export function registerWhatsappRoutes(app: Express, config: PlatformConfig, ctx
       const phoneNumberId = String(body.phone_number_id ?? "").trim();
       const wabaId = body.waba_id === undefined || body.waba_id === null || body.waba_id === "" ? null : String(body.waba_id).trim();
       const newToken = typeof body.access_token === "string" && body.access_token.trim() ? body.access_token.trim() : null;
+      // A token typed in by hand is the studio's to add; "Connect with Facebook" is the business's own way.
+      if (newToken && !user.isPlatformAdmin) return res.status(403).json({ error: "keys_by_studio", message: KEYS_BY_STUDIO });
       const template = typeof body.followup_template === "string" && body.followup_template.trim() ? body.followup_template.trim() : null;
       const language = typeof body.followup_template_language === "string" && body.followup_template_language.trim() ? body.followup_template_language.trim() : "en";
       const parameter = (body.followup_template_parameter ?? "none") as FollowupParameter;

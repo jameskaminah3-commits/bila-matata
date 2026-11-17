@@ -37,6 +37,9 @@ before(async () => {
   tokens.owner = await login("amani@example.com");
   assert.equal((await staff("POST", "/members", { email: "brian@example.com", name: "Brian", role: "agent", password: PASSWORD })).status, 201);
   tokens.agent = await login("brian@example.com");
+  // A shop whose website is built by JavaScript (its own business, so coral's hourly count is untouched).
+  assert.equal((await api("POST", "/v1/platform/businesses", { id: "jiko", name: "Jiko Wholesalers", business_type: "general", owner: { email: "wanjiru@example.com", name: "Wanjiru", password: PASSWORD } }, ops)).status, 201);
+  tokens.shop = await login("wanjiru@example.com");
 
   platform.publishPage(SITE, "robots.txt", "User-agent: *\nDisallow: /private\n");
   platform.publishPage(SITE, "index.html", page("Coral Cove Guesthouse | Diani", `
@@ -81,7 +84,7 @@ test("a guesthouse's website becomes its knowledge: a source per page, most usef
 
   const skipped = new Map<string, string>(imported.body.skipped.map((entry: any) => [new URL(entry.url).pathname, entry.reason]));
   assert.match(skipped.get("/private/staff") ?? "", /robots\.txt/);
-  assert.match(skipped.get("/empty") ?? "", /no text/);
+  assert.match(skipped.get("/empty") ?? "", /built by JavaScript/);
   const read = platform.log("website").map((entry) => new URL(entry.url));
   assert.ok(read.every((url) => url.hostname === SITE), "no other website was read");
   assert.ok(!read.some((url) => /brochure|wp-admin|private/.test(url.pathname)), "files, admin pages and robots' no-go pages were never fetched");
@@ -107,6 +110,53 @@ test("reading it again changes nothing that didn't change; a limit and drafts on
   assert.equal(limited.status, 200);
   assert.equal(limited.body.pages.length, 1);
   assert.equal(limited.body.pages[0].source.status, "draft");
+});
+
+const shell = (title: string, head = "") => `<!doctype html><html><head><title>${title}</title>${head}</head><body><div id="root"></div><script src="/assets/app.js"></script></body></html>`;
+
+test("a website built by JavaScript is read from what it still publishes", async () => {
+  const shop = (method: string, route: string, body?: unknown) => api(method, `/v1/staff/businesses/jiko${route}`, body, tokens.shop);
+  const data = {
+    "@context": "https://schema.org",
+    "@graph": [
+      { "@type": "Store", name: "Jiko Wholesalers", description: "Wholesale cooking oil, flour, rice and sugar for shops and hotels in Nairobi.", address: { "@type": "PostalAddress", streetAddress: "Kirinyaga Road", addressLocality: "Nairobi" }, openingHours: "Mo-Sa 07:00-18:00", priceRange: "KSh 100 - KSh 9,000" },
+      { "@type": "FAQPage", mainEntity: [{ "@type": "Question", name: "Do you deliver?", acceptedAnswer: { "@type": "Answer", text: "Yes, within Nairobi on orders of ten cartons or more." } }] },
+    ],
+  };
+  platform.publishPage("jiko.example", "index.html", shell("Jiko Wholesalers", `<meta name="description" content="Wholesale groceries in Nairobi."><script type="application/ld+json">${JSON.stringify(data)}</script>`));
+  platform.publishPage("jiko.example", "sitemap.xml", `<?xml version="1.0"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><url><loc>https://jiko.example/about</loc></url><url><loc>https://other.example/elsewhere</loc></url></urlset>`);
+  platform.publishPage("jiko.example", "about.html", shell("About | Jiko", "<noscript><p>Jiko Wholesalers has supplied shops on Kirinyaga Road since 2004, and is run by the Kamau family.</p></noscript>"));
+  platform.publishPage("jiko.example", "wp-json/wp/v2/pages.json", JSON.stringify([
+    { link: "https://jiko.example/returns", title: { rendered: "Returns" }, content: { rendered: "<p>Damaged cartons are replaced if reported within 48 hours of delivery.</p>" } },
+    { link: "https://other.example/x", title: { rendered: "Not ours" }, content: { rendered: "<p>A page on another website that must never be kept.</p>" } },
+  ]));
+  platform.publishPage("jiko.example", "wp-json/wc/store/v1/products.json", JSON.stringify([
+    { name: "Golden Fry cooking oil 20L", short_description: "<p>Vegetable oil in a 20 litre jerrican.</p>", categories: [{ name: "Oils" }], prices: { price: "450000" } },
+    { name: "Pishori rice 25kg", short_description: "<p>Aromatic rice from Mwea.</p>", categories: [{ name: "Rice" }] },
+  ]));
+
+  const imported = await shop("POST", "/knowledge/import-website", { url: "jiko.example" });
+  assert.equal(imported.status, 200, JSON.stringify(imported.body));
+  const pages = new Map<string, any>(imported.body.pages.map((entry: any) => [new URL(entry.url).pathname, entry]));
+  assert.deepEqual([...pages.keys()].sort(), ["/", "/about", "/returns", "/shop"]);
+  const read = platform.log("website").map((entry) => new URL(entry.url)).filter((url) => url.hostname !== SITE && url.hostname !== "newsite.example");
+  assert.ok(read.every((url) => url.hostname === "jiko.example"), "only the shop's own website was read");
+  assert.ok(!read.some((url) => url.pathname === "/products.json"), "not a Shopify shop: WordPress already answered");
+
+  const answer = async (query: string) => (await shop("POST", "/knowledge/search", { query })).body.passages[0]?.text ?? "";
+  assert.match(await answer("Do you deliver?"), /orders of ten cartons/, "its FAQ, from the page's structured data");
+  assert.match(await answer("opening hours Kirinyaga Road"), /Mo-Sa 07:00-18:00|Kirinyaga Road/);
+  assert.match(await answer("Since when has Jiko supplied shops?"), /since 2004/, "a page found through the sitemap, read from its <noscript> text");
+  assert.match(await answer("damaged cartons"), /within 48 hours/, "a WordPress page");
+  assert.match(await answer("Pishori rice"), /Aromatic rice from Mwea/, "the WooCommerce products");
+  const everything = (await shop("GET", "/knowledge")).body.sources.map((source: any) => source.content ?? "").join("\n");
+  assert.doesNotMatch(everything, /9,000|4500|Not ours/, "no prices, and nothing from another website");
+
+  // Nothing published any other way: a clear way forward instead of an empty result.
+  platform.publishPage("blank.example", "index.html", shell("Blank"));
+  const blank = await shop("POST", "/knowledge/import-website", { url: "blank.example" });
+  assert.equal(blank.status, 400);
+  assert.match(blank.body.message, /builds its pages with JavaScript.*Website widget.*What you offer/);
 });
 
 test("addresses into a private network are refused, even through a redirect", async () => {

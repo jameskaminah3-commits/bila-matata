@@ -271,10 +271,13 @@ export const businessSettings = pgTable("business_settings", {
   websiteSync: jsonb("website_sync").$type<WebsiteSync | null>(),
   /** What the business does through Zaina (migration 0028): rooms, tables, appointments, transfers…; empty: it follows from the type. */
   capabilities: jsonb("capabilities").$type<CapabilitySettings | null>(),
+  /** Where its chat was last seen on the web (migration 0029): the last website it opened on, and websites it was refused on. */
+  widgetSeen: jsonb("widget_seen").$type<WidgetSeen | null>(),
   updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
   updatedBy: uuid("updated_by"),
 });
 export type BusinessSettings = typeof businessSettings.$inferSelect;
+export type WidgetSeen = { loaded?: { origin: string; at: string } | null; refused?: Array<{ origin: string; at: string }> };
 
 export const businessSecrets = pgTable("business_secrets", {
   businessId: text("business_id").notNull(),

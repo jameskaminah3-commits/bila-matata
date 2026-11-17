@@ -479,10 +479,11 @@ https.request = function request(url, options, callback) {
     };
     if (redirects[url.pathname]) return reply(301, { location: redirects[url.pathname] }, null);
     const name = url.pathname === "/" ? "index.html" : url.pathname.replace(/^\/+|\/+$/g, "");
-    const candidates = [name, `${name}.html`, `${name}/index.html`, `${name}.html.gz`];
+    // WordPress, WooCommerce and Shopify answers are .json files at their paths (the query is ignored).
+    const candidates = [name, `${name}.html`, `${name}/index.html`, `${name}.html.gz`, `${name}.json`];
     const file = candidates.map((candidate) => path.join(dir, candidate)).find((candidate) => candidate.startsWith(dir) && existsSync(candidate) && statSync(candidate).isFile());
     if (!file) return reply(404, { "content-type": "text/html" }, Buffer.from("<html><body>Not found</body></html>"));
-    const type = file.endsWith(".txt") ? "text/plain" : "text/html; charset=utf-8";
+    const type = file.endsWith(".txt") ? "text/plain" : file.endsWith(".json") ? "application/json; charset=utf-8" : file.endsWith(".xml") ? "application/xml" : "text/html; charset=utf-8";
     return reply(200, { "content-type": type, ...(file.endsWith(".gz") ? { "content-encoding": "gzip" } : {}) }, readFileSync(file));
   };
   sent.end = () => {

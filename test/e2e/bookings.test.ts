@@ -197,21 +197,27 @@ test("Coral Cove sets up its rooms, its policy and its own Paystack account (Pay
   assert.equal(policy.body.deposit_type, "percent");
   assert.ok(policy.body.rules_confirmed_at, "the business chose");
 
-  const refused = await staff("coral", "PUT", "/payments/paystack", { mode: "own_keys", secret_key: "sk_test_refused000000000001" });
+  // Keys are added by Bila Matata's admins, never by the business itself.
+  const byOwner = await staff("coral", "PUT", "/payments/paystack", { mode: "own_keys", secret_key: CORAL_KEY });
+  assert.equal(byOwner.status, 403);
+  assert.equal(byOwner.body.error, "keys_by_studio");
+  assert.equal((await staff("coral", "GET", "/secrets")).status, 403, "the business doesn't see its keys' names either");
+  const refused = await staff("coral", "PUT", "/payments/paystack", { mode: "own_keys", secret_key: "sk_test_refused000000000001" }, tokens.ops);
   assert.equal(refused.status, 400);
   assert.match(refused.body.message, /Paystack didn't accept the key/);
-  const connected = await staff("coral", "PUT", "/payments/paystack", { mode: "own_keys", secret_key: CORAL_KEY });
+  const connected = await staff("coral", "PUT", "/payments/paystack", { mode: "own_keys", secret_key: CORAL_KEY }, tokens.ops);
   assert.equal(connected.status, 200, JSON.stringify(connected.body));
   assert.deepEqual(connected.body.payments.paystack, { mode: "own_keys", subaccount: null, key_saved: true });
   assert.equal(connected.body.payments.takes_deposits, true);
   assert.equal(connected.body.webhooks.paystack, `${BASE}/v1/payments/paystack/coral`);
-  const secrets = await staff("coral", "GET", "/secrets");
+  const secrets = await staff("coral", "GET", "/secrets", undefined, tokens.ops);
   assert.ok(secrets.body.secrets.some((secret: any) => secret.name === "paystack_secret_key"), "kept as an encrypted secret");
   assert.ok(!JSON.stringify(secrets.body).includes(CORAL_KEY), "never shown again");
-  // Only the owner connects payment accounts.
+  // Nor do its managers; or remove them.
   assert.equal((await staff("coral", "POST", "/members", { email: "baraka@example.com", name: "Baraka Otieno", password: PASSWORD, role: "manager" })).status, 201);
   const manager = await login("baraka@example.com");
   assert.equal((await staff("coral", "PUT", "/payments/paystack", { mode: "own_keys", secret_key: CORAL_KEY }, manager)).status, 403);
+  assert.equal((await staff("coral", "DELETE", "/payments/paystack")).status, 403, "removing keys is the studio's too");
 });
 
 test("a website customer asks, gets the exact price, books, and is held a room for the deposit", async () => {
@@ -338,14 +344,15 @@ test("Lakeview imports its rooms from a spreadsheet and connects M-Pesa Express 
   assert.equal(updated.status, 200, JSON.stringify(updated.body));
 
   const account = { environment: "sandbox", type: "till", shortcode: "174379", till: "600100", consumer_key: "pilot-consumer-key", consumer_secret: "wrong-secret", passkey: "pilot-passkey" };
-  const refused = await staff("lakeview", "PUT", "/payments/mpesa-express", account);
+  assert.equal((await staff("lakeview", "PUT", "/payments/mpesa-express", { ...account, consumer_secret: "pilot-consumer-secret" })).status, 403, "the studio adds M-Pesa keys");
+  const refused = await staff("lakeview", "PUT", "/payments/mpesa-express", account, tokens.ops);
   assert.equal(refused.status, 400);
   assert.match(refused.body.message, /M-Pesa didn't accept the keys: Invalid Authentication passed/);
-  const connected = await staff("lakeview", "PUT", "/payments/mpesa-express", { ...account, consumer_secret: "pilot-consumer-secret" });
+  const connected = await staff("lakeview", "PUT", "/payments/mpesa-express", { ...account, consumer_secret: "pilot-consumer-secret" }, tokens.ops);
   assert.equal(connected.status, 200, JSON.stringify(connected.body));
   assert.deepEqual(connected.body.payments.mpesa_express, { on: true, environment: "sandbox", type: "till", shortcode: "174379", till: "600100", keys_saved: true });
 
-  const number = await staff("lakeview", "PUT", "/whatsapp", { phone_number_id: LAKEVIEW_NUMBER_ID, waba_id: "900800700601", access_token: "EAAG-test-token-0000000000" });
+  const number = await staff("lakeview", "PUT", "/whatsapp", { phone_number_id: LAKEVIEW_NUMBER_ID, waba_id: "900800700601", access_token: "EAAG-test-token-0000000000" }, tokens.ops);
   assert.equal(number.status, 200, JSON.stringify(number.body));
 });
 

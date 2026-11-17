@@ -22,7 +22,7 @@ export async function getBusinessSettings(businessId: string): Promise<BusinessS
 
 export type SettingsPatch = Partial<Pick<BusinessSettings,
   | "displayName" | "assistantName" | "about" | "contactPhone" | "contactPhoneDisplay" | "websiteUrl" | "supportEmail"
-  | "allowedLinkHosts" | "allowedLinkHostSuffixes" | "defaultCurrency" | "widgetColor" | "widgetPosition" | "widgetGreeting" | "widgetWhatsapp" | "personaRole" | "brandTagline" | "chatAvatar" | "frontDoor" | "qrDestination" | "cardDetails" | "industry" | "interview" | "websiteSync" | "capabilities">>;
+  | "allowedLinkHosts" | "allowedLinkHostSuffixes" | "defaultCurrency" | "widgetColor" | "widgetPosition" | "widgetGreeting" | "widgetWhatsapp" | "personaRole" | "brandTagline" | "chatAvatar" | "frontDoor" | "qrDestination" | "cardDetails" | "industry" | "interview" | "websiteSync" | "capabilities" | "widgetSeen">>;
 
 const TEXT_FIELDS = ["displayName", "assistantName", "about", "contactPhone", "contactPhoneDisplay", "websiteUrl", "supportEmail"] as const;
 const HOST_PATTERN = /^(?:[a-z0-9-]+\.)+[a-z]{2,}$/;

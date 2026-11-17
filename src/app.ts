@@ -71,6 +71,7 @@ import { syncWebsites } from "./knowledge/website-import.ts";
 import { STUDIO } from "./studio/brand.ts";
 import { configureStudioPay, sweepStudio } from "./studio/pay.ts";
 import { registerStudioRoutes } from "./studio/routes.ts";
+import { registerWidgetInstallRoutes } from "./widget/routes.ts";
 
 /** Browsers may call the API from any website a business allows. */
 function cors() {
@@ -210,6 +211,7 @@ export function createApp(config: PlatformConfig, engine: EngineOptions, whatsap
   registerOneTapRoutes(app, config);
   registerMarkFullRoutes(app, config);
   registerIntegrationRoutes(app, config);
+  registerWidgetInstallRoutes(app, config);
   registerReviewRoutes(app, config);
   registerOnboardingTrackerRoutes(app, config);
   registerHealthRoutes(app, config);

@@ -46,6 +46,7 @@ before(async () => {
   api = apiFor(platform.base);
   platform.cli("create-staff.ts", ["--email", "ops@example.com", "--name", "Ops", "--platform-admin"], { STAFF_PASSWORD: PASSWORD });
   const ops = await login("ops@example.com");
+  tokens.ops = ops;
   const created = await api("POST", "/v1/platform/businesses", { id: "coral", name: "Coral Cove", business_type: "guesthouse", allowed_origins: [], owner: { email: "amani@example.com", name: "Amani", password: PASSWORD } }, ops);
   assert.equal(created.status, 201, JSON.stringify(created.body));
   tokens.owner = await login("amani@example.com");
@@ -106,7 +107,7 @@ test("a finished sign-in connects the number: registered, subscribed, and its cl
   assert.ok(log.some((entry) => entry.kind === "subscribed" && entry.waba === WABA));
   const registered = log.find((entry) => entry.kind === "registered");
   assert.deepEqual([registered.phoneNumberId, registered.pin, registered.product], [NUMBER, connected.body.pin, "whatsapp"], "registered with the PIN the owner was shown");
-  const secrets = (await staff("GET", "/secrets")).body.secrets.map((secret: any) => secret.name).sort();
+  const secrets = (await staff("GET", "/secrets", undefined, "ops")).body.secrets.map((secret: any) => secret.name).sort();
   assert.deepEqual(secrets, ["whatsapp_access_token", "whatsapp_pin"], "the token and PIN are kept encrypted, never shown again");
 
   // A customer's message to the number reaches Coral Cove, and Zaina answers on WhatsApp.
@@ -137,5 +138,5 @@ test("a number already registered elsewhere still connects, with a warning and n
 
   // Disconnecting removes the token and the PIN.
   assert.equal((await staff("DELETE", "/whatsapp")).status, 200);
-  assert.deepEqual((await staff("GET", "/secrets")).body.secrets, []);
+  assert.deepEqual((await staff("GET", "/secrets", undefined, "ops")).body.secrets, []);
 });

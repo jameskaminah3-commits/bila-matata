@@ -16,7 +16,7 @@
 //   GET    members                   manager   POST members                  manager (managers and owners: owner)
 //                                             a new person without a starting password is emailed a link to choose one
 //   DELETE members/:userId           manager (managers and owners: owner; never the last owner)
-//   GET    secrets (names only)      manager   PUT / DELETE secrets/:name    owner
+//   GET    secrets (names only)      Bila Matata admins only, like PUT / DELETE secrets/:name
 //   GET    leads?status=new|contacted|won|lost|open|all   agent   with how many are at each status
 //   PATCH  leads/:leadId { status?, team_note? }           agent   following one up
 //   GET    metrics?days=7            manager   GET    reports?days=30             manager
@@ -44,7 +44,7 @@ import { normalizeOrigin } from "../gateway/origin.ts";
 import { consumeLimits } from "../gateway/rate-limit.ts";
 import { visitorKey } from "../gateway/visitor.ts";
 import { sendEmail } from "../platform/mailer.ts";
-import { requireBusinessRole, requireStaff, ROLE_RANK, setConsoleCookie, staffOf } from "./auth.ts";
+import { requireBusinessRole, requireStaff, requireStudioForKeys, ROLE_RANK, setConsoleCookie, staffOf } from "./auth.ts";
 import { checkSignInCode, isTrustedDevice, maskEmail, sendSignInCode, trustDevice } from "./two-step.ts";
 import { addedEmail, canEmailLinks, inviteEmail, passwordChangedEmail, passwordLink, passwordLinkToken, readPasswordLinkToken, resetEmail, unknownPassword } from "./password-links.ts";
 import { hashPassword, passwordProblem, verifyAgainstNothing, verifyPassword } from "./passwords.ts";
@@ -393,7 +393,7 @@ export function registerStaffAccountRoutes(app: Express, config: PlatformConfig)
   });
 
   // ── Secrets (write-only) ─────────────────────────────────────────────
-  app.get(`${base}/secrets`, staff, requireBusinessRole("manager"), async (req: Request, res: Response, next: NextFunction) => {
+  app.get(`${base}/secrets`, staff, requireBusinessRole("manager"), requireStudioForKeys, async (req: Request, res: Response, next: NextFunction) => {
     try {
       res.json({ secrets: await listSecrets(staffOf(req).business!.id) });
     } catch (error) {
@@ -401,7 +401,7 @@ export function registerStaffAccountRoutes(app: Express, config: PlatformConfig)
     }
   });
 
-  app.put(`${base}/secrets/:name`, staff, requireBusinessRole("owner"), async (req: Request, res: Response, next: NextFunction) => {
+  app.put(`${base}/secrets/:name`, staff, requireBusinessRole("owner"), requireStudioForKeys, async (req: Request, res: Response, next: NextFunction) => {
     try {
       const value = req.body?.value;
       if (!SECRET_NAME_PATTERN.test(req.params.name)) return res.status(400).json({ error: "invalid_name" });
@@ -414,7 +414,7 @@ export function registerStaffAccountRoutes(app: Express, config: PlatformConfig)
     }
   });
 
-  app.delete(`${base}/secrets/:name`, staff, requireBusinessRole("owner"), async (req: Request, res: Response, next: NextFunction) => {
+  app.delete(`${base}/secrets/:name`, staff, requireBusinessRole("owner"), requireStudioForKeys, async (req: Request, res: Response, next: NextFunction) => {
     try {
       const deleted = await deleteSecret(staffOf(req).business!.id, req.params.name);
       res.status(deleted ? 200 : 404).json({ deleted });

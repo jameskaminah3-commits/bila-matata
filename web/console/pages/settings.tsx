@@ -8,7 +8,7 @@ import { NotificationEmails } from "./notifications.tsx";
 import { ZAINA_FACE_DATA_URI } from "../../../src/brand/zaina-face.ts";
 import { useEffect, useState } from "react";
 import { api, businessPath } from "../api.ts";
-import { WEEKDAYS } from "../format.ts";
+import { timeAgo, WEEKDAYS } from "../format.ts";
 import { atLeast, booksOfType, type Books, type Me, type Operations, type Role, type Settings, type WhatsappState } from "../types.ts";
 import { OfferSetup } from "./offer.tsx";
 import { Brand } from "./brand.tsx";
@@ -61,7 +61,7 @@ export function SettingsPage(props: { businessId: string; role: Role; me: Me; bu
           { id: "billing", label: "Plan & billing" },
         ]}
       />
-      {tab === "bookings" && stays ? <BookingSettings businessId={props.businessId} role={props.role} rooms={books.rooms} slots={books.services || books.tables} /> : null}
+      {tab === "bookings" && stays ? <BookingSettings businessId={props.businessId} role={props.role} admin={props.me.user.is_platform_admin} rooms={books.rooms} slots={books.services || books.tables} /> : null}
       {tab === "calendars" && stays ? <Calendars businessId={props.businessId} role={props.role} businessType={props.businessType ?? null} rooms={books.rooms} outcome={initial.tab === "calendars" ? initial.outcome : null} /> : null}
       {tab === "offer" && !ownSystem ? <OfferSetup businessId={props.businessId} role={props.role} onChanged={props.onOfferChanged} /> : null}
       {tab === "profile" ? <Profile businessId={props.businessId} /> : null}
@@ -70,8 +70,8 @@ export function SettingsPage(props: { businessId: string; role: Role; me: Me; bu
       {tab === "cards" ? <BusinessCards businessId={props.businessId} role={props.role} /> : null}
       {tab === "notifications" ? <NotificationEmails businessId={props.businessId} role={props.role} /> : null}
       {tab === "widget" ? <Widget businessId={props.businessId} role={props.role} me={props.me} /> : null}
-      {tab === "whatsapp" ? <Whatsapp businessId={props.businessId} role={props.role} /> : null}
-      {tab === "system" && atLeast(props.role, "manager") ? <Integration businessId={props.businessId} role={props.role} /> : null}
+      {tab === "whatsapp" ? <Whatsapp businessId={props.businessId} role={props.role} admin={props.me.user.is_platform_admin} /> : null}
+      {tab === "system" && atLeast(props.role, "manager") ? <Integration businessId={props.businessId} role={props.role} admin={props.me.user.is_platform_admin} /> : null}
       {tab === "hours" ? <Hours businessId={props.businessId} /> : null}
       {tab === "billing" ? <BillingSettings businessId={props.businessId} outcome={initial.tab === "billing" ? initial.outcome : null} onChanged={props.onBusinessChanged} /> : null}
     </div>
@@ -164,7 +164,6 @@ function Widget(props: { businessId: string; role: Role; me: Me }) {
   const [origins, setOrigins] = useState<string>("");
   const lookAction = useAction();
   const originsAction = useAction();
-  const [copied, setCopied] = useState(false);
   useEffect(() => {
     if (loaded.data) setLook({ color: loaded.data.widgetColor, position: loaded.data.widgetPosition, greeting: loaded.data.widgetGreeting ?? "", whatsapp: loaded.data.widgetWhatsapp });
   }, [loaded.data]);
@@ -177,13 +176,7 @@ function Widget(props: { businessId: string; role: Role; me: Me }) {
   const number = whatsapp.data?.connection?.status === "active" ? whatsapp.data.connection.display_phone_number : null;
   return (
     <div className="stack">
-      <section className="card">
-        <h2>Add the chat to your website</h2>
-        <p className="muted">Paste this just before <code>&lt;/body&gt;</code> on every page where the chat should appear. It only works on the websites listed below.</p>
-        <pre className="snippet">{snippet}</pre>
-        <Button small onClick={() => void navigator.clipboard.writeText(snippet).then(() => setCopied(true))}>{copied ? "Copied" : "Copy the code"}</Button>
-        <p className="muted small">Optional: <code>data-currency="KES"</code> shows prices in shillings; <code>data-open="true"</code> opens the chat on load. If your site has a Content Security Policy, allow <code>{base}</code> in <code>script-src</code> and <code>connect-src</code>. An older code with <code>widget.js</code> and <code>data-key</code> keeps working.</p>
-      </section>
+      <InstallChat businessId={props.businessId} role={props.role} snippet={snippet} base={base} onAllowed={(list) => setOrigins(list.join("\n"))} />
       <form
         className="form card"
         onSubmit={async (event) => {
@@ -236,7 +229,122 @@ function Widget(props: { businessId: string; role: Role; me: Me }) {
   );
 }
 
-function Whatsapp(props: { businessId: string; role: Role }) {
+type InstallView = {
+  website: string | null;
+  allowed_origins: string[];
+  loaded: { origin: string; at: string } | null;
+  refused: Array<{ origin: string; at: string }>;
+  checked?: string;
+  origin?: string;
+  allowed?: boolean;
+  installed?: "yes" | "other_business" | "no";
+  tag_manager?: boolean;
+};
+
+/** Where to paste the code, on the website builders businesses here use most. */
+const BUILDERS: Array<{ id: string; label: string; steps: string[] }> = [
+  { id: "wordpress", label: "WordPress", steps: ["Plugins → Add New: install and activate “WPCode” (Insert Headers and Footers).", "Code Snippets → Header & Footer: paste the code in the Footer box.", "Save. The chat appears on every page."] },
+  { id: "wix", label: "Wix", steps: ["Settings → Advanced → Custom Code → + Add Custom Code.", "Paste the code, choose All pages, and place it in Body - end.", "Apply, then Publish your site."] },
+  { id: "shopify", label: "Shopify", steps: ["Online Store → Themes → … → Edit code.", "Open layout/theme.liquid and paste the code just above </body>.", "Save."] },
+  { id: "squarespace", label: "Squarespace", steps: ["Settings → Developer tools → Code Injection (on older sites: Settings → Advanced → Code Injection).", "Paste the code in the Footer box.", "Save."] },
+  { id: "webflow", label: "Webflow", steps: ["Site settings → Custom code.", "Paste the code in Footer code.", "Save, then Publish."] },
+  { id: "gtm", label: "Google Tag Manager", steps: ["Tags → New → Custom HTML: paste the code.", "Triggering: All Pages.", "Save, then Submit and Publish."] },
+  { id: "other", label: "Something else", steps: ["Paste the code just before </body> on every page (often in a “footer” or “custom code” setting).", "Or send the code to whoever looks after your website: it's all they need."] },
+];
+
+/** Putting the chat on the business's website: allow it, paste the code, check it's there. */
+function InstallChat(props: { businessId: string; role: Role; snippet: string; base: string; onAllowed: (origins: string[]) => void }) {
+  const loaded = useLoad(() => api<InstallView>("GET", businessPath(props.businessId, "/widget/install")), [props.businessId]);
+  const [view, setView] = useState<InstallView | null>(null);
+  const [url, setUrl] = useState("");
+  const [builder, setBuilder] = useState("wordpress");
+  const [copied, setCopied] = useState(false);
+  const allow = useAction();
+  const check = useAction();
+  useEffect(() => {
+    if (loaded.data) {
+      setView(loaded.data);
+      setUrl((current) => current || loaded.data!.website || "");
+    }
+  }, [loaded.data]);
+  if (!view) return <ErrorLine error={loaded.error} />;
+  const owner = props.role === "owner";
+  const host = (() => {
+    try {
+      return new URL(/^[a-z]+:\/\//i.test(url.trim()) ? url.trim() : `https://${url.trim()}`).origin;
+    } catch {
+      return null;
+    }
+  })();
+  const allowed = host ? view.allowed_origins.includes(host) : false;
+  const steps = BUILDERS.find((entry) => entry.id === builder)!;
+  const allowSite = (address: string) => allow.run(async () => {
+    const next = await api<InstallView & { added: string[] }>("POST", businessPath(props.businessId, "/widget/allow"), { url: address });
+    setView({ ...view, ...next });
+    props.onAllowed(next.allowed_origins);
+  }, "Allowed. The chat can open there now.");
+  return (
+    <section className="card install">
+      <h2>Put Zaina on your website</h2>
+      {view.loaded ? (
+        <p className="message success" role="status">The chat last opened on <strong>{view.loaded.origin}</strong>, {timeAgo(view.loaded.at)}.</p>
+      ) : null}
+      {view.refused.map((entry) => (
+        <div key={entry.origin} className="message error install-refused" role="alert">
+          <span>The chat tried to open on <strong>{entry.origin}</strong> ({timeAgo(entry.at)}), but that website isn't allowed yet.</span>
+          {owner ? <Button small busy={allow.busy} onClick={() => void allowSite(entry.origin)}>Allow it</Button> : <span className="muted small">An owner can allow it.</span>}
+        </div>
+      ))}
+      <ol className="install-steps">
+        <li>
+          <h3>Your website</h3>
+          <div className="install-row">
+            <Field label="Address"><input type="url" inputMode="url" placeholder="https://www.yourbusiness.co.ke" value={url} onChange={(event) => setUrl(event.target.value)} /></Field>
+            {allowed ? <span className="chip ok">Allowed</span> : owner ? <Button kind="primary" busy={allow.busy} onClick={() => void allowSite(url)}>Allow this website</Button> : <span className="muted small">An owner allows it.</span>}
+          </div>
+          <p className="muted small">Both the www and plain address are allowed. Other websites can't open your chat.</p>
+          <Message message={allow.message} />
+        </li>
+        <li>
+          <h3>Add the code</h3>
+          <pre className="snippet">{props.snippet}</pre>
+          <div className="actions start"><Button small onClick={() => void navigator.clipboard.writeText(props.snippet).then(() => setCopied(true)).catch(() => undefined)}>{copied ? "Copied" : "Copy the code"}</Button></div>
+          <Field label="Your website is built with">
+            <select value={builder} onChange={(event) => setBuilder(event.target.value)}>
+              {BUILDERS.map((entry) => <option key={entry.id} value={entry.id}>{entry.label}</option>)}
+            </select>
+          </Field>
+          <ol className="builder-steps">{steps.steps.map((step) => <li key={step}>{step}</li>)}</ol>
+          <details className="small">
+            <summary>Options</summary>
+            <p className="muted"><code>data-currency="KES"</code> shows prices in shillings; <code>data-open="true"</code> opens the chat on load. If your site has a Content Security Policy, allow <code>{props.base}</code> in <code>script-src</code> and <code>connect-src</code>. An older code with <code>widget.js</code> and <code>data-key</code> keeps working.</p>
+          </details>
+        </li>
+        <li>
+          <h3>Check it's there</h3>
+          <div className="actions start">
+            <Button kind="primary" busy={check.busy} onClick={() => void check.run(async () => setView({ ...view, ...(await api<InstallView>("POST", businessPath(props.businessId, "/widget/check"), { url: url.trim() || undefined })) }))}>Check my website</Button>
+          </div>
+          <Message message={check.message} />
+          {view.checked ? (
+            <ul className="check-results" role="status">
+              <li className={view.installed === "yes" ? "ok" : "bad"}>
+                {view.installed === "yes" ? "The chat's code is on the page." : view.installed === "other_business" ? "The page has a chat code, but for another business: copy the code above again." : view.tag_manager ? "The code isn't in the page itself. If you added it with Google Tag Manager, that's fine: open your website and look for the chat button." : "The chat's code isn't on the page yet. Paste it as shown above, then publish."}
+              </li>
+              <li className={view.allowed ? "ok" : "bad"}>
+                {view.allowed ? `${view.origin} may use the chat.` : `${view.origin} isn't allowed yet.`}
+                {!view.allowed && owner && view.origin ? <> <Button small busy={allow.busy} onClick={() => void allowSite(view.origin!)}>Allow it</Button></> : null}
+              </li>
+              <li className="muted small">Checked {view.checked}. A page that has just been changed can take a few minutes to update.</li>
+            </ul>
+          ) : null}
+        </li>
+      </ol>
+    </section>
+  );
+}
+
+function Whatsapp(props: { businessId: string; role: Role; admin: boolean }) {
   const state = useLoad(() => api<WhatsappState>("GET", businessPath(props.businessId, "/whatsapp")), [props.businessId]);
   const [form, setForm] = useState({ phone_number_id: "", waba_id: "", access_token: "", followup_template: "", followup_template_language: "en", followup_template_parameter: "none" });
   const action = useAction();
@@ -295,11 +403,17 @@ function Whatsapp(props: { businessId: string; role: Role }) {
           <p className="muted">The quickest way: sign in with Facebook, choose your business and the number customers message, and confirm it with the code Meta sends. Nothing to copy.</p>
           <div className="actions start">
             <a className="button primary" href={`/connect/whatsapp?business=${encodeURIComponent(props.businessId)}`}>Connect with Facebook</a>
-            {!byHand && !connection ? <Button onClick={() => setByHand(true)}>Connect by hand instead</Button> : null}
+            {props.admin && !byHand && !connection ? <Button onClick={() => setByHand(true)}>Connect by hand instead</Button> : null}
           </div>
         </section>
       ) : null}
-      {owner && (!state.data.embedded_signup || byHand || connection) ? (
+      {owner && !connection && !state.data.embedded_signup && !props.admin ? (
+        <section className="card">
+          <h2>Connect your number</h2>
+          <p className="muted">Bila Matata connects your WhatsApp number for you. Ask under <a href={`#/b/${props.businessId}/support`}>Help &amp; support</a>; never send a token or password in a message.</p>
+        </section>
+      ) : null}
+      {owner && (connection || (props.admin && (!state.data.embedded_signup || byHand))) ? (
         <form
           className="form card"
           onSubmit={async (event) => {
@@ -317,14 +431,18 @@ function Whatsapp(props: { businessId: string; role: Role }) {
           }}
         >
           <h2>{connection ? "Update the connection" : "Connect your number by hand"}</h2>
-          <p className="muted small">From Meta's WhatsApp Manager (API setup) and Business Settings (a system user's permanent token with WhatsApp messaging and management).</p>
-          <div className="form-row">
-            <Field label="Phone number ID"><input required inputMode="numeric" value={form.phone_number_id} onChange={(event) => setForm({ ...form, phone_number_id: event.target.value.trim() })} /></Field>
-            <Field label="WhatsApp Business Account ID"><input inputMode="numeric" value={form.waba_id} onChange={(event) => setForm({ ...form, waba_id: event.target.value.trim() })} /></Field>
-          </div>
-          <Field label="Access token" hint={connection?.has_token ? "Leave empty to keep the stored token." : "Stored encrypted; never shown again."} wide>
-            <input type="password" autoComplete="off" value={form.access_token} onChange={(event) => setForm({ ...form, access_token: event.target.value })} />
-          </Field>
+          {props.admin ? (
+            <>
+              <p className="muted small">From Meta's WhatsApp Manager (API setup) and Business Settings (a system user's permanent token with WhatsApp messaging and management). Only Bila Matata's admins see this.</p>
+              <div className="form-row">
+                <Field label="Phone number ID"><input required inputMode="numeric" value={form.phone_number_id} onChange={(event) => setForm({ ...form, phone_number_id: event.target.value.trim() })} /></Field>
+                <Field label="WhatsApp Business Account ID"><input inputMode="numeric" value={form.waba_id} onChange={(event) => setForm({ ...form, waba_id: event.target.value.trim() })} /></Field>
+              </div>
+              <Field label="Access token" hint={connection?.has_token ? "Leave empty to keep the stored token." : "Stored encrypted; never shown again."} wide>
+                <input type="password" autoComplete="off" value={form.access_token} onChange={(event) => setForm({ ...form, access_token: event.target.value })} />
+              </Field>
+            </>
+          ) : null}
           <h3>When a reply comes after 24 hours</h3>
           <p className="muted small">WhatsApp only allows free replies within 24 hours of the customer's last message. After that, an approved template tells them a reply is waiting; the reply goes out when they answer.</p>
           <div className="form-row">

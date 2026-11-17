@@ -75,7 +75,8 @@ export function TeamPage(props: { businessId: string; role: Role; me: Me }) {
           </tbody>
         </table>
       ) : null}
-      {owner ? <Secrets businessId={props.businessId} /> : null}
+      {/* Keys are the studio's: only Bila Matata admins see or change them. */}
+      {props.me.user.is_platform_admin ? <Secrets businessId={props.businessId} /> : null}
       {adding ? <AddPerson businessId={props.businessId} owner={owner} onClose={() => setAdding(false)} onAdded={async (text) => { setAdding(false); action.setMessage({ kind: "success", text }); await members.reload(); }} /> : null}
     </div>
   );
@@ -123,7 +124,7 @@ function Secrets(props: { businessId: string }) {
   const action = useAction();
   return (
     <section className="card">
-      <h2>Secrets</h2>
+      <h2>Secrets <span className="chip">Bila Matata only</span></h2>
       <p className="muted">Keys for systems Zaina uses for this business (for example its own model key, <code>gemini_api_key</code>). Stored encrypted; nobody can read them back. The WhatsApp token is managed in Settings → WhatsApp.</p>
       <ErrorLine error={secrets.error} />
       {secrets.data && secrets.data.secrets.length === 0 ? <Empty title="No secrets stored" /> : null}

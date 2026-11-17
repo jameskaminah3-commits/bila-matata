@@ -12,9 +12,17 @@ Three rules for every client:
 - **Their money goes to them.** Customers pay the business's own payment
   link (their M-Pesa paybill or till, or their own card account). Zaina
   never collects money.
-- **They enter their own keys and passwords.** Never ask a client to send
-  a password, payment key or token by WhatsApp or email. They type them
-  into their own dashboard.
+- **API keys are ours to add, never theirs.** Payment keys (Paystack,
+  M-Pesa Express), a WhatsApp token typed in by hand, the own-system
+  connection and Team → Secrets show only to Bila Matata admins. Add them
+  with the client on a call, from their own provider's dashboard: never
+  ask for a password, key or token by WhatsApp or email. What they connect
+  by signing in (Connect with Facebook, Google Calendar) and their M-Pesa
+  number paid by hand stay theirs.
+- **Each business its own dashboard.** Add a business with its owner's own
+  email, never yours: admins already reach every business from Bila
+  Matata → Businesses. A business set up under an admin's account is
+  handed over with Businesses → Owner (the admins stop being its members).
 
 ## 1. The first call (30 minutes)
 
@@ -107,11 +115,21 @@ cancellation before going live.
 
 ### B. Website
 
-- **Website widget** (Settings): add their site's address, then the one
-  line on their site (their developer, or you with their permission):
+- **Website widget** (Settings → Website widget): *Allow this website*
+  (it adds the www and plain address), copy the one line, and follow the
+  steps for their builder (WordPress, Wix, Shopify, Squarespace, Webflow,
+  Google Tag Manager):
   `<script src="https://bilamatata.com/zaina.js" data-business="<id>" async></script>`
+  Then *Check my website*: it says whether the line is on the page and the
+  site is allowed. Once a visitor opens a page, the card shows where the
+  chat last opened, and any website it was refused on, with *Allow it*.
+  An owner reading their website under Knowledge allows it for the chat too.
 - **Knowledge → Read your website**, with *keep in step weekly* on, so
-  a change to their site reaches Zaina by itself.
+  a change to their site reaches Zaina by itself. A site built with
+  JavaScript is read from what it still publishes (its search-engine data,
+  sitemap, WordPress pages, WooCommerce or Shopify products); if nothing
+  can be read, teach Zaina in Settings → What you offer, or with a
+  document or price list.
 - Bookings on request (as in A), or time slots for a salon or restaurant.
 
 ### C. Calendar

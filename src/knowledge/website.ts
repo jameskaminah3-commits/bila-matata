@@ -4,13 +4,16 @@
 // it links to on the same site (the ones most likely to answer customers
 // first: rooms, menu, services, FAQs, policies, contact), up to a limit.
 // Only pages robots.txt allows; only HTML; each page's readable text. Pages
-// that have no text without JavaScript are skipped and reported. Every
-// address is read through fetchPublic (net/public-fetch.ts).
+// whose text is built by JavaScript are read from what they still publish
+// (website-data.ts): their own description and structured data, the
+// sitemap, and WordPress, WooCommerce or Shopify content. Every address is
+// read through fetchPublic (net/public-fetch.ts).
 
 import { createHash } from "node:crypto";
 import type { KnowledgeKind } from "../db/schema.ts";
 import { fetchPublic, PublicFetchError, publicUrl } from "../net/public-fetch.ts";
 import { htmlToText } from "./import.ts";
+import { pageDataText, shopifyProductsPage, sitemapEntries, sitemapsIn, wooProductsPage, wordpressPages, type DataPage } from "./website-data.ts";
 
 export const MAX_WEBSITE_PAGES = 25;
 const PAGE_BYTES = 2 * 1024 * 1024;
@@ -128,17 +131,43 @@ export async function readWebsite(start: string, options: { maxPages?: number; t
   const texts = new Set<string>();
 
   let rules: string[] = [];
+  let sitemaps: string[] = [];
   try {
     const robots = await fetchPublic(new URL("/robots.txt", first), { accept: "text/plain", maxBytes: 256 * 1024, timeoutMs: 8_000 });
-    if (robots.status === 200 && !robots.contentType.includes("html")) rules = disallowedPaths(robots.body.toString("utf8"));
+    if (robots.status === 200 && !robots.contentType.includes("html")) {
+      rules = disallowedPaths(robots.body.toString("utf8"));
+      sitemaps = sitemapsIn(robots.body.toString("utf8"));
+    }
   } catch {
     // No robots.txt, or it can't be read: nothing is off limits.
   }
+  // Pages built by JavaScript, and whether the sitemap was read for pages the links didn't show.
+  let builtByScript = 0;
+  let sitemapRead = false;
+  const keep = (page: WebsitePage) => {
+    const fingerprint = createHash("sha256").update(page.text).digest("hex");
+    if (texts.has(fingerprint)) return false;
+    texts.add(fingerprint);
+    pages.push(page);
+    return true;
+  };
 
   let site = siteOf(first.hostname);
   let queue: URL[] = [first];
   seen.add(pageKey(first));
-  while (queue.length && pages.length < maxPages && Date.now() < deadline) {
+  while (pages.length < maxPages && Date.now() < deadline) {
+    if (!queue.length) {
+      // Links built by script aren't in the page: the sitemap lists the pages instead.
+      if (sitemapRead) break;
+      sitemapRead = true;
+      queue = (await sitemapPages(first, site, sitemaps, rules, deadline)).filter((link) => {
+        const key = pageKey(link);
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      }).sort((a, b) => score(a) - score(b));
+      if (!queue.length) break;
+    }
     const url = queue.shift()!;
     if (!allowedBy(rules, url)) {
       skipped.push({ url: url.toString(), reason: "robots.txt asks robots not to read it" });
@@ -170,14 +199,15 @@ export async function readWebsite(start: string, options: { maxPages?: number; t
     }
     const html = response.body.toString("utf8");
     const { title, text } = htmlToText(html);
-    const fingerprint = createHash("sha256").update(text).digest("hex");
+    const page = { url: response.url.toString(), title: (title ?? "").trim() || response.url.pathname, description: descriptionOf(html) };
     if (text.length < MIN_TEXT || (text.length < 400 && NEEDS_SCRIPT.test(text))) {
-      skipped.push({ url: response.url.toString(), reason: "It has no text to read (it may need JavaScript)." });
-    } else if (texts.has(fingerprint)) {
-      skipped.push({ url: response.url.toString(), reason: "The same text as another page." });
-    } else {
-      texts.add(fingerprint);
-      pages.push({ url: response.url.toString(), title: (title ?? "").trim() || response.url.pathname, text, description: descriptionOf(html) });
+      // Built by JavaScript: what the page still says about itself, if it says enough.
+      builtByScript += 1;
+      const data = pageDataText(html);
+      if (data.length < MIN_TEXT) skipped.push({ url: page.url, reason: "Its text is built by JavaScript, so there's nothing to read here." });
+      else if (!keep({ ...page, text: data })) skipped.push({ url: page.url, reason: "The same text as another page." });
+    } else if (!keep({ ...page, text })) {
+      skipped.push({ url: page.url, reason: "The same text as another page." });
     }
     const next = linksOn(html, response.url).filter((link) => {
       const key = pageKey(link);
@@ -187,8 +217,86 @@ export async function readWebsite(start: string, options: { maxPages?: number; t
     });
     queue = [...queue, ...next].sort((a, b) => score(a) - score(b));
   }
-  if (!pages.length) throw new PublicFetchError(skipped[0]?.reason ?? "No page on the website had text to read.");
+  // A site built by JavaScript often publishes its content another way: WordPress, WooCommerce, Shopify.
+  if (builtByScript > 0 && pages.length < maxPages && Date.now() < deadline) {
+    for (const extra of await contentFeeds(first, site, rules, deadline)) {
+      if (pages.length >= maxPages) break;
+      keep({ ...extra, description: null });
+    }
+  }
+  if (!pages.length) {
+    throw new PublicFetchError(builtByScript
+      ? "Your website builds its pages with JavaScript, so Zaina can't read it from here. You can still put the chat on it (Settings → Website widget), and teach Zaina by describing how you work (Settings → What you offer), adding a document, or uploading a brochure or price list."
+      : skipped[0]?.reason ?? "No page on the website had text to read.");
+  }
   return { site, pages, skipped };
+}
+
+const fetchOptions = (accept: string, deadline: number) => ({ accept, maxBytes: PAGE_BYTES, timeoutMs: Math.min(8_000, Math.max(1_000, deadline - Date.now())) });
+
+/** Pages a site's sitemaps list (robots.txt's, or the usual addresses), on the same site. */
+async function sitemapPages(first: URL, site: string, named: string[], rules: string[], deadline: number): Promise<URL[]> {
+  const queue = named.length ? [...named] : ["/sitemap.xml", "/sitemap_index.xml", "/wp-sitemap.xml"].map((path) => new URL(path, first).toString());
+  const found: URL[] = [];
+  for (let read = 0; queue.length && read < 6 && found.length < 200 && Date.now() < deadline; read += 1) {
+    let address: URL;
+    try {
+      address = new URL(queue.shift()!);
+    } catch {
+      continue;
+    }
+    if (siteOf(address.hostname) !== site || !allowedBy(rules, address)) continue;
+    try {
+      const response = await fetchPublic(address, fetchOptions("application/xml,text/xml", deadline));
+      if (response.status !== 200) continue;
+      const entries = sitemapEntries(response.body.toString("utf8"));
+      queue.push(...entries.sitemaps);
+      for (const loc of entries.pages) {
+        try {
+          const url = new URL(loc);
+          if (url.protocol === "http:") url.protocol = "https:";
+          if (url.protocol === "https:" && siteOf(url.hostname) === site && !FILE.test(url.pathname) && !SKIP_PATH.test(url.pathname + url.search)) found.push(url);
+        } catch {
+          // Not an address.
+        }
+      }
+      // An index found its sitemaps; a sitemap of pages is enough.
+      if (entries.pages.length) break;
+    } catch {
+      // No sitemap there.
+    }
+  }
+  return found.slice(0, 200);
+}
+
+/** A site's content from WordPress, WooCommerce or Shopify, where it publishes it. */
+async function contentFeeds(first: URL, site: string, rules: string[], deadline: number): Promise<DataPage[]> {
+  const read = async (path: string): Promise<unknown> => {
+    const url = new URL(path, first);
+    if (!allowedBy(rules, url) || Date.now() >= deadline) return null;
+    try {
+      const response = await fetchPublic(url, fetchOptions("application/json", deadline));
+      return response.status === 200 && response.contentType.includes("json") ? JSON.parse(response.body.toString("utf8")) : null;
+    } catch {
+      return null;
+    }
+  };
+  const found: DataPage[] = [];
+  const wordpress = wordpressPages(await read("/wp-json/wp/v2/pages?per_page=50&_fields=link,title,content"));
+  found.push(...wordpress.filter((page) => {
+    try {
+      return siteOf(new URL(page.url).hostname) === site;
+    } catch {
+      return false;
+    }
+  }));
+  const woo = wooProductsPage(await read("/wp-json/wc/store/v1/products?per_page=100"), site);
+  if (woo) found.push(woo);
+  if (!wordpress.length && !woo) {
+    const shopify = shopifyProductsPage(await read("/products.json?limit=100"), site);
+    if (shopify) found.push(shopify);
+  }
+  return found;
 }
 
 /**

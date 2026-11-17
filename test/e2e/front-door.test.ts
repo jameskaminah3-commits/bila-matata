@@ -166,7 +166,10 @@ test("customers pay the business's own account: the platform's account is offere
   const settings = await staff("GET", "/booking-settings");
   assert.equal(settings.status, 200, JSON.stringify(settings.body));
   assert.equal(settings.body.platform_paystack, false);
-  const refused = await staff("PUT", "/payments/paystack", { mode: "subaccount", subaccount: "ACCT_abcd1234" });
+  // Payment accounts are connected by the studio's admins, so it's they who are refused here.
+  const paystack = (business: string) => api("PUT", `/v1/staff/businesses/${business}/payments/paystack`, { mode: "subaccount", subaccount: "ACCT_abcd1234" }, ops);
+  assert.equal((await staff("PUT", "/payments/paystack", { mode: "subaccount", subaccount: "ACCT_abcd1234" })).body.error, "keys_by_studio");
+  const refused = await paystack("palm");
   assert.equal(refused.status, 403);
   assert.equal(refused.body.error, "not_offered");
   assert.match(refused.body.message, /Your customers pay into your own account/);
@@ -179,10 +182,10 @@ test("customers pay the business's own account: the platform's account is offere
   const list = await api("GET", "/v1/platform/businesses", undefined, ops);
   assert.deepEqual(list.body.businesses.filter((business: any) => business.platform_payments).map((business: any) => business.id), ["palm"]);
   // Past the gate now (this test platform has no payment account of its own, which is the next thing it says).
-  const allowed = await staff("PUT", "/payments/paystack", { mode: "subaccount", subaccount: "ACCT_abcd1234" });
+  const allowed = await paystack("palm");
   assert.notEqual(allowed.status, 403);
   assert.notEqual(allowed.body.error, "not_offered");
-  assert.equal((await staff("PUT", "/payments/paystack", { mode: "subaccount", subaccount: "ACCT_abcd1234" }, "other", "other")).status, 403, "the other business is still not offered it");
+  assert.equal((await paystack("other")).body.error, "not_offered", "the other business is still not offered it");
 });
 
 test("printed codes carry a short address that never changes, and send each scan wherever the business chooses", async () => {

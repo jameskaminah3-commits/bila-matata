@@ -23,10 +23,12 @@ and `GET /v1/health`.
 
 ## The chat doesn't appear on a client's website
 
-- **Check:** Settings → Website widget for that business: is their site's
-  exact address (with or without `www`) in the list? Is the script line on
-  the page, with the right `data-business`? Is the business paused
-  (Businesses)?
+- **Check:** Settings → Website widget for that business. *Check my
+  website* says whether the script line is on the page (with the right
+  `data-business`) and whether the site is allowed; the card lists websites
+  the chat was refused on, with *Allow it*. Is the business paused
+  (Businesses)? The browser console on their site names the problem
+  (`[zaina] … isn't on this business's list of websites`).
 - **Their site's security policy** may block scripts from other sites: the
   browser console says so. Their developer adds our domain to
   `script-src` and `connect-src`.

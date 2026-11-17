@@ -14,7 +14,7 @@ import { Button, ErrorLine, Field, Icon, Message, useAction, useLoad } from "../
 import { OfferSetup } from "./offer.tsx";
 
 type Step = { id: string; title: string; detail: string; done: boolean; required: boolean; page: string; tab?: string };
-type WebsiteRead = { site: string; pages: Array<{ url: string; source: { title: string } }>; skipped: Array<{ url: string; reason: string }>; description: string | null };
+type WebsiteRead = { site: string; pages: Array<{ url: string; source: { title: string } }>; skipped: Array<{ url: string; reason: string }>; description: string | null; chat_allowed?: string[] };
 type Onboarding = { status: "onboarding" | "active" | "paused"; pause_reason: "platform" | "billing" | null; went_live_at: string | null; steps: Step[]; done: number; ready: boolean };
 
 export function SetupPage(props: { businessId: string; role: Role; onLive: () => void; onOfferChanged?: () => void }) {
@@ -119,6 +119,7 @@ function StartFromWebsite(props: { businessId: string; onChanged: () => void }) 
         <p className="message success">
           Read {result.pages.length} page{result.pages.length === 1 ? "" : "s"} from {result.site}: Zaina answers from them now.
           {result.skipped.length ? ` ${result.skipped.length} couldn't be read (see Knowledge → Read your website).` : ""} Check them under Knowledge.
+          {result.chat_allowed?.length ? " The chat may now run on your website too: Settings → Website widget has its code." : ""}
         </p>
       ) : null}
       {suggestion ? (

@@ -13,7 +13,7 @@
 //   Support     what businesses have asked (support.tsx)
 
 import { useEffect, useState } from "react";
-import { api } from "../api.ts";
+import { api, ApiError } from "../api.ts";
 import { go, goPlatform } from "../app.tsx";
 import { cents, count, timeAgo } from "../format.ts";
 import type { Plan } from "../types.ts";
@@ -155,6 +155,7 @@ function BusinessesTab() {
   useEvery(() => void overview.reload(), 30_000, []);
   const [adding, setAdding] = useState(false);
   const [planFor, setPlanFor] = useState<Business | null>(null);
+  const [ownerFor, setOwnerFor] = useState<Business | null>(null);
   const action = useAction();
   const reload = async () => { await Promise.all([overview.reload(), billing.reload()]); };
   const planOf = (id: string) => billing.data?.subscriptions.find((row) => row.business_id === id && row.status !== "cancelled");
@@ -211,6 +212,7 @@ function BusinessesTab() {
                     <td className="muted">{business.last_activity_at ? timeAgo(business.last_activity_at) : "—"}</td>
                     <td className="row-actions">
                       <Button small onClick={() => setPlanFor(business)}>Plan</Button>{" "}
+                      <Button small kind="ghost" onClick={() => setOwnerFor(business)}>Owner</Button>{" "}
                       {business.status === "active" ? (
                         <Button small kind="ghost" busy={action.busy} onClick={() => {
                           if (!window.confirm(`Pause ${business.name}? Zaina stops answering its customers until you resume it.`)) return;
@@ -228,6 +230,7 @@ function BusinessesTab() {
         </div>
       ) : null}
       {adding ? <AddBusiness plans={plans.data ?? []} onClose={() => setAdding(false)} onAdded={async (text) => { setAdding(false); action.setMessage({ kind: "success", text }); await reload(); }} /> : null}
+      {ownerFor ? <HandOver business={ownerFor} onClose={() => setOwnerFor(null)} onSaved={(text) => { setOwnerFor(null); action.setMessage({ kind: "success", text }); }} /> : null}
       {planFor ? <SetPlan business={planFor} current={planOf(planFor.id)?.plan_id ?? null} plans={plans.data ?? []} onClose={() => setPlanFor(null)} onSaved={async (text) => { setPlanFor(null); action.setMessage({ kind: "success", text }); await reload(); }} /> : null}
     </section>
   );
@@ -296,6 +299,9 @@ function SetPlan(props: { business: Business; current: string | null; plans: Pla
 
 function AddBusiness(props: { plans: Plan[]; onClose: () => void; onAdded: (message: string) => void }) {
   const [form, setForm] = useState({ id: "", name: "", origin: "", type: "general", plan: props.plans[0]?.id ?? "", tier: "starter" as Tier, setup: true, ownerEmail: "", ownerName: "", ownerPassword: "" });
+  // The owner's email already has a dashboard: added to it only when the studio says it's the same owner.
+  const [existingOwner, setExistingOwner] = useState<{ email: string; message: string } | null>(null);
+  const [sameOwner, setSameOwner] = useState(false);
   const action = useAction();
   const plan = props.plans.find((entry) => entry.id === form.plan) ?? null;
   const tier = plan?.tier ?? form.tier;
@@ -313,7 +319,10 @@ function AddBusiness(props: { plans: Plan[]; onClose: () => void; onAdded: (mess
               business_type: form.type,
               allowed_origins: form.origin.trim() ? [form.origin.trim()] : [],
               ...(plan ? { plan_id: plan.id, setup_invoice: form.setup && plan.setup_fee_minor > 0 } : { tier: form.tier }),
-              owner: { email: form.ownerEmail, name: form.ownerName, password: form.ownerPassword || undefined },
+              owner: { email: form.ownerEmail, name: form.ownerName, password: form.ownerPassword || undefined, add_to_existing: sameOwner && existingOwner?.email === form.ownerEmail.trim().toLowerCase() },
+            }).catch((problem) => {
+              if (problem instanceof ApiError && problem.code === "owner_has_business") setExistingOwner({ email: form.ownerEmail.trim().toLowerCase(), message: problem.message });
+              throw problem;
             });
             props.onAdded([
               `Added ${form.name} on ${plan ? plan.name : `the ${TIER_NAMES[tier]} tier`}.`,
@@ -361,12 +370,56 @@ function AddBusiness(props: { plans: Plan[]; onClose: () => void; onAdded: (mess
         ) : null}
         <h3>First owner</h3>
         <div className="form-row">
-          <Field label="Email"><input type="email" required value={form.ownerEmail} onChange={(event) => setForm({ ...form, ownerEmail: event.target.value })} /></Field>
+          <Field label="Email" hint="The owner's own email: each business gets its own dashboard."><input type="email" required value={form.ownerEmail} onChange={(event) => { setForm({ ...form, ownerEmail: event.target.value }); setSameOwner(false); }} /></Field>
           <Field label="Name"><input value={form.ownerName} onChange={(event) => setForm({ ...form, ownerName: event.target.value })} /></Field>
         </div>
         <Field label="Starting password (optional)" hint="Only for a new account. Leave it empty and the owner is emailed a link to choose their own."><input type="password" autoComplete="new-password" value={form.ownerPassword} onChange={(event) => setForm({ ...form, ownerPassword: event.target.value })} /></Field>
+        {existingOwner && existingOwner.email === form.ownerEmail.trim().toLowerCase() ? (
+          <label className="check"><input type="checkbox" checked={sameOwner} onChange={(event) => setSameOwner(event.target.checked)} /><span>It's the same owner: add this business to their dashboard</span></label>
+        ) : null}
         <Message message={action.message} />
         <div className="actions"><Button onClick={props.onClose}>Cancel</Button><Button kind="primary" type="submit" busy={action.busy}>Add business</Button></div>
+      </form>
+    </Modal>
+  );
+}
+
+/** Who owns a business, and handing it to its real owner (the studio's admins then stop being its members). */
+function HandOver(props: { business: Business; onClose: () => void; onSaved: (message: string) => void }) {
+  const owners = useLoad(() => api<{ owners: Array<{ email: string; name: string; is_admin: boolean }> }>("GET", `/v1/platform/businesses/${props.business.id}/owner`).then((result) => result.owners), [props.business.id]);
+  const [form, setForm] = useState({ email: "", name: "", password: "" });
+  const action = useAction();
+  const adminOwns = owners.data?.some((owner) => owner.is_admin) ?? false;
+  return (
+    <Modal title={`Owner of ${props.business.name}`} onClose={props.onClose}>
+      <form
+        className="form"
+        onSubmit={async (event) => {
+          event.preventDefault();
+          await action.run(async () => {
+            const handed = await api<{ owner: { email: string; invited: boolean }; removed_admins: number }>("POST", `/v1/platform/businesses/${props.business.id}/owner`, { email: form.email, name: form.name, password: form.password || undefined });
+            props.onSaved([
+              `${props.business.name} now belongs to ${handed.owner.email}.`,
+              handed.owner.invited ? "They were emailed a link to choose their password." : "They can sign in now.",
+              handed.removed_admins ? "It no longer shows in the studio's own dashboards; open it from Businesses." : "",
+            ].filter(Boolean).join(" "));
+          });
+        }}
+      >
+        <ErrorLine error={owners.error} />
+        {owners.data ? (
+          <ul className="owner-list">
+            {owners.data.map((owner) => <li key={owner.email}><strong>{owner.name || owner.email}</strong> <span className="muted">{owner.email}</span>{owner.is_admin ? <span className="chip waiting">Studio admin</span> : null}</li>)}
+          </ul>
+        ) : null}
+        {adminOwns ? <p className="muted small">A studio admin owns this business, so it shows among their own businesses. Hand it to its owner: they get their own dashboard, and you still reach it from here.</p> : null}
+        <div className="form-row">
+          <Field label="Owner's email"><input type="email" required value={form.email} onChange={(event) => setForm({ ...form, email: event.target.value })} /></Field>
+          <Field label="Name" hint="For a new account."><input value={form.name} onChange={(event) => setForm({ ...form, name: event.target.value })} /></Field>
+        </div>
+        <Field label="Starting password (optional)" hint="Only for a new account. Leave it empty and they're emailed a link to choose their own."><input type="password" autoComplete="new-password" value={form.password} onChange={(event) => setForm({ ...form, password: event.target.value })} /></Field>
+        <Message message={action.message} />
+        <div className="actions"><Button onClick={props.onClose}>Cancel</Button><Button kind="primary" type="submit" busy={action.busy}>Make them the owner</Button></div>
       </form>
     </Modal>
   );
