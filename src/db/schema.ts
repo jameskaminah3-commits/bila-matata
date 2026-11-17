@@ -104,6 +104,8 @@ export const chatSessions = pgTable("chat_sessions", {
   customerName: text("customer_name"),
   /** Signed in on the business's own site, as its system vouched (Phase 4 identity token). */
   verifiedCustomer: jsonb("verified_customer").$type<VerifiedCustomer | null>(),
+  /** The customer this chat belongs to (src/customers): by its WhatsApp number, a sign-in, or contact details typed in it. */
+  customerId: uuid("customer_id"),
   customerLastMessageAt: at("customer_last_message_at"),
   deliveredEventId: bigint("delivered_event_id", { mode: "number" }).notNull().default(0),
   deliveryLockUntil: at("delivery_lock_until"),
@@ -277,6 +279,8 @@ export const businessSettings = pgTable("business_settings", {
   catalogueFeed: jsonb("catalogue_feed").$type<CatalogueFeed | null>(),
   /** How the business takes orders (migration 0032): delivery zones and fees, collection, minimum, who confirms. */
   orderSettings: jsonb("order_settings").$type<OrderSettings | null>(),
+  /** Zaina greets a returning customer on WhatsApp or signed in (migration 0033). */
+  customerRecognition: boolean("customer_recognition").notNull().default(true),
   updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
   updatedBy: uuid("updated_by"),
 });
@@ -316,6 +320,7 @@ export const leads = pgTable("leads", {
   callbackRemindedAt: timestamp("callback_reminded_at", { withTimezone: true, mode: "date" }),
   // Migration 0030: an order's lines and total.
   details: jsonb("details").$type<OrderDetails | null>(),
+  customerId: uuid("customer_id"),
 });
 export const leadKinds = ["lead", "request", "callback", "order"] as const;
 /** What a customer ordered through Zaina: lines from the catalogue, the total where every price is fixed, and how it reaches them. */
@@ -653,6 +658,7 @@ export const bookings = pgTable("bookings", {
   conflict: text("conflict"),
   staffNote: text("staff_note"),
   decidedBy: uuid("decided_by"),
+  customerId: uuid("customer_id"),
   confirmedAt: at("confirmed_at"),
   cancelledAt: at("cancelled_at"),
   createdAt: createdAt(),
@@ -732,12 +738,36 @@ export const orders = pgTable("orders", {
   staffNote: text("staff_note"),
   cancelReason: text("cancel_reason"),
   idempotencyKey: text("idempotency_key"),
+  customerId: uuid("customer_id"),
   createdAt: createdAt(),
   updatedAt: at("updated_at").notNull().defaultNow(),
   confirmedAt: at("confirmed_at"),
   completedAt: at("completed_at"),
 });
 export type Order = typeof orders.$inferSelect;
+
+// ── Customers (src/customers): one record per customer of a business ────
+/** Something a customer prefers, in their words (Zaina, on a verified chat) or the team's. */
+export type CustomerPreference = { text: string; by: "zaina" | "team"; at: string };
+export const customers = pgTable("customers", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  businessId: text("business_id").notNull(),
+  name: text("name"),
+  phone: text("phone"),
+  /** The phone's last 9 digits: how the same customer is found again. */
+  phoneKey: text("phone_key"),
+  email: text("email"),
+  /** The business's own system's id, for a customer signed in on its site. */
+  externalId: text("external_id"),
+  preferences: jsonb("preferences").$type<CustomerPreference[]>().notNull().default([]),
+  teamNote: text("team_note"),
+  followedUpAt: at("followed_up_at"),
+  firstSeenAt: at("first_seen_at").notNull().defaultNow(),
+  lastSeenAt: at("last_seen_at").notNull().defaultNow(),
+  createdAt: createdAt(),
+  updatedAt: at("updated_at").notNull().defaultNow(),
+});
+export type Customer = typeof customers.$inferSelect;
 
 // ── Billing (Phase 5): what businesses pay the platform ────────────────
 

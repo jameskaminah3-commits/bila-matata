@@ -76,6 +76,9 @@ import { registerOrderExtras } from "./orders/tool.ts";
 import { expireOrders } from "./orders/store.ts";
 import { tellOrderCustomer } from "./orders/notices.ts";
 import { registerOrderRoutes } from "./orders/routes.ts";
+import { registerCustomerRoutes } from "./customers/routes.ts";
+import { registerCustomerExtras } from "./customers/tool.ts";
+import { linkCustomers } from "./customers/store.ts";
 import { syncFeeds } from "./prices/feed.ts";
 
 /** Browsers may call the API from any website a business allows. */
@@ -203,6 +206,7 @@ export function createApp(config: PlatformConfig, engine: EngineOptions, whatsap
   registerStudioRoutes(app, config);
   registerPaymentRoutes(app, config);
   registerOrderRoutes(app, config);
+  registerCustomerRoutes(app, config);
   registerCalendarRoutes(app, config);
   registerSignupRoutes(app, config);
   registerOnboardingRoutes(app, config);
@@ -245,6 +249,7 @@ function registerExtrasOnce(): void {
   extrasRegistered = true;
   registerLeadExtras();
   registerOrderExtras();
+  registerCustomerExtras();
   registerPolicyExtras();
   registerIntegrationExtras();
 }
@@ -344,6 +349,11 @@ export async function startServer(config: PlatformConfig): Promise<{ server: Ser
     // Busy times from connected calendars and iCal links in; confirmed bookings out to Google Calendar.
     every("calendars", Number(process.env.CALENDAR_SYNC_INTERVAL_MS ?? "") || 10 * 60_000, () => syncAllCalendars()),
     // Callbacks customers asked for: the team is reminded when one is due.
+    // Chats, requests, bookings and orders filed under their customer (src/customers).
+    every("customers", Number(process.env.CUSTOMER_SWEEP_INTERVAL_MS ?? "") || 60_000, async () => {
+      const linked = await linkCustomers();
+      if (linked) console.log(`[platform] filed ${linked} record(s) under their customer`);
+    }),
     every("callbacks", Number(process.env.CALLBACK_SWEEP_INTERVAL_MS ?? "") || 60_000, () => sweepCallbacks()),
     // Websites a business asked to keep in step with: read again every week.
     every("websites", Number(process.env.WEBSITE_SYNC_INTERVAL_MS ?? "") || 60 * 60_000, () => syncWebsites()),

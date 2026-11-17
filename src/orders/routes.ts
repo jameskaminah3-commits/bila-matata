@@ -114,6 +114,7 @@ export function publicOrder(order: Order & { codeToCheck?: boolean }) {
     code_to_check: order.codeToCheck ?? false,
     pay_link: orderPayLink(order),
     session_id: order.sessionId,
+    customer_id: order.customerId,
     created_at: order.createdAt,
     confirmed_at: order.confirmedAt,
     completed_at: order.completedAt,

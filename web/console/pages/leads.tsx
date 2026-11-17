@@ -17,6 +17,7 @@ type Lead = {
   createdAt: string; status: LeadStatus; teamNote: string | null; updatedAt: string | null; channel: "web" | "whatsapp" | null;
   kind?: "lead" | "request" | "callback" | "order"; callbackAt?: string | null; callbackWindow?: string | null;
   details?: OrderDetails | null;
+  customerId?: string | null;
 };
 type OrderDetails = {
   reference: string;
@@ -135,6 +136,7 @@ function LeadCard(props: { lead: Lead; businessId: string; busy: boolean; onUpda
         {whatsapp ? <a className="button secondary small" href={`https://wa.me/${whatsapp}`} target="_blank" rel="noopener noreferrer">WhatsApp</a> : null}
         {lead.email ? <a className="button secondary small" href={`mailto:${lead.email}`}>Email {lead.email}</a> : null}
         {lead.sessionId ? <a className="button ghost small" href={`#/b/${encodeURIComponent(props.businessId)}/inbox/${lead.sessionId}`}>Open the chat</a> : null}
+        {lead.customerId ? <a className="button ghost small" href={`#/b/${encodeURIComponent(props.businessId)}/customers/${lead.customerId}`}>Customer history</a> : null}
       </div>
       {note === null ? (
         <p className="small">

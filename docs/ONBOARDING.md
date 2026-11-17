@@ -129,6 +129,16 @@ cancellation before going live.
     check codes, then Out for delivery or Ready to collect, and Delivered.
     The customer hears every step by themselves, in the chat (WhatsApp too)
     and by email if they gave one, and can ask Zaina "where's my order?".
+- **Customers**: one record per customer, by phone (or email): every chat,
+  request, booking and order, what they prefer, what's still open, and a
+  **Follow up** list (asked and didn't buy, let something lapse, a past
+  customer quiet for two months). Zaina never messages anyone on her own;
+  the team follows up and marks it done. Zaina recognises a returning
+  customer only on WhatsApp (the number proves who they are) or when they're
+  signed in on the business's own site, and keeps lasting preferences they
+  tell her there (never health, faith or money matters). In the website
+  chat, typing a number shows nobody anything. A manager can turn
+  recognition off, and **Forget this customer** handles a deletion request.
 - A salon or clinic: **Services** with durations and prices, and
   **Calendars** if they keep one, so Zaina books real free times.
 - **QR code & link** (Settings): choose where the code sends people (their

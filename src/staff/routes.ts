@@ -499,7 +499,7 @@ export function registerStaffAccountRoutes(app: Express, config: PlatformConfig)
       const phone = typeof req.body?.phone === "string" ? req.body.phone : undefined;
       if (!email && !phone) return res.status(400).json({ error: "contact_required", message: "Send an email or phone number." });
       const deleted = await eraseCustomer({ email, phone });
-      res.json({ deleted_conversations: deleted.conversations, deleted_leads: deleted.leads, anonymized_bookings: deleted.bookings });
+      res.json({ deleted_conversations: deleted.conversations, deleted_leads: deleted.leads, anonymized_bookings: deleted.bookings, anonymized_orders: deleted.orders });
     } catch (error) {
       next(error);
     }

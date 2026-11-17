@@ -735,3 +735,15 @@ table.lines tr.total th, table.lines tr.total td { font-weight: 700; border-top:
 .photo-button { justify-self: start; }
 .more-details > summary { cursor: pointer; font-weight: 600; padding: 4px 0; }
 .more-details[open] > summary { margin-bottom: 8px; }
+
+/* Customers: one record per customer, with their history. */
+.search-row { display: flex; gap: 8px; align-items: center; }
+.search-row input { flex: 1 1 auto; min-width: 0; }
+a.card.customer-row { color: inherit; text-decoration: none; }
+a.card.customer-row:hover { border-color: var(--brand); }
+.customer-follow { color: var(--waiting); }
+.customer-history { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+.customer-history li { display: grid; grid-template-columns: auto 1fr; gap: 2px 8px; align-items: baseline; min-width: 0; }
+.customer-history li a { overflow-wrap: anywhere; }
+.customer-history li .muted { grid-column: 2; }
+.plain-list li { flex-wrap: wrap; }

@@ -20,7 +20,7 @@ type Order = {
   lines: Array<{ item_id: string; name: string; quantity: number; price: string; line_total: string | null }>;
   subtotal: string; delivery_fee: string; total: string; paid: string; paid_minor: number; due: string;
   pay_on_delivery: boolean; priced_by_team: boolean; fulfilment: "delivery" | "collection"; zone: string | null; address: string | null; wanted: string | null;
-  hold_expires_at: string | null; conflict: string | null; cancel_reason: string | null; code_to_check: boolean; pay_link: string; session_id: string | null; created_at: string;
+  hold_expires_at: string | null; conflict: string | null; cancel_reason: string | null; code_to_check: boolean; pay_link: string; session_id: string | null; customer_id: string | null; created_at: string;
 };
 type Payment = { id: string; method: string; status: string; amount: string; code: string | null };
 type Filter = "needs_you" | "active" | "done" | "cancelled" | "settings";
@@ -139,6 +139,7 @@ function OrderCard(props: { order: Order; businessId: string; busy: boolean; act
         {order.customer.phone ? <a className="button secondary small" href={`tel:${order.customer.phone.replace(/[^\d+]/g, "")}`}>Call {order.customer.phone}</a> : null}
         {whatsapp ? <a className="button secondary small" href={`https://wa.me/${whatsapp}`} target="_blank" rel="noopener noreferrer">WhatsApp</a> : null}
         {order.session_id ? <a className="button ghost small" href={`#/b/${encodeURIComponent(props.businessId)}/inbox/${order.session_id}`}>Open the chat</a> : null}
+        {order.customer_id ? <a className="button ghost small" href={`#/b/${encodeURIComponent(props.businessId)}/customers/${order.customer_id}`}>Customer history</a> : null}
       </div>
 
       {code ? (

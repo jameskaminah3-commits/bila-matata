@@ -203,7 +203,7 @@ function rowToOrder(row: Record<string, any>): Order {
     totalMinor: number(row.total_minor) as number, paidMinor: number(row.paid_minor) as number, payOnDelivery: row.pay_on_delivery, pricedByTeam: row.priced_by_team,
     fulfilment: row.fulfilment, zone: row.zone, address: row.address, wanted: row.wanted, payToken: row.pay_token, holdExpiresAt: row.hold_expires_at,
     stockReserved: row.stock_reserved, conflict: row.conflict, staffNote: row.staff_note, cancelReason: row.cancel_reason, idempotencyKey: row.idempotency_key,
-    createdAt: row.created_at, updatedAt: row.updated_at, confirmedAt: row.confirmed_at, completedAt: row.completed_at,
+    customerId: row.customer_id ?? null, createdAt: row.created_at, updatedAt: row.updated_at, confirmedAt: row.confirmed_at, completedAt: row.completed_at,
   };
 }
 

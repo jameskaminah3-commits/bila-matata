@@ -14,6 +14,7 @@ import { BookingsPage } from "./pages/bookings.tsx";
 import { InboxPage } from "./pages/inbox.tsx";
 import { LeadsPage } from "./pages/leads.tsx";
 import { OrdersPage } from "./pages/orders.tsx";
+import { CustomersPage } from "./pages/customers.tsx";
 import { KnowledgePage } from "./pages/knowledge.tsx";
 import { PlatformPage } from "./pages/platform.tsx";
 import { SupportPage } from "./pages/support.tsx";
@@ -312,6 +313,8 @@ const PAGES: Array<{ id: string; label: string; icon: string; minimum: Role; onl
   // Orders from the catalogue, for a business that takes them (and has no system of its own for them).
   { id: "orders", label: "Orders", icon: "tag", minimum: "agent", needs: "orders" },
   { id: "leads", label: "Leads", icon: "user", minimum: "agent", only: ["general", "guesthouse", "salon", "restaurant"] },
+  // Each customer's whole history: chats, requests, bookings, orders, preferences, follow-ups.
+  { id: "customers", label: "Customers", icon: "contacts", minimum: "agent", only: ["general", "guesthouse", "salon", "restaurant"] },
   // Bookings, by what the business books here: rooms, services (a spa, a salon), tables, or several (a hotel with a restaurant).
   { id: "bookings", label: "Bookings", icon: "calendar", minimum: "viewer", needs: "bookings" },
   { id: "rooms", label: "Rooms", icon: "bed", minimum: "manager", needs: "rooms" },
@@ -437,6 +440,7 @@ function Console(props: { me: Me; route: Route; reloadMe: () => Promise<void> })
   else if (page === "services" && times && atLeast(role, "manager")) content = <ServicesPage businessId={businessId} role={role} kinds={[...(books.services ? (["service"] as const) : []), ...(books.tables ? (["table"] as const) : [])]} />;
   else if (page === "rooms" && books.rooms && atLeast(role, "manager")) content = <RoomsPage businessId={businessId} role={role} />;
   else if (page === "orders" && takesOrders && atLeast(role, "agent")) content = <OrdersPage businessId={businessId} role={role} onChanged={() => void refreshCounts()} />;
+  else if (page === "customers" && businessType !== "custom" && atLeast(role, "agent")) content = <CustomersPage businessId={businessId} role={role} customerId={route.id ?? null} />;
   else if (page === "leads" && businessType !== "custom" && atLeast(role, "agent")) content = <LeadsPage businessId={businessId} role={role} onChanged={() => void refreshCounts()} />;
   else if (page === "prices" && businessType !== "custom") content = <PricesPage businessId={businessId} role={role} businessType={businessType} />;
   else if (page === "knowledge") content = <KnowledgePage businessId={businessId} role={role} />;

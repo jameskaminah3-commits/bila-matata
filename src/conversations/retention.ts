@@ -49,10 +49,10 @@ export function phoneKey(phone: string): string | null {
  * they typed. Their bookings are the business's records of money and nights,
  * so those stay, without the customer's name, email, phone and notes.
  */
-export async function eraseCustomer(contact: { email?: string; phone?: string }): Promise<{ conversations: number; leads: number; bookings: number }> {
+export async function eraseCustomer(contact: { email?: string; phone?: string }): Promise<{ conversations: number; leads: number; bookings: number; orders: number }> {
   const email = contact.email?.trim().toLowerCase() || null;
   const phone = contact.phone ? phoneKey(contact.phone) : null;
-  if (!email && !phone) return { conversations: 0, leads: 0, bookings: 0 };
+  if (!email && !phone) return { conversations: 0, leads: 0, bookings: 0, orders: 0 };
   const businessId = currentBusinessId();
   return inBusiness(async (db) => {
     // A WhatsApp customer is found by the number they write from, too.
@@ -90,6 +90,22 @@ export async function eraseCustomer(contact: { email?: string; phone?: string })
       update bookings set customer_name = 'Erased on request', customer_email = null, customer_phone = null, customer_notes = null, updated_at = now()
       where ${theirs}
     `);
-    return { conversations: conversations.rowCount ?? 0, leads: leadRows.rowCount ?? 0, bookings: bookingRows.rowCount ?? 0 };
+    await db.execute(sql`
+      update payments set payer_phone = null, payer_email = null
+      where business_id = ${businessId} and order_id in (select id from orders where ${theirs})
+    `);
+    const orderRows = await db.execute(sql`
+      update orders set customer_name = 'Erased on request', customer_email = null, customer_phone = null, customer_notes = null, address = null, customer_id = null, updated_at = now()
+      where ${theirs}
+    `);
+    // Their customer record (preferences, the team's note) goes too.
+    await db.execute(sql`
+      delete from customers
+      where business_id = ${businessId} and (
+        (${email}::text is not null and lower(email) = ${email}::text)
+        or (${phone}::text is not null and phone_key = ${phone}::text)
+      )
+    `);
+    return { conversations: conversations.rowCount ?? 0, leads: leadRows.rowCount ?? 0, bookings: bookingRows.rowCount ?? 0, orders: orderRows.rowCount ?? 0 };
   }, businessId);
 }

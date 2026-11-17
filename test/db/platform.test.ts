@@ -574,7 +574,7 @@ test("a customer's conversations and leads are deleted on request, by email or p
   await appendEvent({ businessId: "bilamatata", sessionId: atStudio.id, actor: "USER", content: "Brian here: brian.m@example.com" });
   await inBusiness((db) => db.insert(leads).values({ businessId: "acme", sessionId: byEmail.id, name: "Brian", email: "brian.m@example.com" }), "acme");
 
-  assert.deepEqual(await acme(() => eraseCustomer({ email: "brian.m@example.com", phone: "0722555111" })), { conversations: 2, leads: 1, bookings: 0 });
+  assert.deepEqual(await acme(() => eraseCustomer({ email: "brian.m@example.com", phone: "0722555111" })), { conversations: 2, leads: 1, bookings: 0, orders: 0 });
   await acme(async () => {
     assert.equal(await getSession(byEmail.id), undefined);
     assert.equal(await getSession(byPhone.id), undefined);
