@@ -788,6 +788,9 @@ export const priceItems = pgTable("price_items", {
   source: text("source").$type<"manual" | "feed">().notNull().default("manual"),
   externalId: text("external_id"),
   url: text("url"),
+  // Migration 0031: a picture elsewhere (feed or website), or the fingerprint of one uploaded here.
+  imageUrl: text("image_url"),
+  imageVersion: text("image_version"),
   createdAt: createdAt(),
   updatedAt: at("updated_at").notNull().defaultNow(),
   updatedBy: uuid("updated_by"),

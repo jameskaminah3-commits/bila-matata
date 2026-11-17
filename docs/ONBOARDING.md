@@ -102,8 +102,13 @@ cancellation before going live.
 
 ### A. No website
 
-- **Catalogue** (menu): what they sell, typed in or pasted as they have it,
-  with what's out of stock switched off. Turn on **Orders and delivery** in
+- **Catalogue** (menu): what they sell. The quickest way is **Snap your
+  price list**: a photo of their board, menu or written list, read by Zaina
+  into items they check before adding. Or **Add an item**: a photo from the
+  phone's camera, a name and a price (the rest is optional). Photos are made
+  the right size on the phone and kept in the database; Zaina sends a
+  customer the photo's link when they want to see an item, and the chat
+  shows it as a picture. What's out of stock is one tap. Turn on **Orders and delivery** in
   Settings → What you offer, and on Full Zaina takes orders from it: the
   items and quantities, delivery or collection, the area and time, and the
   customer's name and phone. The server adds up the total from the

@@ -157,6 +157,8 @@ const POLL_OPEN_MS = 30_000;
 .zaina .bubble { border-bottom-left-radius: 4px; }
 .team .bubble { background: var(--team); border-bottom-left-radius: 4px; }
 .bubble a { color: inherit; text-decoration: underline; }
+.bubble a.picture { display: block; margin: 6px 0; text-decoration: none; }
+.bubble a.picture img { display: block; max-width: 100%; max-height: 220px; border-radius: 10px; object-fit: cover; background: var(--line); }
 .pending .bubble { opacity: .6; }
 .notice { align-self: center; font-size: 13px; color: var(--muted); text-align: center; padding: 2px 8px; }
 .notice.error { color: #b91c1c; }
@@ -204,6 +206,15 @@ textarea { flex: 1; resize: none; border: 1px solid var(--line); border-radius: 
     return node;
   }
 
+  function isPicture(url: string): boolean {
+    try {
+      const parsed = new URL(url);
+      return (parsed.origin === api && /^\/catalogue\/[a-z0-9-]+\/[0-9a-f-]{36}$/i.test(parsed.pathname)) || /\.(jpe?g|png|webp|gif)$/i.test(parsed.pathname);
+    } catch {
+      return false;
+    }
+  }
+
   /** Text with its web addresses made into links; everything else stays text. */
   function linkified(text: string): DocumentFragment {
     const fragment = document.createDocumentFragment();
@@ -216,6 +227,19 @@ textarea { flex: 1; resize: none; border: 1px solid var(--line); border-radius: 
       link.href = url;
       link.target = "_blank";
       link.rel = "noopener noreferrer nofollow";
+      // A picture of an item (the business's catalogue, or a picture file): shown, and opened full size on a tap.
+      if (isPicture(url)) {
+        link.textContent = "";
+        link.className = "picture";
+        const image = element("img");
+        image.src = url;
+        image.alt = "Picture";
+        image.loading = "lazy";
+        image.decoding = "async";
+        // If it can't be shown here, the link stays.
+        image.addEventListener("error", () => { link.className = ""; link.textContent = url; });
+        link.append(image);
+      }
       fragment.append(link);
       index = (match.index ?? 0) + url.length;
     }

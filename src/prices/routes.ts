@@ -17,7 +17,14 @@
 //   POST   …/price-list/feed/sync                             manager  read it again now
 //   DELETE …/price-list/feed                                  manager  stop: its products leave the list
 //
-// Items also say whether they're in stock (available) and may link to their page (url).
+//   POST   …/price-list/read-photo?currency= (a photo as the body) manager  a photo of the price list read into
+//                                                                      items and problems to check (nothing is saved)
+//   PUT    …/price-list/:itemId/picture (the photo as the body) manager  its picture, kept in the database
+//   DELETE …/price-list/:itemId/picture                       manager  remove it
+//   GET    /catalogue/:business/:itemId                       public   the picture, for the link Zaina sends
+//
+// Items also say whether they're in stock (available), may link to their page (url), and
+// have a picture (picture_url: uploaded here, or image_url from the business's own feed).
 // Prices are sent and shown in major units ("3500" is KSh 3,500).
 
 import express, { type Express, type NextFunction, type Request, type Response } from "express";
@@ -26,6 +33,9 @@ import { getBusinessSettings, updateBusinessSettings } from "../businesses/setti
 import type { CatalogueFeed } from "../db/schema.ts";
 import { consumeLimits } from "../gateway/rate-limit.ts";
 import { refreshFeed } from "./feed.ts";
+import { checkItemPicture, ITEM_PICTURE_MAX_BYTES, readItemPicture, removeItemPicture, saveItemPicture } from "./images.ts";
+import { sniffImage } from "../brand/assets.ts";
+import type { EngineOptions } from "../engine/agent.ts";
 import {
   createPriceItem,
   deletePriceItem,
@@ -61,7 +71,14 @@ const priceListBody = express.json({ limit: "300kb" });
 
 const nameTaken = { error: "name_taken", message: "The list already has an item with that name in that section." };
 
-export function registerPriceListRoutes(app: Express, secret: string): void {
+/** What the model is asked about a photo of a price list: the lines as written, for parsePriceList to read. */
+const PHOTO_INSTRUCTIONS =
+  "This is a photo of a business's price list: a board, a menu, a page or a handwritten list. " +
+  "Write out every item and its price exactly as written, one per line, like \"Sukuma wiki — 20 per bunch\". " +
+  "Put a section's heading on a line of its own. Copy names and prices only; never guess a price you can't read. " +
+  "Write nothing else. If there's no price list in the photo, write NONE.";
+
+export function registerPriceListRoutes(app: Express, secret: string, engine?: EngineOptions): void {
   const staff = requireStaff(secret);
   const base = "/v1/staff/businesses/:businessId/price-list";
   const handle = (fn: (req: Request, res: Response, businessId: string, userId: string) => Promise<unknown>) =>
@@ -73,6 +90,45 @@ export function registerPriceListRoutes(app: Express, secret: string): void {
         next(error);
       }
     };
+
+  // ── Pictures (images.ts) ──
+  // Public: a customer opens the link Zaina sends. Its address carries the photo's fingerprint.
+  app.get("/catalogue/:business/:itemId", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const business = String(req.params.business);
+      if (!/^[a-z][a-z0-9-]{1,39}$/.test(business)) return res.status(404).type("text/plain").send("Not found");
+      const picture = await readItemPicture(business, String(req.params.itemId));
+      if (!picture) return res.status(404).type("text/plain").send("Not found");
+      const tag = `"${picture.sha256.slice(0, 32)}"`;
+      const pinned = typeof req.query.v === "string" && req.query.v.length >= 8 && picture.sha256.startsWith(req.query.v);
+      res.setHeader("Cache-Control", pinned ? "public, max-age=31536000, immutable" : "public, max-age=300");
+      res.setHeader("ETag", tag);
+      res.setHeader("X-Content-Type-Options", "nosniff");
+      res.setHeader("Content-Security-Policy", "default-src 'none'; sandbox");
+      // The chat on the business's own website shows it.
+      res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+      if (req.header("if-none-match") === tag) return res.status(304).end();
+      res.type(picture.contentType).send(picture.bytes);
+    } catch (error) {
+      next(error);
+    }
+  });
+
+  const picture = express.raw({ type: ["image/png", "image/jpeg", "image/webp", "application/octet-stream"], limit: ITEM_PICTURE_MAX_BYTES + 1024 });
+  app.put(`${base}/:itemId/picture`, staff, requireBusinessRole("manager"), picture, handle(async (req, res, businessId, userId) => {
+    const checked = checkItemPicture(req.body);
+    if (!checked.ok) return res.status(400).json({ error: "invalid_picture", message: checked.message });
+    if (!(await saveItemPicture(businessId, String(req.params.itemId), checked, userId))) return res.status(404).json({ error: "not_found" });
+    const item = await getPriceItem(businessId, String(req.params.itemId));
+    res.json({ item: item && publicPriceItem(item) });
+  }));
+
+  app.delete(`${base}/:itemId/picture`, staff, requireBusinessRole("manager"), handle(async (req, res, businessId) => {
+    await removeItemPicture(businessId, String(req.params.itemId));
+    const item = await getPriceItem(businessId, String(req.params.itemId));
+    if (!item) return res.status(404).json({ error: "not_found" });
+    res.json({ item: publicPriceItem(item) });
+  }));
 
   // ── The business's own product feed (feed.ts) ──
   app.get(`${base}/feed`, staff, requireBusinessRole("viewer"), handle(async (_req, res, businessId) => {
@@ -124,6 +180,35 @@ export function registerPriceListRoutes(app: Express, secret: string): void {
     if (text.length > 100_000) return res.status(413).json({ error: "too_long", message: "That list is too long: paste it in parts." });
     const currency = req.body?.currency === "USD" ? "USD" : "KES";
     res.json(parsePriceList(text, currency));
+  }));
+
+  // A photo of the price list (a board, a menu, a handwritten page): read by the model into lines, checked like a pasted list. Nothing is saved.
+  const photoBody = express.raw({ type: ["image/png", "image/jpeg", "image/webp", "application/octet-stream"], limit: 4 * 1024 * 1024 });
+  app.post(`${base}/read-photo`, staff, requireBusinessRole("manager"), photoBody, handle(async (req, res, businessId) => {
+    if (!engine) return res.status(503).json({ error: "not_available", message: "Reading photos isn't available here." });
+    const bytes = Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0);
+    const contentType = bytes.length ? sniffImage(bytes) : null;
+    if (!contentType) return res.status(400).json({ error: "invalid_picture", message: "Choose a photo of your price list (a PNG, JPEG or WebP picture)." });
+    const verdict = await consumeLimits([{ key: `price-photo:business:${businessId}`, limit: 20, windowSeconds: 3600 }]);
+    if (!verdict.allowed) {
+      res.setHeader("Retry-After", String(verdict.retryAfterSeconds));
+      return res.status(429).json({ error: "rate_limited", message: "Many photos were read this hour. Please try again later." });
+    }
+    let text = "";
+    try {
+      const response = await engine.ai.models.generateContent({
+        model: engine.model,
+        contents: [{ role: "user", parts: [{ text: PHOTO_INSTRUCTIONS }, { inlineData: { mimeType: contentType, data: bytes.toString("base64") } }] }],
+        config: { temperature: 0, abortSignal: AbortSignal.timeout(45_000) },
+      });
+      text = (response.text ?? "").trim();
+    } catch (error) {
+      console.error(`[prices] reading a photo for ${businessId} failed:`, error instanceof Error ? error.message : error);
+      return res.status(502).json({ error: "not_read", message: "The photo couldn't be read just now. Try again in a minute, or type the prices." });
+    }
+    const currency = req.query.currency === "USD" ? "USD" : "KES";
+    const parsed = /^NONE\b/i.test(text) ? { items: [], problems: [] } : parsePriceList(text.slice(0, 100_000), currency);
+    res.json({ ...parsed, read_text: text.slice(0, 5000) });
   }));
 
   app.post(`${base}/import`, priceListBody, staff, requireBusinessRole("manager"), handle(async (req, res, businessId, userId) => {

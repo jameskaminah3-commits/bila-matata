@@ -204,6 +204,7 @@ const PATHS: Record<string, string> = {
   user: "M20 21a8 8 0 0 0-16 0M12 13a5 5 0 1 0 0-10 5 5 0 0 0 0 10z",
   key: "M21 2l-2 2m-7.6 7.6a5.5 5.5 0 1 1-7.8 7.8 5.5 5.5 0 0 1 7.8-7.8zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4",
   plus: "M12 5v14M5 12h14",
+  image: "M4 5h16v14H4zM4 15l4-4 4 4 3-3 5 5M15 9h.01",
   search: "M11 19a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM21 21l-4.3-4.3",
   refresh: "M21 12a9 9 0 1 1-2.6-6.4M21 3v6h-6",
   calendar: "M4 6h16v14H4zM4 10h16M8 3v4M16 3v4",

@@ -28,6 +28,10 @@ let ops: string;
 const tokens: Record<string, string> = {};
 const staff = (business: string, method: string, route: string, body?: unknown, token = tokens[business]) => api(method, `/v1/staff/businesses/${business}${route}`, body, token);
 const raw64 = (tool: string, args: Record<string, unknown>) => `TEST:raw64 ${tool} ${Buffer.from(JSON.stringify(args)).toString("base64")}`;
+const PNG = (extra = "") => Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.from(extra), Buffer.alloc(1024, 7)]);
+const upload = (business: string, route: string, bytes: Buffer, method = "PUT") => fetch(`${BASE}/v1/staff/businesses/${business}${route}`, {
+  method, headers: { authorization: `Bearer ${tokens[business]}`, "content-type": "image/png" }, body: bytes,
+});
 const said = (reply: string) => JSON.parse(reply.replace(/^(System|Tool) said: /, ""));
 
 // The custom shop, answering with the developer's file.
@@ -178,4 +182,54 @@ test("its own system: Zaina searches the custom shop and places the order there,
   const kit = await fetch(`${BASE}/api/zaina/integration/zaina-connector.ts`);
   assert.equal(kit.status, 200);
   assert.match(await kit.text(), /export async function handleZaina/);
+});
+
+test("pictures: a photo the team uploads is kept in the database, and Zaina shares its link; a feed's pictures come with it", async () => {
+  const items = (await staff("duka", "GET", "/price-list")).body.items as any[];
+  const oil = items.find((item) => item.name === "Golden Fry cooking oil 20L");
+  assert.equal(oil.picture_url, null);
+  assert.equal((await upload("duka", `/price-list/${oil.id}/picture`, Buffer.from("<svg onload=alert(1)>"))).status, 400, "only real pictures");
+  const saved = await (await upload("duka", `/price-list/${oil.id}/picture`, PNG())).json() as any;
+  assert.match(saved.item.picture_url, new RegExp(`^/catalogue/duka/${oil.id}\\?v=[0-9a-f]{12}$`));
+  const stored = (await platform.db.query("select content_type, octet_length(bytes) as size from catalogue_images where item_id = $1", [oil.id])).rows[0];
+  assert.deepEqual([stored.content_type, stored.size], ["image/png", PNG().length], "kept in the database");
+
+  const served = await fetch(`${BASE}${saved.item.picture_url}`);
+  assert.equal(served.status, 200);
+  assert.equal(served.headers.get("content-type"), "image/png");
+  assert.match(served.headers.get("cache-control") ?? "", /immutable/);
+  assert.equal(served.headers.get("cross-origin-resource-policy"), "cross-origin", "the chat on the business's own website shows it");
+  assert.equal((await fetch(`${BASE}/catalogue/happy/${oil.id}`)).status, 404, "never from another business");
+
+  // Zaina is given each picture's address, and may pass on an https one as it is (this test service is plain http, so its own is held back here).
+  const chat = await openChat("duka", "https://duka.example");
+  assert.match(await say(chat, raw64("get_prices", { query: "golden fry" })), /Golden Fry cooking oil 20L: KSh 4,500 per jerrican \(picture: /);
+  const rice = items.find((item) => item.name === "Pishori rice 25kg");
+  assert.equal((await staff("duka", "PATCH", `/price-list/${rice.id}`, { image_url: "https://cdn.duka.example/rice.jpg" })).status, 200);
+  assert.equal(await say(chat, raw64("get_prices", { query: "pishori rice" })), "Our prices: Pishori rice 25kg: KSh 3,200 (picture: https://cdn.duka.example/rice.jpg).");
+
+  // A feed's own pictures, by their address.
+  platform.publishPage("duka.example", "api/products.json", JSON.stringify({ products: [{ id: "p9", name: "Maize flour 2kg", price: 210, images: [{ src: "https://cdn.duka.example/flour.jpg" }] }] }));
+  assert.equal((await staff("duka", "PUT", "/price-list/feed", { url: "https://duka.example/api/products", daily: false })).status, 200);
+  const flour = ((await staff("duka", "GET", "/price-list")).body.items as any[]).find((item) => item.name === "Maize flour 2kg");
+  assert.equal(flour.picture_url, "https://cdn.duka.example/flour.jpg");
+
+  // Removed with its item.
+  assert.equal((await upload("duka", `/price-list/${oil.id}/picture`, Buffer.alloc(0), "DELETE")).status, 200);
+  assert.equal((await fetch(`${BASE}${saved.item.picture_url}`)).status, 404);
+  await staff("duka", "DELETE", "/price-list/feed");
+});
+
+test("snap your price list: Zaina reads a photo of the board into items to check, and nothing is added until the owner says so", async () => {
+  const board = "Mboga\nSukuma wiki — 20 per bunch\nTomatoes: 50 per kg\nMatunda\nAvocado 15";
+  const read = await (await upload("duka", "/price-list/read-photo", PNG(`TEST-PRICES:${Buffer.from(board).toString("base64")}`), "POST")).json() as any;
+  assert.deepEqual(read.items.map((item: any) => [item.section, item.name, item.price, item.unit]), [
+    ["Mboga", "Sukuma wiki", "20", "per bunch"],
+    ["Mboga", "Tomatoes", "50", "per kg"],
+    ["Matunda", "Avocado", "15", null],
+  ]);
+  assert.ok(!((await staff("duka", "GET", "/price-list")).body.items as any[]).some((item) => item.name === "Sukuma wiki"), "nothing saved yet");
+  const none = await (await upload("duka", "/price-list/read-photo", PNG(), "POST")).json() as any;
+  assert.deepEqual(none.items, [], "a photo with no price list in it");
+  assert.equal((await upload("duka", "/price-list/read-photo", Buffer.from("not a picture"), "POST")).status, 400);
 });

@@ -191,7 +191,7 @@ export function createApp(config: PlatformConfig, engine: EngineOptions, whatsap
   registerStaffAccountRoutes(app, config);
   registerStaffConversationRoutes(app, config);
   registerKnowledgeRoutes(app, config.sessionTokenSecret);
-  registerPriceListRoutes(app, config.sessionTokenSecret);
+  registerPriceListRoutes(app, config.sessionTokenSecret, engine);
   registerPlatformRoutes(app, config);
   registerWhatsappRoutes(app, config, whatsapp);
   registerBookingRoutes(app, config);

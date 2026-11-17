@@ -115,6 +115,16 @@ export function feedItem(row: Raw, feedUrl: URL): FeedItemValues | null {
     // Not a link.
   }
   const id = first(row, ["id", "sku", "product_id", "handle", "code"]);
+  // Its picture, wherever the shop keeps it (its own site or a picture service), https only.
+  const images = Array.isArray(row.images) ? (row.images as Raw[]) : null;
+  const picture = first(row, ["image", "image_url", "imageUrl", "image_link", "picture", "photo", "thumbnail"]) ?? images?.[0]?.src ?? images?.[0]?.url;
+  let imageUrl: string | null = null;
+  try {
+    const candidate = typeof picture === "string" ? new URL(picture, feedUrl) : typeof picture === "object" && picture && typeof (picture as Raw).src === "string" ? new URL(String((picture as Raw).src), feedUrl) : null;
+    if (candidate && candidate.protocol === "https:" && candidate.toString().length <= 500) imageUrl = candidate.toString();
+  } catch {
+    // Not a picture address.
+  }
   return {
     section: categoryOf(row) || null,
     name,
@@ -125,6 +135,7 @@ export function feedItem(row: Raw, feedUrl: URL): FeedItemValues | null {
     unit: text(first(row, ["unit", "per", "uom", "pack_size"]), 40) || null,
     available: availableOf(row),
     url,
+    imageUrl,
     externalId: id === undefined ? null : String(id).slice(0, 200),
   };
 }

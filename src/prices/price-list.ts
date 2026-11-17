@@ -13,6 +13,7 @@ import { and, asc, eq, sql } from "drizzle-orm";
 import { formatMoney, toMinor } from "../booking/money.ts";
 import { bookingCurrencies, priceItems, type BookingCurrency, type PriceItem } from "../db/schema.ts";
 import { inBusiness } from "../db/tenant.ts";
+import { itemPictureUrl } from "./images.ts";
 
 export const MAX_PRICE_ITEMS = 500;
 
@@ -30,6 +31,8 @@ export type PriceItemValues = {
   available: boolean;
   /** Its page on the business's website, if any. */
   url: string | null;
+  /** A picture of it elsewhere (https), when none is uploaded here. */
+  imageUrl: string | null;
 };
 
 const clean = (value: unknown) => (typeof value === "string" ? value.replace(/\s+/g, " ").trim() : "");
@@ -60,7 +63,9 @@ export function validatePriceItem(input: Record<string, unknown>, current?: Pric
   if (typeof available !== "boolean") return { ok: false, error: "available is true or false." };
   const url = has("url") ? (typeof input.url === "string" ? input.url.trim() : "") || null : current?.url ?? null;
   if (url && (!/^https:\/\/[^\s]+$/i.test(url) || url.length > 500)) return { ok: false, error: "The item's page is an https:// address." };
-  return { ok: true, value: { section, name, description, priceMinor: price, priceMaxMinor: priceMax, currency, unit, status, sortOrder, available, url } };
+  const imageUrl = has("image_url") ? (typeof input.image_url === "string" ? input.image_url.trim() : "") || null : current?.imageUrl ?? null;
+  if (imageUrl && (!/^https:\/\/[^\s]+$/i.test(imageUrl) || imageUrl.length > 500)) return { ok: false, error: "A picture's address is an https:// link." };
+  return { ok: true, value: { section, name, description, priceMinor: price, priceMaxMinor: priceMax, currency, unit, status, sortOrder, available, url, imageUrl } };
 }
 
 /** "KSh 3,500 per car", "KSh 1,000–1,500 per person", "Free". */
@@ -86,6 +91,9 @@ export const publicPriceItem = (item: PriceItem) => ({
   available: item.available,
   source: item.source,
   url: item.url,
+  image_url: item.imageUrl,
+  // The dashboard is on this service's own address: the uploaded photo by its path.
+  picture_url: itemPictureUrl(item, ""),
   price_display: priceText(item),
   updated_at: item.updatedAt,
 });
@@ -266,15 +274,15 @@ export async function syncFeedItems(businessId: string, values: FeedItemValues[]
     let skipped = Math.max(0, values.length - room);
     for (const [index, value] of values.slice(0, room).entries()) {
       const { rows } = await client.query<{ id: string }>(
-        `insert into price_items (business_id, section, name, description, price_minor, price_max_minor, currency, unit, status, sort_order, available, source, external_id, url)
-         values ($1, $2, $3, $4, $5, $6, $7, $8, 'active', $9, $10, 'feed', $11, $12)
+        `insert into price_items (business_id, section, name, description, price_minor, price_max_minor, currency, unit, status, sort_order, available, source, external_id, url, image_url)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, 'active', $9, $10, 'feed', $11, $12, $13)
          on conflict (business_id, (lower(btrim(coalesce(section, '')))), (lower(btrim(name))))
          do update set description = excluded.description, price_minor = excluded.price_minor, price_max_minor = excluded.price_max_minor,
            currency = excluded.currency, unit = excluded.unit, sort_order = excluded.sort_order, available = excluded.available,
-           external_id = excluded.external_id, url = excluded.url, updated_at = now()
+           external_id = excluded.external_id, url = excluded.url, image_url = excluded.image_url, updated_at = now()
          where price_items.source = 'feed'
          returning id`,
-        [businessId, value.section, value.name, value.description, value.priceMinor, value.priceMaxMinor, value.currency, value.unit, 10_000 + index, value.available, value.externalId, value.url],
+        [businessId, value.section, value.name, value.description, value.priceMinor, value.priceMaxMinor, value.currency, value.unit, 10_000 + index, value.available, value.externalId, value.url, value.imageUrl],
       );
       if (rows[0] && !kept.includes(rows[0].id)) kept.push(rows[0].id);
       else skipped += 1;

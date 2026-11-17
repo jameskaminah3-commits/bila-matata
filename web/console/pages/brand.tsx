@@ -7,7 +7,8 @@
 // change before it is saved.
 
 import { useEffect, useRef, useState } from "react";
-import { api, apiUpload, businessPath } from "../api.ts";
+import { api, ApiError, apiUpload, businessPath } from "../api.ts";
+import { shrinkPhoto } from "../photo.ts";
 import { ZAINA_FACE_DATA_URI } from "../../../src/brand/zaina-face.ts";
 import { atLeast, type Role, type Settings } from "../types.ts";
 import { Button, ErrorLine, Field, Message, useAction, useLoad } from "../ui.tsx";
@@ -38,11 +39,15 @@ export function Brand(props: { businessId: string; role: Role }) {
   const assistant = settings.data.assistantName;
   const showLogo = form.avatar === "logo" && brand.logo_url;
 
-  const put = (kind: Kind, file: File | undefined) => {
-    if (!file) return;
+  const put = (kind: Kind, original: File | undefined) => {
+    if (!original) return;
     const limit = kind === "logo" ? brand.limits.logo_kb : brand.limits.cover_kb;
-    if (file.size > limit * 1024) return upload.setMessage({ kind: "error", text: `That picture is too big: the ${kind} can be up to ${limit} KB.` });
-    void upload.run(async () => setBrand(await apiUpload<BrandView>("PUT", businessPath(props.businessId, `/brand/${kind}`), file)), `Your ${kind} is saved. Customers see it straight away.`);
+    void upload.run(async () => {
+      // A phone's photo is made the right size first (a logo keeps any see-through parts).
+      const file = await shrinkPhoto(original, kind === "logo" ? { maxSide: 600, maxBytes: limit * 1024 - 1024, keepTransparency: true } : { maxSide: 1600, maxBytes: limit * 1024 - 1024 });
+      if (file.size > limit * 1024) throw new ApiError(400, "too_big", `That picture is too big: the ${kind} can be up to ${limit} KB.`);
+      setBrand(await apiUpload<BrandView>("PUT", businessPath(props.businessId, `/brand/${kind}`), file));
+    }, `Your ${kind} is saved. Customers see it straight away.`);
   };
   const remove = (kind: Kind) => void upload.run(async () => {
     setBrand(await api<BrandView>("DELETE", businessPath(props.businessId, `/brand/${kind}`)));

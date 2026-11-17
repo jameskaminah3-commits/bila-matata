@@ -53,6 +53,18 @@ function withoutContext(text) {
   return text.replace(/\s*<turn_context>[\s\S]*?<\/turn_context>\s*/g, " ").trim();
 }
 
+/** The reading a test hid in a photo it sent ("TEST-PRICES:" and base64 text in the picture's bytes); null when there's none. */
+function photoText(contents) {
+  const last = contents[contents.length - 1];
+  for (const part of last?.parts ?? []) {
+    const data = part.inlineData?.data;
+    if (!data) continue;
+    const hidden = /TEST-PRICES:([A-Za-z0-9+/=]+)/.exec(Buffer.from(data, "base64").toString("latin1"));
+    return hidden ? Buffer.from(hidden[1], "base64").toString("utf8") : "NONE";
+  }
+  return null;
+}
+
 function latestCustomerText(contents) {
   for (let i = contents.length - 1; i >= 0; i -= 1) {
     const c = contents[i];
@@ -77,7 +89,7 @@ function messyReplyFor(name, result) {
   if (name === "get_prices") {
     // Quotes the price list's lines as they come.
     if (!(r.items || []).length) return `I'm not sure of that price — shall I ask the team for you?${r.sections ? ` (We list: ${r.sections.join(", ")}.)` : ""}`;
-    return `Our prices: ${r.items.map((item) => `${item.name}: ${item.price}${item.in_stock === false ? " (out of stock)" : ""}`).join("; ")}.`;
+    return `Our prices: ${r.items.map((item) => `${item.name}: ${item.price}${item.in_stock === false ? " (out of stock)" : ""}${item.picture ? ` (picture: ${item.picture})` : ""}`).join("; ")}.`;
   }
   if (name === "search_knowledge") {
     const passage = (r.passages || [])[0];
@@ -591,6 +603,9 @@ globalThis.fetch = async (input, init) => {
   } else if (fnResponses.length > 0) {
     const fr = fnResponses[0].functionResponse;
     out = reply([{ text: messyReplyFor(fr.name, fr.response) }]);
+  } else if (photoText(contents) !== null) {
+    // A photo (prices/routes.ts read-photo): the text a test hid in its bytes after TEST-PRICES:, as the model's reading.
+    out = reply([{ text: photoText(contents) }]);
   } else if (/TEST:whoami/.test(customerText)) {
     // Which business's instructions and tools this chat runs on.
     out = reply([{ text: `${systemText.split("\n")[0]} Tools: ${toolNames.join(", ")}.` }]);

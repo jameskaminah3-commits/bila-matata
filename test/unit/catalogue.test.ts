@@ -5,6 +5,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { feedItem, feedPrice, parseFeed } from "../../src/prices/feed.ts";
 import { priceOrder } from "../../src/orders/tool.ts";
+import { itemPictureUrl } from "../../src/prices/images.ts";
 import type { PriceItem } from "../../src/db/schema.ts";
 
 const feedUrl = new URL("https://happyfine.example/api/products");
@@ -56,4 +57,16 @@ test("an order's total comes from the catalogue; a range leaves it to the team",
   assert.match(range.totalText, /confirmed by the team/);
   const mixed = priceOrder([{ item: item("oil", 450000), quantity: 1 }, { item: { ...item("tour", 5000), currency: "USD" } as PriceItem, quantity: 1 }]);
   assert.equal(mixed.ok, false);
+});
+
+test("a feed's pictures, wherever the shop keeps them, https only; an uploaded photo's address", () => {
+  const picture = (row: Record<string, unknown>) => feedItem({ name: "Oil", price: 100, ...row }, feedUrl)?.imageUrl;
+  assert.equal(picture({ image: "/img/oil.jpg" }), "https://happyfine.example/img/oil.jpg");
+  assert.equal(picture({ images: [{ src: "https://cdn.shopify.example/oil.jpg" }] }), "https://cdn.shopify.example/oil.jpg");
+  assert.equal(picture({ image: { src: "https://cdn.shopify.example/oil2.jpg" } }), "https://cdn.shopify.example/oil2.jpg");
+  assert.equal(picture({ image_link: "http://insecure.example/oil.jpg" }), null);
+  const xml = parseFeed('<rss><item><title>Flour</title><g:price>210 KES</g:price><g:image_link>https://happyfine.example/flour.jpg</g:image_link></item></rss>', "application/xml", feedUrl);
+  assert.equal(xml.items[0].imageUrl, "https://happyfine.example/flour.jpg");
+  assert.equal(itemPictureUrl({ id: "abc", businessId: "duka", imageUrl: "https://cdn.example/x.jpg", imageVersion: "0123456789ab" }, "https://bilamatata.com"), "https://bilamatata.com/catalogue/duka/abc?v=0123456789ab");
+  assert.equal(itemPictureUrl({ id: "abc", businessId: "duka", imageUrl: "https://cdn.example/x.jpg", imageVersion: null }, "https://bilamatata.com"), "https://cdn.example/x.jpg");
 });

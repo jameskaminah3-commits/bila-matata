@@ -9,7 +9,8 @@
 // that's out.
 
 import { useState } from "react";
-import { api, businessPath } from "../api.ts";
+import { api, apiUpload, businessPath } from "../api.ts";
+import { shrinkPhoto } from "../photo.ts";
 import { atLeast, type Role } from "../types.ts";
 import { Button, Empty, ErrorLine, Field, Icon, Message, Modal, useAction, useLoad } from "../ui.tsx";
 import { timeAgo } from "../format.ts";
@@ -17,7 +18,7 @@ import { timeAgo } from "../format.ts";
 type PriceItem = {
   id: string; section: string | null; name: string; description: string | null; price: number; price_max: number | null;
   currency: "KES" | "USD"; unit: string | null; status: "active" | "hidden"; sort_order: number; price_display: string;
-  available: boolean; source: "manual" | "feed"; url: string | null;
+  available: boolean; source: "manual" | "feed"; url: string | null; image_url: string | null; picture_url: string | null;
 };
 type Feed = { url: string; daily: boolean; last_read_at: string | null; last_items: number; last_skipped: number; last_error: string | null };
 type Parsed = { items: Array<{ section: string | null; name: string; price: string; price_max: string | null; currency: "KES" | "USD"; unit: string | null }>; problems: Array<{ line: number; text: string; reason: string }> };
@@ -25,7 +26,7 @@ type Parsed = { items: Array<{ section: string | null; name: string; price: stri
 export function PricesPage(props: { businessId: string; role: Role; businessType: string | null }) {
   const list = useLoad(() => api<{ items: PriceItem[] }>("GET", businessPath(props.businessId, "/price-list")), [props.businessId]);
   const [editing, setEditing] = useState<PriceItem | "new" | null>(null);
-  const [pasting, setPasting] = useState(false);
+  const [pasting, setPasting] = useState<"text" | "photo" | null>(null);
   const action = useAction();
   const manager = atLeast(props.role, "manager");
   const items = list.data?.items ?? [];
@@ -42,16 +43,17 @@ export function PricesPage(props: { businessId: string; role: Role; businessType
       </div>
       {manager ? (
         <div className="toolbar">
-          <Button kind="primary" onClick={() => setEditing("new")}><Icon name="plus" size={15} /> Add a price</Button>
-          <Button onClick={() => setPasting(true)}>Paste your price list</Button>
+          <Button kind="primary" onClick={() => setEditing("new")}><Icon name="plus" size={15} /> Add an item</Button>
+          <Button onClick={() => setPasting("photo")}>Snap your price list</Button>
+          <Button kind="ghost" onClick={() => setPasting("text")}>Paste a list</Button>
         </div>
       ) : null}
       {manager ? <FeedCard businessId={props.businessId} onChanged={() => void list.reload()} /> : null}
       <ErrorLine error={list.error} />
       <Message message={action.message} />
       {list.data && items.length === 0 ? (
-        <Empty title="No prices yet">
-          <p>Add what customers ask the price of, or paste the list you already have (one item per line, with its price). Until then, Zaina says it isn't sure and offers the team.</p>
+        <Empty title="Nothing here yet">
+          <p>Add what you sell with a photo and a price, or take a photo of your price board or menu and Zaina reads it for you. Until then, Zaina says she isn't sure of a price and offers the team.</p>
         </Empty>
       ) : null}
       {sections.map((section) => (
@@ -62,7 +64,8 @@ export function PricesPage(props: { businessId: string; role: Role; businessType
             <tbody>
               {items.filter((item) => (item.section ?? "") === section).map((item) => (
                 <tr key={item.id}>
-                  <td>
+                  <td className="item-cell">
+                    {item.picture_url ? <img className="item-thumb" src={item.picture_url} alt="" loading="lazy" /> : null}
                     <strong>{item.name}</strong>
                     {item.status === "hidden" ? <span className="chip closed">Hidden</span> : null}
                     {item.source === "feed" ? <span className="chip">From your system</span> : null}
@@ -114,9 +117,10 @@ export function PricesPage(props: { businessId: string; role: Role; businessType
         <PasteList
           businessId={props.businessId}
           hasItems={items.length > 0}
-          onClose={() => setPasting(false)}
+          photo={pasting === "photo"}
+          onClose={() => setPasting(null)}
           onAdded={async (text) => {
-            setPasting(false);
+            setPasting(null);
             action.setMessage({ kind: "success", text });
             await list.reload();
           }}
@@ -136,49 +140,78 @@ function ItemEditor(props: { businessId: string; item: PriceItem | null; section
     currency: props.item?.currency ?? "KES",
     unit: props.item?.unit ?? "",
     status: props.item?.status ?? "active",
+    image_url: props.item?.image_url ?? "",
   });
+  const [available, setAvailable] = useState(props.item?.available ?? true);
+  const [photo, setPhoto] = useState<File | null>(null);
+  const [preview, setPreview] = useState<string | null>(props.item?.picture_url ?? null);
+  const [removePhoto, setRemovePhoto] = useState(false);
   const set = (key: keyof typeof form, value: string) => setForm({ ...form, [key]: value });
   const action = useAction();
+  const more = Boolean(props.item && (props.item.section || props.item.description || props.item.unit || props.item.price_max !== null || props.item.status === "hidden" || props.item.currency !== "KES"));
   return (
-    <Modal title={props.item ? `Edit "${props.item.name}"` : "Add a price"} onClose={props.onClose}>
+    <Modal title={props.item ? `Edit "${props.item.name}"` : "Add an item"} onClose={props.onClose}>
       <form
         className="form"
         onSubmit={async (event) => {
           event.preventDefault();
-          const body = { ...form, section: form.section.trim() || null, description: form.description.trim() || null, unit: form.unit.trim() || null, price_max: form.price_max.trim() || null };
+          const body = { ...form, available, section: form.section.trim() || null, description: form.description.trim() || null, unit: form.unit.trim() || null, price_max: form.price_max.trim() || null, image_url: form.image_url.trim() || null };
           await action.run(async () => {
-            const saved = await api<{ item: PriceItem }>(props.item ? "PATCH" : "POST", businessPath(props.businessId, props.item ? `/price-list/${props.item.id}` : "/price-list"), body);
+            let saved = await api<{ item: PriceItem }>(props.item ? "PATCH" : "POST", businessPath(props.businessId, props.item ? `/price-list/${props.item.id}` : "/price-list"), body);
+            // The photo is kept in the database once the item exists.
+            if (photo) saved = await apiUpload<{ item: PriceItem }>("PUT", businessPath(props.businessId, `/price-list/${saved.item.id}/picture`), await shrinkPhoto(photo));
+            else if (removePhoto && props.item?.picture_url) saved = await api<{ item: PriceItem }>("DELETE", businessPath(props.businessId, `/price-list/${saved.item.id}/picture`));
             props.onSaved(`Saved "${saved.item.name}": ${saved.item.price_display}.`);
           });
         }}
       >
-        <div className="form-row">
-          <Field label="Name"><input required maxLength={120} value={form.name} onChange={(event) => set("name", event.target.value)} placeholder="Airport transfer" /></Field>
-          <Field label="Section (optional)">
-            <input maxLength={80} list="price-sections" value={form.section} onChange={(event) => set("section", event.target.value)} placeholder="Transfers" />
-          </Field>
-          <datalist id="price-sections">{props.sections.map((section) => <option key={section} value={section} />)}</datalist>
+        <div className="photo-pick">
+          {preview && !removePhoto ? <img className="photo-preview" src={preview} alt="" /> : <div className="photo-preview empty" aria-hidden="true"><Icon name="image" size={28} /></div>}
+          <div className="stack-tight">
+            <label className="button secondary">
+              {preview && !removePhoto ? "Change the photo" : "Add a photo"}
+              <input className="visually-hidden" type="file" accept="image/*" onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (!file) return;
+                setPhoto(file);
+                setRemovePhoto(false);
+                setPreview(URL.createObjectURL(file));
+              }} />
+            </label>
+            {preview && !removePhoto ? <Button small kind="ghost" onClick={() => { setPhoto(null); setRemovePhoto(true); }}>Remove the photo</Button> : null}
+            <span className="muted small">Customers who ask to see it get this photo.</span>
+          </div>
         </div>
+        <Field label="Name"><input required maxLength={120} value={form.name} onChange={(event) => set("name", event.target.value)} placeholder="Sukuma wiki, Box braids, Cooking oil 20L" /></Field>
         <div className="form-row">
-          <Field label="Price" hint="0 for free."><input required inputMode="decimal" value={form.price} onChange={(event) => set("price", event.target.value)} placeholder="3,500" /></Field>
-          <Field label="Up to (optional)" hint="For a range: the most it costs."><input inputMode="decimal" value={form.price_max} onChange={(event) => set("price_max", event.target.value)} /></Field>
-          <Field label="Currency">
-            <select value={form.currency} onChange={(event) => set("currency", event.target.value)}>
-              <option value="KES">KSh</option>
-              <option value="USD">US$</option>
-            </select>
-          </Field>
+          <Field label={`Price (${form.currency === "USD" ? "US$" : "KSh"})`} hint="0 for free."><input required inputMode="decimal" value={form.price} onChange={(event) => set("price", event.target.value)} placeholder="350" /></Field>
+          <Field label="Per (optional)"><input maxLength={40} value={form.unit} onChange={(event) => set("unit", event.target.value)} placeholder="per bunch, per kg, per head" /></Field>
         </div>
-        <div className="form-row">
-          <Field label="Per (optional)"><input maxLength={40} value={form.unit} onChange={(event) => set("unit", event.target.value)} placeholder="per car, per person, per hour" /></Field>
-          <Field label="Status">
-            <select value={form.status} onChange={(event) => set("status", event.target.value)}>
-              <option value="active">Shown (Zaina quotes it)</option>
-              <option value="hidden">Hidden</option>
-            </select>
-          </Field>
-        </div>
-        <Field label="What it includes (optional)" wide><textarea rows={2} maxLength={500} value={form.description} onChange={(event) => set("description", event.target.value)} /></Field>
+        <label className="check"><input type="checkbox" checked={available} onChange={(event) => setAvailable(event.target.checked)} /><span>In stock (Zaina takes orders for it)</span></label>
+        <details className="more-details" open={more}>
+          <summary>More details (optional)</summary>
+          <div className="form-row">
+            <Field label="Section"><input maxLength={80} list="price-sections" value={form.section} onChange={(event) => set("section", event.target.value)} placeholder="Vegetables, Hair, Oils" /></Field>
+            <datalist id="price-sections">{props.sections.map((section) => <option key={section} value={section} />)}</datalist>
+            <Field label="Up to" hint="For a range: the most it costs."><input inputMode="decimal" value={form.price_max} onChange={(event) => set("price_max", event.target.value)} /></Field>
+            <Field label="Currency">
+              <select value={form.currency} onChange={(event) => set("currency", event.target.value)}>
+                <option value="KES">KSh</option>
+                <option value="USD">US$</option>
+              </select>
+            </Field>
+          </div>
+          <Field label="What it includes" wide><textarea rows={2} maxLength={500} value={form.description} onChange={(event) => set("description", event.target.value)} /></Field>
+          <div className="form-row">
+            <Field label="Show it to customers">
+              <select value={form.status} onChange={(event) => set("status", event.target.value)}>
+                <option value="active">Yes (Zaina quotes it)</option>
+                <option value="hidden">No, hide it</option>
+              </select>
+            </Field>
+            <Field label="Or a picture's link" hint="If the photo is already online."><input type="url" inputMode="url" value={form.image_url} onChange={(event) => set("image_url", event.target.value)} placeholder="https://" /></Field>
+          </div>
+        </details>
         <Message message={action.message} />
         <div className="actions"><Button onClick={props.onClose}>Cancel</Button><Button kind="primary" type="submit" busy={action.busy}>Save</Button></div>
       </form>
@@ -195,15 +228,40 @@ function previewPrice(item: Parsed["items"][number]): string {
   return item.unit ? `${text} ${item.unit}` : text;
 }
 
-function PasteList(props: { businessId: string; hasItems: boolean; onClose: () => void; onAdded: (message: string) => void }) {
+function PasteList(props: { businessId: string; hasItems: boolean; photo?: boolean; onClose: () => void; onAdded: (message: string) => void }) {
   const [text, setText] = useState("");
+  const [picture, setPicture] = useState<File | null>(null);
   const [currency, setCurrency] = useState<"KES" | "USD">("KES");
   const [parsed, setParsed] = useState<Parsed | null>(null);
   const [replace, setReplace] = useState(false);
   const action = useAction();
   return (
-    <Modal title="Paste your price list" onClose={props.onClose}>
-      {!parsed ? (
+    <Modal title={props.photo ? "Snap your price list" : "Paste your price list"} onClose={props.onClose}>
+      {!parsed && props.photo ? (
+        <form
+          className="form"
+          onSubmit={async (event) => {
+            event.preventDefault();
+            if (!picture) return;
+            await action.run(async () => setParsed(await apiUpload<Parsed>("POST", businessPath(props.businessId, `/price-list/read-photo?currency=${currency}`), await shrinkPhoto(picture, { maxSide: 2000, maxBytes: 2 * 1024 * 1024 }))));
+          }}
+        >
+          <p className="muted">Take a clear photo of your price board, menu or a written list. Zaina reads the items and prices; you check them before anything is added.</p>
+          <label className="button secondary photo-button">
+            {picture ? "Take another photo" : "Take or choose a photo"}
+            <input className="visually-hidden" type="file" accept="image/*" capture="environment" onChange={(event) => setPicture(event.target.files?.[0] ?? null)} />
+          </label>
+          {picture ? <img className="photo-preview wide" src={URL.createObjectURL(picture)} alt="Your price list" /> : null}
+          <Field label="Prices with no currency are in">
+            <select value={currency} onChange={(event) => setCurrency(event.target.value as "KES" | "USD")}>
+              <option value="KES">Kenya shillings (KSh)</option>
+              <option value="USD">US dollars</option>
+            </select>
+          </Field>
+          <Message message={action.message} />
+          <div className="actions"><Button onClick={props.onClose}>Cancel</Button><Button kind="primary" type="submit" busy={action.busy} disabled={!picture}>Read the photo</Button></div>
+        </form>
+      ) : !parsed ? (
         <form
           className="form"
           onSubmit={async (event) => {
