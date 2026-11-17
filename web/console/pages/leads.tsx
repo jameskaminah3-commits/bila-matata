@@ -15,7 +15,14 @@ type LeadStatus = "new" | "contacted" | "won" | "lost";
 type Lead = {
   id: number; sessionId: string | null; name: string; email: string | null; phone: string | null; interest: string | null; notes: string | null;
   createdAt: string; status: LeadStatus; teamNote: string | null; updatedAt: string | null; channel: "web" | "whatsapp" | null;
-  kind?: "lead" | "request" | "callback"; callbackAt?: string | null; callbackWindow?: string | null;
+  kind?: "lead" | "request" | "callback" | "order"; callbackAt?: string | null; callbackWindow?: string | null;
+  details?: OrderDetails | null;
+};
+type OrderDetails = {
+  reference: string;
+  lines: Array<{ itemId: string; name: string; quantity: number; priceText: string; lineTotalMinor: number | null }>;
+  currency: string; totalMinor: number | null; totalText: string;
+  fulfilment: "delivery" | "collection" | null; area: string | null; when: string | null;
 };
 
 /** When a callback is due, in the reader's own words of time. */
@@ -23,6 +30,32 @@ const callTime = (iso: string) => new Date(iso).toLocaleString(undefined, { week
 type Filter = "open" | LeadStatus | "all";
 
 const STATUS_TEXT: Record<LeadStatus, string> = { new: "New", contacted: "Contacted", won: "Became a customer", lost: "Not going ahead" };
+// An order's steps: the team confirms it with the customer, then it's delivered or collected, or cancelled.
+const ORDER_STATUS_TEXT: Record<LeadStatus, string> = { new: "New order", contacted: "Confirmed", won: "Delivered or collected", lost: "Cancelled" };
+const statusText = (lead: Lead) => (lead.kind === "order" ? ORDER_STATUS_TEXT : STATUS_TEXT);
+
+/** What a customer ordered through Zaina: its lines, total and how it reaches them. */
+function OrderLines(props: { order: OrderDetails }) {
+  const { order } = props;
+  const money = (minor: number) => `${order.currency === "USD" ? "$" : "KSh "}${(minor / 100).toLocaleString("en-KE", { maximumFractionDigits: 2 })}`;
+  return (
+    <div className="order-lines">
+      <div className="table-scroll">
+        <table className="table">
+          <thead><tr><th>Item</th><th className="number">Qty</th><th>Price</th><th className="number">Total</th></tr></thead>
+          <tbody>
+            {order.lines.map((line) => (
+              <tr key={line.itemId}><td>{line.name}</td><td className="number">{line.quantity}</td><td>{line.priceText}</td><td className="number">{line.lineTotalMinor !== null ? money(line.lineTotalMinor) : "—"}</td></tr>
+            ))}
+          </tbody>
+          <tfoot><tr><th colSpan={3}>Total</th><th className="number">{order.totalText}</th></tr></tfoot>
+        </table>
+      </div>
+      <p className="small">{order.fulfilment === "delivery" ? <><strong>Deliver to:</strong> {order.area}</> : order.fulfilment === "collection" ? <strong>They'll collect it</strong> : null}{order.when ? <> · <strong>When:</strong> {order.when}</> : null}</p>
+      <p className="muted small">Confirm it with the customer, with any delivery charge, and tell them how to pay you. Zaina never takes payment.</p>
+    </div>
+  );
+}
 
 /** A phone number as WhatsApp's link wants it: digits, Kenyan numbers with 254. */
 function whatsappDigits(phone: string): string | null {
@@ -81,21 +114,21 @@ function LeadCard(props: { lead: Lead; businessId: string; busy: boolean; onUpda
     <article className={`card lead ${lead.status}`}>
       <div className="lead-head">
         <div>
-          <h2>{lead.name}{lead.kind === "request" ? <span className="chip warn lead-kind">Request</span> : lead.kind === "callback" ? <span className="chip ok lead-kind">Call back</span> : null}</h2>
+          <h2>{lead.name}{lead.kind === "request" ? <span className="chip warn lead-kind">Request</span> : lead.kind === "callback" ? <span className="chip ok lead-kind">Call back</span> : lead.kind === "order" ? <span className="chip ok lead-kind">Order {lead.details?.reference ?? ""}</span> : null}</h2>
           <p className="muted small">
             {timeAgo(lead.createdAt)}{lead.channel ? ` · ${lead.channel === "whatsapp" ? "WhatsApp" : "website chat"}` : ""}
-            {lead.updatedAt && lead.status !== "new" ? ` · ${STATUS_TEXT[lead.status].toLowerCase()} ${timeAgo(lead.updatedAt)}` : ""}
+            {lead.updatedAt && lead.status !== "new" ? ` · ${statusText(lead)[lead.status].toLowerCase()} ${timeAgo(lead.updatedAt)}` : ""}
           </p>
         </div>
         <label>
           <span className="visually-hidden">Status of {lead.name}</span>
-          <select value={lead.status} disabled={props.busy} onChange={(event) => props.onUpdate(lead, { status: event.target.value as LeadStatus }, `${lead.name}: ${STATUS_TEXT[event.target.value as LeadStatus].toLowerCase()}.`)}>
-            {(Object.keys(STATUS_TEXT) as LeadStatus[]).map((status) => <option key={status} value={status}>{STATUS_TEXT[status]}</option>)}
+          <select value={lead.status} disabled={props.busy} onChange={(event) => props.onUpdate(lead, { status: event.target.value as LeadStatus }, `${lead.name}: ${statusText(lead)[event.target.value as LeadStatus].toLowerCase()}.`)}>
+            {(Object.keys(STATUS_TEXT) as LeadStatus[]).map((status) => <option key={status} value={status}>{statusText(lead)[status]}</option>)}
           </select>
         </label>
       </div>
       {lead.kind === "callback" ? <p className="lead-callback"><strong>Call {lead.callbackAt ? callTime(lead.callbackAt) : lead.callbackWindow ?? "soon"}</strong>{lead.callbackAt && lead.callbackWindow ? <span className="muted"> ({lead.callbackWindow})</span> : null}</p> : null}
-      {lead.interest ? <p><strong>{lead.kind === "request" ? "Asks for:" : lead.kind === "callback" ? "About:" : "Wants:"}</strong> {lead.interest}</p> : null}
+      {lead.kind === "order" && lead.details ? <OrderLines order={lead.details} /> : lead.interest ? <p><strong>{lead.kind === "request" ? "Asks for:" : lead.kind === "callback" ? "About:" : "Wants:"}</strong> {lead.interest}</p> : null}
       {lead.notes ? <p className="muted lead-notes">{lead.notes}</p> : null}
       <div className="lead-contact">
         {lead.phone ? <a className="button secondary small" href={`tel:${lead.phone.replace(/[^\d+]/g, "")}`}>Call {lead.phone}</a> : null}

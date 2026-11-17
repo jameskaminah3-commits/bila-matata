@@ -35,6 +35,7 @@ const ACTION_LABELS: Array<[string, string, string]> = [
   ["order.status", "Order status", "Where a customer's order stands: only to the customer it belongs to."],
   ["checkout.link", "Send customers to your checkout", "A link to your own checkout with their basket. Customers pay you there, never Zaina."],
   ["booking.create", "Book in your system", "Zaina books once the customer agrees. Needs \"Let Zaina write\"."],
+  ["order.create", "Place orders in your system", "Zaina places the order once the customer confirms it; your system says the total and how to pay. Needs \"Let Zaina write\"."],
 ];
 const EVENT_LABELS: Array<[string, string]> = [
   ["lead.created", "A customer left their details (or asked for a call back)"],
@@ -92,6 +93,7 @@ export function Integration(props: { businessId: string; role: Role; admin?: boo
         </div>
         <h2>Your system</h2>
         <p className="muted">Zaina asks your system for live answers, signed with a secret only your system and Zaina know. Bila Matata sets up the connection and its secret with your developer; to change what she may ask, or switch it off, ask under <a href={`#/b/${props.businessId}/support`}>Help &amp; support</a>.</p>
+        <p className="small">For your developer: <a href="/api/zaina/integration/zaina-connector.ts" download>zaina-connector.ts</a>, a ready TypeScript file (Express or Next.js) that checks Zaina's signature and answers her; they fill in search, stock, order status and placing orders from your system.</p>
         {view.last_error && (!view.last_ok_at || (view.last_error_at && view.last_error_at > view.last_ok_at)) ? <p className="message error" role="alert">Last problem{view.last_error_at ? ` (${timeAgo(view.last_error_at)})` : ""}: {view.last_error}</p> : null}
       </section>
 
@@ -122,12 +124,12 @@ export function Integration(props: { businessId: string; role: Role; admin?: boo
           <legend>Zaina may</legend>
           {ACTION_LABELS.map(([id, label, hint]) => (
             <label key={id} className="check">
-              <input type="checkbox" disabled={!canEdit || (id === "booking.create" && !form.allowWrites)} checked={form.actions.includes(id)} onChange={(event) => setForm({ ...form, actions: toggle(form.actions, id, event.target.checked) })} />
+              <input type="checkbox" disabled={!canEdit || ((id === "booking.create" || id === "order.create") && !form.allowWrites)} checked={form.actions.includes(id)} onChange={(event) => setForm({ ...form, actions: toggle(form.actions, id, event.target.checked) })} />
               <span><strong>{label}</strong> <span className="muted">{hint}</span></span>
             </label>
           ))}
         </fieldset>
-        <Toggle label="Let Zaina write: create bookings in your system" checked={form.allowWrites} disabled={!canEdit} onChange={(value) => setForm({ ...form, allowWrites: value, actions: value ? form.actions : form.actions.filter((id) => id !== "booking.create") })} />
+        <Toggle label="Let Zaina write: create bookings and orders in your system" checked={form.allowWrites} disabled={!canEdit} onChange={(value) => setForm({ ...form, allowWrites: value, actions: value ? form.actions : form.actions.filter((id) => id !== "booking.create" && id !== "order.create") })} />
         <p className="muted small">Off until you're happy with how she reads your system. Reading never changes anything.</p>
         <fieldset className="choice">
           <legend>Tell your system when</legend>

@@ -26,7 +26,9 @@ async function payloadFor(business: Business, event: AlertLike): Promise<{ name:
   if (event.kind === "lead") {
     const [lead] = await inBusiness((db) => db.select().from(leads).where(and(eq(leads.businessId, business.id), eq(leads.id, (event as any).leadId))).limit(1), business.id);
     if (!lead) return null;
-    return { name: "lead.created", data: { lead: { kind: lead.kind, name: lead.name, phone: lead.phone, email: lead.email, interest: lead.interest, notes: lead.notes, callback_at: lead.callbackAt?.toISOString() ?? null, callback_when: lead.callbackWindow, created_at: lead.createdAt.toISOString() } } };
+    return { name: "lead.created", data: { lead: { kind: lead.kind, name: lead.name, phone: lead.phone, email: lead.email, interest: lead.interest, notes: lead.notes, callback_at: lead.callbackAt?.toISOString() ?? null, callback_when: lead.callbackWindow, created_at: lead.createdAt.toISOString(),
+      // An order from the catalogue: its lines and total as Zaina worked them out.
+      ...(lead.kind === "order" && lead.details ? { order: { reference: lead.details.reference, lines: lead.details.lines.map((line) => ({ item_id: line.itemId, name: line.name, quantity: line.quantity, line_total_minor: line.lineTotalMinor })), total_minor: lead.details.totalMinor, currency: lead.details.currency, fulfilment: lead.details.fulfilment, area: lead.details.area, when: lead.details.when } } : {}) } } };
   }
   if (event.kind === "booking" && ((event as any).what === "request" || (event as any).what === "confirmed")) {
     const [booking] = await inBusiness((db) => db.select().from(bookings).where(and(eq(bookings.businessId, business.id), eq(bookings.id, (event as any).bookingId))).limit(1), business.id);

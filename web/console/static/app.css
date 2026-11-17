@@ -714,3 +714,12 @@ table.lines tr.total th, table.lines tr.total td { font-weight: 700; border-top:
 .check-results { list-style: none; margin: 10px 0 0; padding: 0; display: grid; gap: 6px; overflow-wrap: anywhere; }
 .check-results li.ok::before { content: "✓ "; color: var(--success); font-weight: 700; }
 .check-results li.bad::before { content: "! "; color: var(--danger); font-weight: 700; }
+
+/* An order in Leads: its lines and total. */
+.order-lines { display: grid; gap: 6px; min-width: 0; }
+.order-lines tfoot th { text-align: left; }
+.order-lines tfoot th.number { text-align: right; }
+
+/* Catalogue: the stock switch on each item, and the card for the business's own feed. */
+.stock-toggle { cursor: pointer; border: 0; margin-top: 4px; font: inherit; font-size: 0.8rem; }
+.feed-card .ellipsis { display: inline-block; max-width: 100%; vertical-align: bottom; }

@@ -8,9 +8,22 @@ and, if the client allows it, books in the system. **Zaina never collects
 money:** customers always pay the business through its own checkout or
 payment link.
 
-The studio turns connecting on for the business. Its manager then opens
-**Settings → Your system**, enters your address, makes the connection
-secret, chooses what Zaina may ask and presses **Test the connection**.
+The studio turns connecting on for the business and sets it up in
+**Settings → Your system**: your address, the connection secret (given to
+you directly, never by message), what Zaina may ask, and **Test the
+connection**.
+
+**TypeScript (Express, Next.js):** start from
+[`zaina-connector.ts`](zaina-connector.ts) (also downloadable from Settings →
+Your system). It checks the signature, the timestamp and repeats, and shapes
+every answer: you only fill in `search`, `item`, `orderStatus`,
+`createOrder`… from your own database.
+
+**Only a product list?** If your system can publish its products at an
+address (JSON, CSV or a Google Merchant feed), the business can add it under
+**Catalogue → From your own system** instead: Zaina reads it every day and
+takes orders that the team confirms. No signature needed; nothing is written
+to your system.
 
 ## The shape of it
 
@@ -166,6 +179,24 @@ typed them); `notes` (their words). Book it and answer:
 `payment_url` must be your own; Zaina sends it to the customer as it is. Use
 `X-Zaina-Request` to make sure a retried request doesn't book twice.
 
+### `order.create` (write: only when "Let Zaina write" is on)
+
+`args`: `items` (`id`, `option_id`, `quantity`, as in `checkout.link`),
+`fulfilment` (`delivery` or `collection`), `area` and `when` (the
+customer's words), `notes`, and `contact`. Place the order (pending is fine)
+and answer:
+
+```json
+{ "order": { "reference": "HF-2041", "status": "received", "summary": "10 × Golden Fry 20L",
+             "total": { "amount_minor": 4500000, "currency": "KES" },
+             "payment_url": "https://shop.example/pay/HF-2041",
+             "payment_instructions": "Pay to till 600100 once we confirm delivery." } }
+```
+
+The total, delivery charge and how to pay are yours: Zaina reads them out as
+they are and never takes payment details. Use `X-Zaina-Request` so a retried
+request doesn't place the order twice (zaina-connector.ts does).
+
 ## Who the customer is
 
 `customer` is `null` unless the customer is **signed in on your site**. Then
@@ -203,7 +234,7 @@ for them. Each is a signed POST (same headers as above):
 
 | Event | `data` |
 |---|---|
-| `lead.created` | `lead`: `kind` (`lead`, `request` for something not listed, `callback`), `name`, `phone`, `email`, `interest`, `notes`, `callback_at`, `callback_when`, `created_at` |
+| `lead.created` | `lead`: `kind` (`lead`, `request` for something not listed, `callback`, `order` from the catalogue), `name`, `phone`, `email`, `interest`, `notes`, `callback_at`, `callback_when`, `created_at`; for an order, `order`: `reference`, `lines` (`item_id`, `name`, `quantity`, `line_total_minor`), `total_minor`, `currency`, `fulfilment`, `area`, `when` |
 | `booking.requested` | `booking`: `reference`, `status`, `summary`, `customer` (`name`, `phone`, `email`) |
 | `booking.confirmed` | the same |
 | `chat.handoff` | `reason`: why a person is needed |

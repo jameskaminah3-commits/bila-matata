@@ -15,7 +15,7 @@ import type { Business, VerifiedCustomer } from "../db/schema.ts";
 import { inBusiness } from "../db/tenant.ts";
 import { addExtras, type ExtraContext, type ExtraTool } from "../engine/extras.ts";
 import { resolveCustomerContact, sharesPhoneNumber, textArg } from "../engine/tool-args.ts";
-import { cleanAvailability, cleanBooking, cleanCheckout, cleanItem, cleanOrder, IntegrationError, type Action } from "./client.ts";
+import { cleanAvailability, cleanBooking, cleanCheckout, cleanItem, cleanOrder, cleanPlacedOrder, IntegrationError, isWriteAction, type Action } from "./client.ts";
 import { ask, liveIntegration, NotAllowed } from "./store.ts";
 
 export async function verifiedCustomerOf(businessId: string, sessionId: string): Promise<VerifiedCustomer | null> {
@@ -224,7 +224,53 @@ const booking: ExtraTool = {
   },
 };
 
-for (const tool of [search, item, availability, orderStatus, checkout, booking]) tool.trustsLinks = true;
+const placeOrder: ExtraTool = {
+  readOnly: false,
+  declaration: {
+    name: "store_order",
+    description: "Place the customer's order in the business's own system, once they've confirmed the items, how many, delivery or collection, and their contact. The system says the total and how to pay; you never take payment.",
+    parameters: {
+      type: Type.OBJECT,
+      properties: {
+        items: {
+          type: Type.ARRAY,
+          description: "What they're ordering.",
+          items: { type: Type.OBJECT, properties: { id: str("Item id from store_search."), option_id: str("The option's id, if they chose one."), quantity: num("How many.") }, required: ["id", "quantity"] },
+        },
+        fulfilment: { type: Type.STRING, enum: ["delivery", "collection"], description: "Delivered to them, or they collect it." },
+        area: str("For delivery: where to, in the customer's words."),
+        when: str("When they'd like it, in the customer's words."),
+        name: str("The customer's name as they typed it."),
+        phone: str("Their phone as they typed it."),
+        email: str("Their email as they typed it."),
+        notes: str("Anything else they asked for, in their words."),
+      },
+      required: ["items"],
+    },
+  },
+  run: async (args: any, context) => {
+    const items = (Array.isArray(args?.items) ? args.items : []).slice(0, 30).map((entry: any) => ({
+      id: textArg(entry?.id).slice(0, 120),
+      ...(textArg(entry?.option_id) ? { option_id: textArg(entry.option_id).slice(0, 120) } : {}),
+      quantity: Number.isInteger(entry?.quantity) && entry.quantity > 0 && entry.quantity <= 9999 ? entry.quantity : 0,
+    })).filter((entry: any) => entry.id);
+    if (!items.length) return { ok: false, error: "items_required", message: "Find each item with store_search first." };
+    if (items.some((entry: any) => !entry.quantity)) return { ok: false, error: "quantity_required", message: "Ask how many of each they'd like." };
+    const fulfilment = args?.fulfilment === "delivery" || args?.fulfilment === "collection" ? args.fulfilment : null;
+    if (!fulfilment) return { ok: false, error: "fulfilment_required", message: "Ask whether they'd like it delivered or will collect it." };
+    const area = textArg(args?.area).slice(0, 160);
+    if (fulfilment === "delivery" && !area) return { ok: false, error: "area_required", message: "Ask where it should be delivered." };
+    const who = await contactFor(args, context);
+    if (!who.ok) return who.problem;
+    const extra = Object.fromEntries([["area", area], ["when", textArg(args?.when).slice(0, 120)], ["notes", textArg(args?.notes).slice(0, 500)]].filter(([, value]) => value));
+    const result = await asking(context, "order.create", { items, fulfilment, ...extra, contact: who.contact }, who.customer, (body) => ({ order: cleanPlacedOrder(body?.order ?? body) }));
+    return result.ok
+      ? { ...result, next_step: "Give the customer the reference and the total as the system said it. If there's a payment_url or payment_instructions, they're the business's own: pass them on as they are. Never take payment details in the chat." }
+      : result;
+  },
+};
+
+for (const tool of [search, item, availability, orderStatus, checkout, booking, placeOrder]) tool.trustsLinks = true;
 
 const BY_ACTION: Record<string, ExtraTool> = {
   "catalog.search": search,
@@ -233,6 +279,7 @@ const BY_ACTION: Record<string, ExtraTool> = {
   "order.status": orderStatus,
   "checkout.link": checkout,
   "booking.create": booking,
+  "order.create": placeOrder,
 };
 
 const oneLine = (value: string, max: number) => value.replace(/[\r\n\t]+/g, " ").replace(/[<>`]/g, "").trim().slice(0, max);
@@ -252,7 +299,7 @@ export function registerIntegrationExtras(): void {
     const integration = await liveIntegration(business.id).catch(() => null);
     if (!integration) return {};
     const tools = integration.actions
-      .filter((action) => action !== "booking.create" || integration.allowWrites)
+      .filter((action) => !isWriteAction(action) || integration.allowWrites)
       .map((action) => BY_ACTION[action])
       .filter(Boolean);
     if (!tools.length) return {};

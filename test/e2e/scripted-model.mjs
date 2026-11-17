@@ -77,7 +77,7 @@ function messyReplyFor(name, result) {
   if (name === "get_prices") {
     // Quotes the price list's lines as they come.
     if (!(r.items || []).length) return `I'm not sure of that price — shall I ask the team for you?${r.sections ? ` (We list: ${r.sections.join(", ")}.)` : ""}`;
-    return `Our prices: ${r.items.map((item) => `${item.name}: ${item.price}`).join("; ")}.`;
+    return `Our prices: ${r.items.map((item) => `${item.name}: ${item.price}${item.in_stock === false ? " (out of stock)" : ""}`).join("; ")}.`;
   }
   if (name === "search_knowledge") {
     const passage = (r.passages || [])[0];
@@ -97,7 +97,7 @@ function messyReplyFor(name, result) {
     ].join("\n");
   }
   // A business's own system (Phase 4): the whole result, so tests can read what Zaina was given.
-  if (name.startsWith("store_") || name === "order_status") return `System said: ${JSON.stringify(r)}`;
+  if (name.startsWith("store_") || name === "order_status" || name === "place_order") return `System said: ${JSON.stringify(r)}`;
   return `Tool said: ${r.error ?? "ok"} ${r.hint ?? ""}`.trim();
 }
 

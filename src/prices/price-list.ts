@@ -26,6 +26,10 @@ export type PriceItemValues = {
   unit: string | null;
   status: "active" | "hidden";
   sortOrder: number;
+  /** In stock right now (an item that's out stays listed, and can't be ordered). */
+  available: boolean;
+  /** Its page on the business's website, if any. */
+  url: string | null;
 };
 
 const clean = (value: unknown) => (typeof value === "string" ? value.replace(/\s+/g, " ").trim() : "");
@@ -52,7 +56,11 @@ export function validatePriceItem(input: Record<string, unknown>, current?: Pric
   if (status !== "active" && status !== "hidden") return { ok: false, error: "status is active or hidden." };
   const sortOrder = has("sort_order") ? Number(input.sort_order) : current?.sortOrder ?? 0;
   if (!Number.isInteger(sortOrder) || Math.abs(sortOrder) > 100_000) return { ok: false, error: "sort_order is a whole number." };
-  return { ok: true, value: { section, name, description, priceMinor: price, priceMaxMinor: priceMax, currency, unit, status, sortOrder } };
+  const available = has("available") ? input.available : current?.available ?? true;
+  if (typeof available !== "boolean") return { ok: false, error: "available is true or false." };
+  const url = has("url") ? (typeof input.url === "string" ? input.url.trim() : "") || null : current?.url ?? null;
+  if (url && (!/^https:\/\/[^\s]+$/i.test(url) || url.length > 500)) return { ok: false, error: "The item's page is an https:// address." };
+  return { ok: true, value: { section, name, description, priceMinor: price, priceMaxMinor: priceMax, currency, unit, status, sortOrder, available, url } };
 }
 
 /** "KSh 3,500 per car", "KSh 1,000–1,500 per person", "Free". */
@@ -75,6 +83,9 @@ export const publicPriceItem = (item: PriceItem) => ({
   unit: item.unit,
   status: item.status,
   sort_order: item.sortOrder,
+  available: item.available,
+  source: item.source,
+  url: item.url,
   price_display: priceText(item),
   updated_at: item.updatedAt,
 });
@@ -214,25 +225,62 @@ export async function deletePriceItem(businessId: string, id: string): Promise<b
 export async function importPriceItems(businessId: string, values: PriceItemValues[], options: { replace: boolean; userId: string | null }): Promise<{ added: number; updated: number; removed: number }> {
   return inBusiness(async (db, client) => {
     let removed = 0;
-    if (options.replace) removed = (await db.delete(priceItems).where(eq(priceItems.businessId, businessId)).returning({ id: priceItems.id })).length;
+    // Replacing the list replaces what the team typed; items from the business's own feed stay.
+    if (options.replace) removed = (await db.delete(priceItems).where(and(eq(priceItems.businessId, businessId), eq(priceItems.source, "manual"))).returning({ id: priceItems.id })).length;
     const { rows: [{ count }] } = await client.query<{ count: number }>("select count(*)::int as count from price_items");
     let added = 0;
     let updated = 0;
     for (const [index, value] of values.entries()) {
       const { rows } = await client.query<{ inserted: boolean }>(
-        `insert into price_items (business_id, section, name, description, price_minor, price_max_minor, currency, unit, status, sort_order, updated_by)
-         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        `insert into price_items (business_id, section, name, description, price_minor, price_max_minor, currency, unit, status, sort_order, updated_by, available, url)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
          on conflict (business_id, (lower(btrim(coalesce(section, '')))), (lower(btrim(name))))
          do update set price_minor = excluded.price_minor, price_max_minor = excluded.price_max_minor, currency = excluded.currency,
            unit = excluded.unit, description = coalesce(excluded.description, price_items.description), updated_by = excluded.updated_by, updated_at = now()
          returning (xmax = 0) as inserted`,
-        [businessId, value.section, value.name, value.description, value.priceMinor, value.priceMaxMinor, value.currency, value.unit, value.status, value.sortOrder || index, options.userId],
+        [businessId, value.section, value.name, value.description, value.priceMinor, value.priceMaxMinor, value.currency, value.unit, value.status, value.sortOrder || index, options.userId, value.available, value.url],
       );
       if (rows[0]?.inserted) added += 1;
       else updated += 1;
     }
     if (count + added > MAX_PRICE_ITEMS) throw new PriceListFull();
     return { added, updated, removed };
+  }, businessId);
+}
+
+/** An item from the business's own product feed (feed.ts). */
+export type FeedItemValues = Omit<PriceItemValues, "status" | "sortOrder"> & { externalId: string | null };
+
+/**
+ * The business's own feed, kept in step: each item is added or updated in
+ * place (so its id stays the same while its name does), feed items no longer
+ * in the feed go, and what the team typed is never touched. An item named
+ * like one the team typed is skipped: theirs stands. A hidden item stays
+ * hidden. At most MAX_PRICE_ITEMS in all.
+ */
+export async function syncFeedItems(businessId: string, values: FeedItemValues[]): Promise<{ items: number; skipped: number }> {
+  return inBusiness(async (_db, client) => {
+    const { rows: [{ count }] } = await client.query<{ count: number }>("select count(*)::int as count from price_items where source = 'manual'");
+    const room = Math.max(0, MAX_PRICE_ITEMS - count);
+    const kept: string[] = [];
+    let skipped = Math.max(0, values.length - room);
+    for (const [index, value] of values.slice(0, room).entries()) {
+      const { rows } = await client.query<{ id: string }>(
+        `insert into price_items (business_id, section, name, description, price_minor, price_max_minor, currency, unit, status, sort_order, available, source, external_id, url)
+         values ($1, $2, $3, $4, $5, $6, $7, $8, 'active', $9, $10, 'feed', $11, $12)
+         on conflict (business_id, (lower(btrim(coalesce(section, '')))), (lower(btrim(name))))
+         do update set description = excluded.description, price_minor = excluded.price_minor, price_max_minor = excluded.price_max_minor,
+           currency = excluded.currency, unit = excluded.unit, sort_order = excluded.sort_order, available = excluded.available,
+           external_id = excluded.external_id, url = excluded.url, updated_at = now()
+         where price_items.source = 'feed'
+         returning id`,
+        [businessId, value.section, value.name, value.description, value.priceMinor, value.priceMaxMinor, value.currency, value.unit, 10_000 + index, value.available, value.externalId, value.url],
+      );
+      if (rows[0] && !kept.includes(rows[0].id)) kept.push(rows[0].id);
+      else skipped += 1;
+    }
+    await client.query("delete from price_items where source = 'feed' and not (id = any($1::uuid[]))", [kept]);
+    return { items: kept.length, skipped };
   }, businessId);
 }
 

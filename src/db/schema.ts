@@ -273,6 +273,8 @@ export const businessSettings = pgTable("business_settings", {
   capabilities: jsonb("capabilities").$type<CapabilitySettings | null>(),
   /** Where its chat was last seen on the web (migration 0029): the last website it opened on, and websites it was refused on. */
   widgetSeen: jsonb("widget_seen").$type<WidgetSeen | null>(),
+  /** The business's own product feed (migration 0030). */
+  catalogueFeed: jsonb("catalogue_feed").$type<CatalogueFeed | null>(),
   updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
   updatedBy: uuid("updated_by"),
 });
@@ -310,8 +312,21 @@ export const leads = pgTable("leads", {
   callbackAt: timestamp("callback_at", { withTimezone: true, mode: "date" }),
   callbackWindow: text("callback_window"),
   callbackRemindedAt: timestamp("callback_reminded_at", { withTimezone: true, mode: "date" }),
+  // Migration 0030: an order's lines and total.
+  details: jsonb("details").$type<OrderDetails | null>(),
 });
-export const leadKinds = ["lead", "request", "callback"] as const;
+export const leadKinds = ["lead", "request", "callback", "order"] as const;
+/** What a customer ordered through Zaina: lines from the catalogue, the total where every price is fixed, and how it reaches them. */
+export type OrderDetails = {
+  reference: string;
+  lines: Array<{ itemId: string; name: string; quantity: number; priceText: string; lineTotalMinor: number | null }>;
+  currency: string;
+  totalMinor: number | null;
+  totalText: string;
+  fulfilment: "delivery" | "collection" | null;
+  area: string | null;
+  when: string | null;
+};
 export type LeadKind = (typeof leadKinds)[number];
 export const leadStatuses = ["new", "contacted", "won", "lost"] as const;
 export type LeadStatus = (typeof leadStatuses)[number];
@@ -768,8 +783,15 @@ export const priceItems = pgTable("price_items", {
   unit: text("unit"),
   status: text("status").$type<"active" | "hidden">().notNull().default("active"),
   sortOrder: integer("sort_order").notNull().default(0),
+  // Migration 0030: in stock right now; typed in, or from the business's own product feed (its id and page there).
+  available: boolean("available").notNull().default(true),
+  source: text("source").$type<"manual" | "feed">().notNull().default("manual"),
+  externalId: text("external_id"),
+  url: text("url"),
   createdAt: createdAt(),
   updatedAt: at("updated_at").notNull().defaultNow(),
   updatedBy: uuid("updated_by"),
 });
 export type PriceItem = typeof priceItems.$inferSelect;
+/** The business's own product feed (migration 0030), read every day when daily is on. */
+export type CatalogueFeed = { url: string; daily: boolean; lastReadAt: string | null; lastItems: number; lastSkipped: number; lastError: string | null };

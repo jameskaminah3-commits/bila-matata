@@ -14,6 +14,8 @@
 // Nothing works until the studio has switched it on for the business.
 
 import dns from "node:dns";
+import { existsSync, readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import type { Express, NextFunction, Request, Response } from "express";
 import { anyBusinessById } from "../businesses/registry.ts";
 import type { PlatformConfig } from "../config.ts";
@@ -56,6 +58,16 @@ async function address(value: unknown): Promise<string | null> {
 export function registerIntegrationRoutes(app: Express, config: PlatformConfig): void {
   const staff = requireStaff(config.sessionTokenSecret);
   const base = "/v1/staff/businesses/:businessId/integration";
+
+  // The ready-made TypeScript file for a business's developer (docs/zaina-connector.ts), next to src/ or dist/.
+  app.get("/v1/integration/zaina-connector.ts", (_req: Request, res: Response) => {
+    const file = ["../../docs/zaina-connector.ts", "../docs/zaina-connector.ts"].map((relative) => fileURLToPath(new URL(relative, import.meta.url))).find((candidate) => existsSync(candidate));
+    if (!file) return res.status(404).json({ error: "not_found" });
+    res.setHeader("Content-Type", "text/plain; charset=utf-8");
+    res.setHeader("Content-Disposition", 'attachment; filename="zaina-connector.ts"');
+    res.setHeader("Cache-Control", "public, max-age=3600");
+    res.send(readFileSync(file, "utf8"));
+  });
 
   app.get("/v1/platform/businesses/:businessId/integration", staff, requirePlatformAdmin, async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -120,7 +132,7 @@ export function registerIntegrationRoutes(app: Express, config: PlatformConfig):
       if (Array.isArray(body.events) && events.length !== new Set(body.events).size) return res.status(400).json({ error: "unknown_event", message: `Events are: ${EVENTS.join(", ")}.` });
       if (events.length && !eventsUrl) return res.status(400).json({ error: "events_url_required", message: "Give the address events should go to." });
       const allowWrites = body.allow_writes === true;
-      if (actions.some(isWriteAction) && !allowWrites) return res.status(400).json({ error: "writes_not_allowed", message: "Booking in your system needs \"Let Zaina write\" switched on." });
+      if (actions.some(isWriteAction) && !allowWrites) return res.status(400).json({ error: "writes_not_allowed", message: "Booking or ordering in your system needs \"Let Zaina write\" switched on." });
       const label = typeof body.label === "string" && body.label.trim() ? body.label.trim().slice(0, 60) : null;
       const integration = await saveIntegration(business!.id, { endpoint, label, actions, allowWrites, eventsUrl, events }, user.id);
       res.json({ integration: await view(business!.id, integration) });

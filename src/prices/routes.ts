@@ -12,11 +12,20 @@
 //   POST   …/price-list/import { items: [ … ], replace? }     manager  many at once: an item with the same
 //                                                                      section and name gets the new price;
 //                                                                      replace makes the list exactly these
+//   GET    …/price-list/feed                                  viewer   the business's own product feed, and its last reading
+//   PUT    …/price-list/feed { url, daily? }                  manager  read it now (and every day): its products join the list
+//   POST   …/price-list/feed/sync                             manager  read it again now
+//   DELETE …/price-list/feed                                  manager  stop: its products leave the list
 //
+// Items also say whether they're in stock (available) and may link to their page (url).
 // Prices are sent and shown in major units ("3500" is KSh 3,500).
 
 import express, { type Express, type NextFunction, type Request, type Response } from "express";
 import { requireBusinessRole, requireStaff, staffOf } from "../staff/auth.ts";
+import { getBusinessSettings, updateBusinessSettings } from "../businesses/settings.ts";
+import type { CatalogueFeed } from "../db/schema.ts";
+import { consumeLimits } from "../gateway/rate-limit.ts";
+import { refreshFeed } from "./feed.ts";
 import {
   createPriceItem,
   deletePriceItem,
@@ -28,9 +37,23 @@ import {
   PriceListFull,
   publicPriceItem,
   updatePriceItem,
+  syncFeedItems,
   validatePriceItem,
   type PriceItemValues,
 } from "./price-list.ts";
+
+const feedView = (feed: CatalogueFeed | null) => feed && {
+  url: feed.url, daily: feed.daily, last_read_at: feed.lastReadAt, last_items: feed.lastItems, last_skipped: feed.lastSkipped, last_error: feed.lastError,
+};
+
+/** Reading a feed costs a fetch: twenty an hour per business. */
+async function feedAllowance(res: Response, businessId: string): Promise<boolean> {
+  const verdict = await consumeLimits([{ key: `catalogue-feed:business:${businessId}`, limit: 20, windowSeconds: 3600 }]);
+  if (verdict.allowed) return true;
+  res.setHeader("Retry-After", String(verdict.retryAfterSeconds));
+  res.status(429).json({ error: "rate_limited", message: "The feed was read many times this hour. Please try again later." });
+  return false;
+}
 
 /** Price-list routes take bigger bodies than the rest of the API (a pasted list). */
 export const PRICE_LIST_PATH = /^\/v1\/staff\/businesses\/[^/]+\/price-list(?:\/|$)/;
@@ -50,6 +73,37 @@ export function registerPriceListRoutes(app: Express, secret: string): void {
         next(error);
       }
     };
+
+  // ── The business's own product feed (feed.ts) ──
+  app.get(`${base}/feed`, staff, requireBusinessRole("viewer"), handle(async (_req, res, businessId) => {
+    res.json({ feed: feedView((await getBusinessSettings(businessId))?.catalogueFeed ?? null) });
+  }));
+
+  app.put(`${base}/feed`, priceListBody, staff, requireBusinessRole("manager"), handle(async (req, res, businessId, userId) => {
+    const url = typeof req.body?.url === "string" ? req.body.url.trim() : "";
+    if (!url || url.length > 500) return res.status(400).json({ error: "url_required", message: "The address of your products' data, please." });
+    const daily = req.body?.daily !== false;
+    if (!(await feedAllowance(res, businessId))) return;
+    const result = await refreshFeed(businessId, { url, daily }, userId);
+    if (!result.ok) return res.status(400).json({ error: "feed_unreadable", message: `The feed couldn't be read: ${result.message}`, feed: feedView(result.feed) });
+    res.json({ feed: feedView(result.feed), sample: result.sample, items: (await listPriceItems(businessId)).map(publicPriceItem) });
+  }));
+
+  app.post(`${base}/feed/sync`, staff, requireBusinessRole("manager"), handle(async (_req, res, businessId, userId) => {
+    const feed = (await getBusinessSettings(businessId))?.catalogueFeed;
+    if (!feed) return res.status(404).json({ error: "no_feed", message: "There's no feed to read: add its address first." });
+    if (!(await feedAllowance(res, businessId))) return;
+    const result = await refreshFeed(businessId, feed, userId);
+    if (!result.ok) return res.status(400).json({ error: "feed_unreadable", message: `The feed couldn't be read: ${result.message}`, feed: feedView(result.feed) });
+    res.json({ feed: feedView(result.feed), sample: result.sample, items: (await listPriceItems(businessId)).map(publicPriceItem) });
+  }));
+
+  // Stops reading it; its items leave the catalogue (what the team typed stays).
+  app.delete(`${base}/feed`, staff, requireBusinessRole("manager"), handle(async (_req, res, businessId, userId) => {
+    await syncFeedItems(businessId, []);
+    await updateBusinessSettings(businessId, { catalogueFeed: null }, userId);
+    res.json({ feed: null, items: (await listPriceItems(businessId)).map(publicPriceItem) });
+  }));
 
   app.get(base, staff, requireBusinessRole("viewer"), handle(async (_req, res, businessId) => {
     res.json({ items: (await listPriceItems(businessId)).map(publicPriceItem) });

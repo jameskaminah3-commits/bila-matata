@@ -72,6 +72,8 @@ import { STUDIO } from "./studio/brand.ts";
 import { configureStudioPay, sweepStudio } from "./studio/pay.ts";
 import { registerStudioRoutes } from "./studio/routes.ts";
 import { registerWidgetInstallRoutes } from "./widget/routes.ts";
+import { registerOrderExtras } from "./orders/tool.ts";
+import { syncFeeds } from "./prices/feed.ts";
 
 /** Browsers may call the API from any website a business allows. */
 function cors() {
@@ -238,6 +240,7 @@ function registerExtrasOnce(): void {
   if (extrasRegistered) return;
   extrasRegistered = true;
   registerLeadExtras();
+  registerOrderExtras();
   registerPolicyExtras();
   registerIntegrationExtras();
 }
@@ -336,6 +339,7 @@ export async function startServer(config: PlatformConfig): Promise<{ server: Ser
     every("callbacks", Number(process.env.CALLBACK_SWEEP_INTERVAL_MS ?? "") || 60_000, () => sweepCallbacks()),
     // Websites a business asked to keep in step with: read again every week.
     every("websites", Number(process.env.WEBSITE_SYNC_INTERVAL_MS ?? "") || 60 * 60_000, () => syncWebsites()),
+    every("catalogue feeds", Number(process.env.FEED_SYNC_INTERVAL_MS ?? "") || 60 * 60_000, () => syncFeeds()),
     // Plans move on: invoices out a week ahead, overdue ones marked, unpaid businesses paused, ended plans closed.
     every("billing", Number(process.env.BILLING_SWEEP_INTERVAL_MS ?? "") || 5 * 60_000, async () => {
       const moved = await sweepBilling();

@@ -356,7 +356,8 @@ async function runLockedTurn(input: TurnInput, connector: BusinessConnector, rec
         : call.name === SEARCH_KNOWLEDGE
           ? await runSearchKnowledge(toolArgs, { businessId: business.id, sessionId })
           : call.name === GET_PRICES && !TYPES_WITH_OWN_CONNECTOR.has(business.businessType)
-            ? await runGetPrices(toolArgs, { businessId: business.id, sessionId })
+            // Item pages come from the business's own catalogue: they may be passed on as they are.
+            ? await runGetPrices(toolArgs, { businessId: business.id, sessionId }).then((result) => (linksIn(result, systemLinks), result))
             : extraTools.has(call.name)
               ? await runExtra(call.name, toolArgs)
               : await connector.executeTool(call.name, toolArgs, { business, sessionId });

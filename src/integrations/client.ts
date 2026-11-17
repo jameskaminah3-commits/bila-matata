@@ -26,7 +26,7 @@ import { PublicFetchError, publicLookup, publicUrl } from "../net/public-fetch.t
 
 export const READ_ACTIONS = ["catalog.search", "catalog.item", "availability", "order.status"] as const;
 export const HANDOFF_ACTIONS = ["checkout.link"] as const;
-export const WRITE_ACTIONS = ["booking.create"] as const;
+export const WRITE_ACTIONS = ["booking.create", "order.create"] as const;
 export const ACTIONS = [...READ_ACTIONS, ...HANDOFF_ACTIONS, ...WRITE_ACTIONS] as const;
 export type Action = (typeof ACTIONS)[number] | "ping";
 export const EVENTS = ["lead.created", "booking.requested", "booking.confirmed", "chat.handoff"] as const;
@@ -190,6 +190,14 @@ export function cleanCheckout(value: any) {
   const url = httpsUrl(value?.url);
   if (!url) return null;
   return compact({ url, total: price(value.total), expires_at: text(value.expires_at, 40) });
+}
+
+/** An order the business's system placed: its reference and status, the total, and its own payment link or instructions. */
+export function cleanPlacedOrder(value: any) {
+  const reference = text(value?.reference, 80);
+  const status = text(value?.status, 40);
+  if (!reference || !status) return null;
+  return compact({ reference, status, summary: text(value.summary, 400), total: price(value.total), url: httpsUrl(value.url), payment_url: httpsUrl(value.payment_url), payment_instructions: text(value.payment_instructions, 300) });
 }
 
 export function cleanBooking(value: any) {

@@ -10,7 +10,7 @@ import { matchPriceItems } from "../../src/prices/tool.ts";
 test("items are checked; prices are typed in shillings (or dollars) and kept in cents", () => {
   const good = validatePriceItem({ name: " Airport transfer ", section: "Transfers", price: "3,500", unit: "per car" });
   assert.ok(good.ok);
-  assert.deepEqual(good.value, { section: "Transfers", name: "Airport transfer", description: null, priceMinor: 350000, priceMaxMinor: null, currency: "KES", unit: "per car", status: "active", sortOrder: 0 });
+  assert.deepEqual(good.value, { section: "Transfers", name: "Airport transfer", description: null, priceMinor: 350000, priceMaxMinor: null, currency: "KES", unit: "per car", status: "active", sortOrder: 0, available: true, url: null });
   const range = validatePriceItem({ name: "Massage", price: 4000, price_max: "6,500", currency: "KES" });
   assert.ok(range.ok && range.value.priceMaxMinor === 650000);
   for (const [bad, pattern] of [
@@ -20,6 +20,8 @@ test("items are checked; prices are typed in shillings (or dollars) and kept in 
     [{ name: "Tea", price: "about 100" }, /price/],
     [{ name: "Tea", price: 100, price_max: 50 }, /more than/],
     [{ name: "Tea", price: 100, currency: "EUR" }, /currency/],
+    [{ name: "Tea", price: 100, available: "yes" }, /available/],
+    [{ name: "Tea", price: 100, url: "http://tea.example" }, /https/],
     [{ name: "Tea", price: 100, status: "sold" }, /status/],
   ] as const) {
     const checked = validatePriceItem(bad as Record<string, unknown>);

@@ -3,17 +3,23 @@
 // The price list: what the business charges for things that aren't booked
 // here (services, extras, products), by section. Zaina quotes these exactly
 // and never takes a price from documents. Items can be added one at a time,
-// or pasted as the business has them and checked before they're added.
+// or pasted as the business has them and checked before they're added, or
+// come from the business's own system (a product feed, read every day).
+// Each item says whether it's in stock: Zaina won't take an order for one
+// that's out.
 
 import { useState } from "react";
 import { api, businessPath } from "../api.ts";
 import { atLeast, type Role } from "../types.ts";
 import { Button, Empty, ErrorLine, Field, Icon, Message, Modal, useAction, useLoad } from "../ui.tsx";
+import { timeAgo } from "../format.ts";
 
 type PriceItem = {
   id: string; section: string | null; name: string; description: string | null; price: number; price_max: number | null;
   currency: "KES" | "USD"; unit: string | null; status: "active" | "hidden"; sort_order: number; price_display: string;
+  available: boolean; source: "manual" | "feed"; url: string | null;
 };
+type Feed = { url: string; daily: boolean; last_read_at: string | null; last_items: number; last_skipped: number; last_error: string | null };
 type Parsed = { items: Array<{ section: string | null; name: string; price: string; price_max: string | null; currency: "KES" | "USD"; unit: string | null }>; problems: Array<{ line: number; text: string; reason: string }> };
 
 export function PricesPage(props: { businessId: string; role: Role; businessType: string | null }) {
@@ -28,10 +34,10 @@ export function PricesPage(props: { businessId: string; role: Role; businessType
   return (
     <div className="page">
       <div className="page-head">
-        <h1>Prices</h1>
+        <h1>Catalogue &amp; prices</h1>
         <p className="muted">
-          What you charge for things {booked ? `that aren't ${booked} booked here: extras, transfers, meals, products` : "customers ask about: your services, packages and products"}.
-          Zaina quotes these exactly, and never takes a price from your documents.
+          What you sell and charge for {booked ? `that isn't ${booked} booked here: extras, transfers, meals, products` : "that customers ask about: your products, services and packages"}.
+          Zaina quotes these exactly, says what's out of stock, and never takes a price from your documents.
         </p>
       </div>
       {manager ? (
@@ -40,6 +46,7 @@ export function PricesPage(props: { businessId: string; role: Role; businessType
           <Button onClick={() => setPasting(true)}>Paste your price list</Button>
         </div>
       ) : null}
+      {manager ? <FeedCard businessId={props.businessId} onChanged={() => void list.reload()} /> : null}
       <ErrorLine error={list.error} />
       <Message message={action.message} />
       {list.data && items.length === 0 ? (
@@ -58,14 +65,25 @@ export function PricesPage(props: { businessId: string; role: Role; businessType
                   <td>
                     <strong>{item.name}</strong>
                     {item.status === "hidden" ? <span className="chip closed">Hidden</span> : null}
+                    {item.source === "feed" ? <span className="chip">From your system</span> : null}
                     {item.description ? <div className="muted small">{item.description}</div> : null}
                   </td>
-                  <td className="nowrap">{item.price_display}</td>
+                  <td className="nowrap">
+                    {item.price_display}
+                    <div>
+                      {manager ? (
+                        <button type="button" className={`chip stock-toggle${item.available ? " ok" : " waiting"}`} aria-pressed={item.available} disabled={action.busy}
+                          onClick={() => void action.run(async () => { await api("PATCH", businessPath(props.businessId, `/price-list/${item.id}`), { available: !item.available }); await list.reload(); }, `"${item.name}" is ${item.available ? "out of stock" : "in stock"}.`)}>
+                          {item.available ? "In stock" : "Out of stock"}
+                        </button>
+                      ) : <span className={`chip${item.available ? " ok" : " waiting"}`}>{item.available ? "In stock" : "Out of stock"}</span>}
+                    </div>
+                  </td>
                   {manager ? (
                     <td className="row-actions">
                       <Button small onClick={() => setEditing(item)}>Edit</Button>
                       <Button small kind="ghost" onClick={() => {
-                        if (!window.confirm(`Delete "${item.name}"? Zaina stops quoting it at once.`)) return;
+                        if (!window.confirm(item.source === "feed" ? `Delete "${item.name}"? It comes back the next time your system's feed is read, if it's still there: hide it instead to keep it out.` : `Delete "${item.name}"? Zaina stops quoting it at once.`)) return;
                         void action.run(async () => {
                           await api("DELETE", businessPath(props.businessId, `/price-list/${item.id}`));
                           await list.reload();
@@ -246,5 +264,67 @@ function PasteList(props: { businessId: string; hasItems: boolean; onClose: () =
         </div>
       )}
     </Modal>
+  );
+}
+
+/** The catalogue from the business's own system: a product feed's address, read now and every day. */
+function FeedCard(props: { businessId: string; onChanged: () => void }) {
+  const loaded = useLoad(() => api<{ feed: Feed | null }>("GET", businessPath(props.businessId, "/price-list/feed")), [props.businessId]);
+  const [feed, setFeed] = useState<Feed | null | undefined>(undefined);
+  const [open, setOpen] = useState(false);
+  const [url, setUrl] = useState("");
+  const [daily, setDaily] = useState(true);
+  const [sample, setSample] = useState<string[]>([]);
+  const action = useAction();
+  const current = feed === undefined ? loaded.data?.feed ?? null : feed;
+  const read = (body: { url: string; daily: boolean } | null) => action.run(async () => {
+    try {
+      const result = await api<{ feed: Feed; sample: string[] }>(body ? "PUT" : "POST", businessPath(props.businessId, body ? "/price-list/feed" : "/price-list/feed/sync"), body ?? undefined);
+      setFeed(result.feed);
+      setSample(result.sample);
+      setOpen(false);
+      props.onChanged();
+    } catch (problem) {
+      await loaded.reload();
+      setFeed(undefined);
+      throw problem;
+    }
+  });
+  if (loaded.data === undefined) return null;
+  return (
+    <section className="card feed-card">
+      <h2>From your own system</h2>
+      {current ? (
+        <>
+          <p>
+            Your catalogue is read from <span className="ellipsis">{current.url}</span>{current.daily ? ", every day" : ""}.
+            {current.last_read_at ? ` Last read ${timeAgo(current.last_read_at)}: ${current.last_items} item${current.last_items === 1 ? "" : "s"}${current.last_skipped ? `, ${current.last_skipped} left out (no name, or no price in KES or USD)` : ""}.` : ""}
+          </p>
+          {current.last_error ? <p className="message error" role="alert">The last reading failed: {current.last_error}</p> : null}
+          {sample.length ? <p className="muted small">For example: {sample.join(" · ")}</p> : null}
+          <div className="actions start">
+            <Button busy={action.busy} onClick={() => void read(null)}>Read it now</Button>
+            <Button kind="ghost" busy={action.busy} onClick={() => {
+              if (!window.confirm("Stop reading your system? Its items leave the catalogue; what you typed stays.")) return;
+              void action.run(async () => { await api("DELETE", businessPath(props.businessId, "/price-list/feed")); setFeed(null); props.onChanged(); }, "Stopped. Its items left the catalogue.");
+            }}>Stop</Button>
+          </div>
+        </>
+      ) : !open ? (
+        <div className="install-row">
+          <p className="muted">Already have your products in a shop or system? Zaina can read them every day, with today's prices and stock.</p>
+          <Button onClick={() => setOpen(true)}>Connect your products</Button>
+        </div>
+      ) : (
+        <form className="form" onSubmit={(event) => { event.preventDefault(); void read({ url: url.trim(), daily }); }}>
+          <Field label="Address of your products' data" hint="JSON, CSV or a Google Merchant feed. WooCommerce: yoursite/wp-json/wc/store/v1/products. Shopify: yourshop/products.json. Your own system: any address that lists products with a name and price (your developer can add one in minutes).">
+            <input type="url" inputMode="url" required placeholder="https://www.yourshop.co.ke/api/products" value={url} onChange={(event) => setUrl(event.target.value)} />
+          </Field>
+          <label className="check"><input type="checkbox" checked={daily} onChange={(event) => setDaily(event.target.checked)} /><span>Read it again every day</span></label>
+          <div className="actions"><Button onClick={() => setOpen(false)}>Cancel</Button><Button kind="primary" type="submit" busy={action.busy}>Read it</Button></div>
+        </form>
+      )}
+      <Message message={action.message} />
+    </section>
   );
 }

@@ -64,7 +64,7 @@ const callbackDeclaration: FunctionDeclaration = {
 };
 
 /** The customer's name, and a phone (and email) they typed themselves; or what to ask for. */
-async function contactOf(args: any, sessionId: string, needPhone: boolean) {
+export async function contactOf(args: any, sessionId: string, needPhone: boolean) {
   const typed = await customerMessages(sessionId);
   const name = textArg(args?.name);
   const phone = textArg(args?.phone);

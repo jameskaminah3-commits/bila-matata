@@ -314,7 +314,7 @@ const PAGES: Array<{ id: string; label: string; icon: string; minimum: Role; onl
   { id: "rooms", label: "Rooms", icon: "bed", minimum: "manager", needs: "rooms" },
   { id: "services", label: "Services", icon: "scissors", minimum: "manager", needs: "times" },
   // What the business charges for things not booked here; Zaina quotes only these (and rooms and services).
-  { id: "prices", label: "Prices", icon: "tag", minimum: "viewer", only: ["general", "guesthouse", "salon", "restaurant"] },
+  { id: "prices", label: "Catalogue", icon: "tag", minimum: "viewer", only: ["general", "guesthouse", "salon", "restaurant"] },
   { id: "knowledge", label: "Knowledge", icon: "book", minimum: "viewer" },
   { id: "reports", label: "Reports", icon: "chart", minimum: "manager" },
   { id: "settings", label: "Settings", icon: "settings", minimum: "manager" },

@@ -102,6 +102,16 @@ cancellation before going live.
 
 ### A. No website
 
+- **Catalogue** (menu): what they sell, typed in or pasted as they have it,
+  with what's out of stock switched off. Turn on **Orders and delivery** in
+  Settings → What you offer, and on Full Zaina takes orders from it: the
+  items and quantities, delivery or collection, the area and time, and the
+  customer's name and phone. The server adds up the total from the
+  catalogue (a price range leaves it to the team). Orders arrive in **Leads**
+  with their lines and total; the team confirms, says any delivery charge and
+  how to pay them, and marks it delivered. Zaina never takes payment.
+- A salon or clinic: **Services** with durations and prices, and
+  **Calendars** if they keep one, so Zaina books real free times.
 - **QR code & link** (Settings): choose where the code sends people (their
   Zaina page is the usual choice). Download the poster and table cards.
 - **Business cards** (Settings): included with their plan. Download the
@@ -131,6 +141,12 @@ cancellation before going live.
   can be read, teach Zaina in Settings → What you offer, or with a
   document or price list.
 - Bookings on request (as in A), or time slots for a salon or restaurant.
+- **Products on their site or in their shop?** Catalogue → *From your own
+  system*: the address of their products' data (WooCommerce
+  `/wp-json/wc/store/v1/products`, Shopify `/products.json`, a CSV or Google
+  Merchant feed, or any JSON list with a name and price). It's read every
+  day, with prices and stock; what the team typed stays. Orders then work
+  as in A.
 
 ### C. Calendar
 
@@ -142,11 +158,17 @@ bookings go back to their Google Calendar.
 
 - The studio turns on **Let this business connect its own system**
   (Businesses → Plan).
-- Their developer builds to docs/INTEGRATION.md. The owner (manager) opens
-  Settings → **Your system**, enters the address, makes the secret and
-  gives it to the developer, chooses what Zaina may ask, and presses
-  **Test the connection**.
-- Read-only first. **Let Zaina write** only after a week of correct reads.
+- Their developer builds to docs/INTEGRATION.md. A TypeScript site (like
+  Happyfine's) starts from **zaina-connector.ts** (Settings → Your system,
+  or docs/): it fills in search, stock, order status, checkout and placing
+  orders from its own database. A Bila Matata admin then enters the address
+  in Settings → **Your system**, makes the secret and gives it to the
+  developer directly, chooses what Zaina may ask, and presses **Test the
+  connection**.
+- Read-only first. **Let Zaina write** (place orders and bookings in their
+  system) only after a week of correct reads. With orders in their system,
+  Zaina says the total and how to pay exactly as their system answers.
+- Just want their products read, not a live connection? Use the feed in B.
 - The widget on their site, with the signed-in customer token if customers
   log in (order status without asking for a phone number).
 
