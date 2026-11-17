@@ -444,7 +444,7 @@ function Console(props: { me: Me; route: Route; reloadMe: () => Promise<void> })
   else if (page === "leads" && businessType !== "custom" && atLeast(role, "agent")) content = <LeadsPage businessId={businessId} role={role} onChanged={() => void refreshCounts()} />;
   else if (page === "prices" && businessType !== "custom") content = <PricesPage businessId={businessId} role={role} businessType={businessType} />;
   else if (page === "knowledge") content = <KnowledgePage businessId={businessId} role={role} />;
-  else if (page === "reports" && atLeast(role, "manager")) content = <ReportsPage businessId={businessId} />;
+  else if (page === "reports" && atLeast(role, "manager")) content = <ReportsPage key={route.id ?? "reports"} businessId={businessId} month={route.id ?? null} />;
   else if (page === "settings" && atLeast(role, "manager")) content = <SettingsPage key={route.id ?? "settings"} businessId={businessId} role={role} me={me} businessType={businessType} books={books} orders={takesOrders} tab={route.id} onBusinessChanged={() => void props.reloadMe()} onOfferChanged={() => void offer.reload()} />;
   else if (page === "team" && atLeast(role, "manager")) content = <TeamPage businessId={businessId} role={role} me={me} />;
   else if (page === "support") content = <SupportPage businessId={businessId} role={role} threadId={route.id} onChanged={() => void refreshCounts()} />;

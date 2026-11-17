@@ -79,6 +79,8 @@ import { registerOrderRoutes } from "./orders/routes.ts";
 import { registerCustomerRoutes } from "./customers/routes.ts";
 import { registerCustomerExtras } from "./customers/tool.ts";
 import { linkCustomers } from "./customers/store.ts";
+import { registerPerformanceRoutes } from "./reports/performance-routes.ts";
+import { sendMonthlyReports } from "./reports/performance.ts";
 import { syncFeeds } from "./prices/feed.ts";
 
 /** Browsers may call the API from any website a business allows. */
@@ -207,6 +209,7 @@ export function createApp(config: PlatformConfig, engine: EngineOptions, whatsap
   registerPaymentRoutes(app, config);
   registerOrderRoutes(app, config);
   registerCustomerRoutes(app, config);
+  registerPerformanceRoutes(app, config);
   registerCalendarRoutes(app, config);
   registerSignupRoutes(app, config);
   registerOnboardingRoutes(app, config);
@@ -353,6 +356,11 @@ export async function startServer(config: PlatformConfig): Promise<{ server: Ser
     every("customers", Number(process.env.CUSTOMER_SWEEP_INTERVAL_MS ?? "") || 60_000, async () => {
       const linked = await linkCustomers();
       if (linked) console.log(`[platform] filed ${linked} record(s) under their customer`);
+    }),
+    // Early on the 1st, last month's Business Performance Report to each business's owners and managers.
+    every("performance reports", Number(process.env.PERFORMANCE_REPORT_INTERVAL_MS ?? "") || 30 * 60_000, async () => {
+      const sent = await sendMonthlyReports();
+      if (sent) console.log(`[platform] sent ${sent} monthly performance report(s)`);
     }),
     every("callbacks", Number(process.env.CALLBACK_SWEEP_INTERVAL_MS ?? "") || 60_000, () => sweepCallbacks()),
     // Websites a business asked to keep in step with: read again every week.

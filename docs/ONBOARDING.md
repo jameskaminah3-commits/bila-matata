@@ -139,6 +139,14 @@ cancellation before going live.
   tell her there (never health, faith or money matters). In the website
   chat, typing a number shows nobody anything. A manager can turn
   recognition off, and **Forget this customer** handles a deletion request.
+- **Reports → Business performance**: show the owner their month. People
+  who got in touch, paying customers, **verified** revenue (settled
+  payments: by Paystack or M-Pesa, or recorded by their team) kept apart
+  from **expected** amounts (pay on delivery, balances at the property),
+  what customers ask about and buy, what didn't convert and why, what
+  slipped away, repeated questions (teach Zaina the ones she couldn't
+  answer), and an estimate of staff time saved. Owners and managers get it
+  by email on the 1st of every month.
 - A salon or clinic: **Services** with durations and prices, and
   **Calendars** if they keep one, so Zaina books real free times.
 - **QR code & link** (Settings): choose where the code sends people (their

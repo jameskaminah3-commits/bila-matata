@@ -1,6 +1,7 @@
 // web/console/pages/reports.tsx
 //
-// The business's report: headline numbers for the period, chats per day,
+// Reports: the monthly Business Performance Report (performance.tsx), first,
+// and the activity behind it: headline numbers for a period, chats per day,
 // what was made in chat, questions nothing answered, and what the model cost.
 
 import { useState } from "react";
@@ -9,20 +10,34 @@ import { go } from "../app.tsx";
 import { count, day, money, percent, usd } from "../format.ts";
 import type { Report } from "../types.ts";
 import { ErrorLine, Icon, Tabs, useLoad } from "../ui.tsx";
+import { PerformanceReport } from "./performance.tsx";
 
 type Period = "7" | "30" | "90";
 
 const METHOD_NAMES: Record<string, string> = { paystack: "Paystack", mpesa_express: "M-Pesa prompt", mpesa_code: "M-Pesa code", cash: "Cash", bank: "Bank", other: "Other" };
 
-export function ReportsPage(props: { businessId: string }) {
-  const [period, setPeriod] = useState<Period>("30");
-  const report = useLoad(() => api<Report>("GET", businessPath(props.businessId, `/reports?days=${period}`)), [props.businessId, period]);
-  const data = report.data;
+export function ReportsPage(props: { businessId: string; month?: string | null }) {
+  const [view, setView] = useState<"performance" | "activity">(props.month === "activity" ? "activity" : "performance");
+  const month = props.month && /^\d{4}-\d{2}$/.test(props.month) ? props.month : null;
   return (
     <div className="page">
       <div className="page-head">
         <h1>Reports</h1>
       </div>
+      <Tabs label="Report" active={view} onChange={setView} tabs={[{ id: "performance", label: "Business performance" }, { id: "activity", label: "Activity" }]} />
+      {view === "performance"
+        ? <PerformanceReport businessId={props.businessId} month={month} onMonth={(next) => go({ businessId: props.businessId, page: "reports", id: next })} />
+        : <ActivityReport businessId={props.businessId} />}
+    </div>
+  );
+}
+
+function ActivityReport(props: { businessId: string }) {
+  const [period, setPeriod] = useState<Period>("30");
+  const report = useLoad(() => api<Report>("GET", businessPath(props.businessId, `/reports?days=${period}`)), [props.businessId, period]);
+  const data = report.data;
+  return (
+    <div className="stack">
       <Tabs label="Period" active={period} onChange={setPeriod} tabs={[{ id: "7", label: "Last 7 days" }, { id: "30", label: "Last 30 days" }, { id: "90", label: "Last 90 days" }]} />
       <ErrorLine error={report.error} />
       {data ? (

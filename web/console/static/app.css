@@ -747,3 +747,18 @@ a.card.customer-row:hover { border-color: var(--brand); }
 .customer-history li a { overflow-wrap: anywhere; }
 .customer-history li .muted { grid-column: 2; }
 .plain-list li { flex-wrap: wrap; }
+
+/* Business Performance Report: verified money apart from what's expected. */
+.performance-head { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; }
+.money-split { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+.money.verified { border-color: var(--success); }
+.money.expected { border-style: dashed; }
+.money h2 .chip { margin-left: 8px; vertical-align: middle; }
+.money-lines { display: grid; gap: 6px; margin: 0; }
+.money-lines > div { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
+.money-lines dt { color: var(--text-2); min-width: 0; }
+.money-lines dd { margin: 0; font-weight: 650; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+.money-lines .total { border-top: 1px solid var(--line); padding-top: 6px; }
+.money-lines .total dt { color: inherit; font-weight: 650; }
+.kpi-label .chip { margin-left: 6px; }
+.lost-list li { display: block; }

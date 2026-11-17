@@ -796,3 +796,18 @@ test("phones and browsers for alerts: each business reads only its own people's"
   assert.equal(await deletePushSubscription("https://push.example/asha", outsider.id), false, "not someone else's");
   assert.equal(await deletePushSubscription("https://push.example/asha", acmeMember), true);
 });
+
+test("the monthly performance report is kept once per business and month, from 07:00 on the 1st", async () => {
+  const { sendMonthlyReports, monthOf } = await import("../../src/reports/performance.ts");
+  // The 1st of next month, 08:00 in Nairobi: this month's report is due.
+  const now = new Date();
+  const first = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1, 5, 0, 0));
+  const month = monthOf(now, "Africa/Nairobi");
+  await ownerPool().query("delete from performance_reports where business_id = 'acme'");
+  assert.ok(await sendMonthlyReports(first, "https://bilamatata.example") >= 1);
+  const { rows } = await ownerPool().query("select month, report, sent_to from performance_reports where business_id = 'acme'");
+  assert.deepEqual(rows.map((row) => [row.month, row.report.month, row.sent_to]), [[month, month, 0]], "kept, with nobody emailed here (no mailer)");
+  await sendMonthlyReports(first, "https://bilamatata.example");
+  assert.equal((await ownerPool().query("select count(*)::int as n from performance_reports where business_id = 'acme'")).rows[0].n, 1, "once");
+  await assert.rejects(() => asBusiness("bilamatata", "select report from performance_reports where business_id = 'acme'").then((result: any) => { if (result.rows.length) throw new Error("seen"); throw new Error("hidden"); }), /hidden/, "another business can't read it");
+});
