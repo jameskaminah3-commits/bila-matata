@@ -161,7 +161,9 @@ export type Profile = { customer: Customer; chats: ChatFact[]; leads: LeadFact[]
 
 const toCustomer = (row: Record<string, any>): Customer => ({
   id: row.id, businessId: row.business_id, name: row.name, phone: row.phone, phoneKey: row.phone_key, email: row.email, externalId: row.external_id,
-  preferences: row.preferences ?? [], teamNote: row.team_note, followedUpAt: row.followed_up_at, firstSeenAt: row.first_seen_at, lastSeenAt: row.last_seen_at,
+  preferences: row.preferences ?? [], teamNote: row.team_note, followedUpAt: row.followed_up_at,
+  outreachStoppedAt: row.outreach_stopped_at ?? null, offersAgreedAt: row.offers_agreed_at ?? null, offersSource: row.offers_source ?? null, offersAskedAt: row.offers_asked_at ?? null, unsubscribeToken: row.unsubscribe_token,
+  firstSeenAt: row.first_seen_at, lastSeenAt: row.last_seen_at,
   createdAt: row.created_at, updatedAt: row.updated_at,
 });
 

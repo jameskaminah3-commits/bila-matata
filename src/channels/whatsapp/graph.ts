@@ -96,8 +96,9 @@ export async function sendText(target: GraphTarget, to: string, body: string): P
 export async function sendTemplate(
   target: GraphTarget,
   to: string,
-  template: { name: string; language: string; bodyParameter: string | null },
+  template: { name: string; language: string; bodyParameter: string | null; bodyParameters?: string[] },
 ): Promise<GraphResult<Sent>> {
+  const parameters = template.bodyParameters ?? (template.bodyParameter !== null ? [template.bodyParameter] : []);
   return sentFrom(await call("POST", messagesUrl(target), target.accessToken, {
     messaging_product: "whatsapp",
     recipient_type: "individual",
@@ -106,8 +107,8 @@ export async function sendTemplate(
     template: {
       name: template.name,
       language: { code: template.language },
-      ...(template.bodyParameter !== null
-        ? { components: [{ type: "body", parameters: [{ type: "text", text: template.bodyParameter }] }] }
+      ...(parameters.length
+        ? { components: [{ type: "body", parameters: parameters.map((text) => ({ type: "text", text })) }] }
         : {}),
     },
   }));

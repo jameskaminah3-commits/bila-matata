@@ -745,7 +745,7 @@ a.card.customer-row:hover { border-color: var(--brand); }
 .customer-history { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
 .customer-history li { display: grid; grid-template-columns: auto 1fr; gap: 2px 8px; align-items: baseline; min-width: 0; }
 .customer-history li a { overflow-wrap: anywhere; }
-.customer-history li .muted { grid-column: 2; }
+.customer-history li > .muted { grid-column: 2; }
 .plain-list li { flex-wrap: wrap; }
 
 /* Business Performance Report: verified money apart from what's expected. */
@@ -767,3 +767,7 @@ a.card.customer-row:hover { border-color: var(--brand); }
 .link-code { font-size: 1.6rem; font-weight: 750; letter-spacing: 0.08em; font-variant-numeric: tabular-nums; margin: 4px 0; overflow-wrap: anywhere; }
 .owner-examples li { color: var(--text-2); }
 .pre-line { white-space: pre-line; overflow-wrap: anywhere; }
+
+/* Outreach. */
+.offer-suggestion { justify-content: space-between; }
+.campaign-preview { grid-column: 1 / -1; margin-top: 6px; }

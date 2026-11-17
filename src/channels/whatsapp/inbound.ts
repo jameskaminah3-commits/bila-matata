@@ -33,6 +33,7 @@ import { markRead } from "./graph.ts";
 import { businessForNumber, connectionFor } from "./numbers.ts";
 import { readDelivery, type InboundMessage } from "./webhook.ts";
 import { takeOwnerMessage } from "../../owner/assistant.ts";
+import { takeOutreachReply } from "../../outreach/replies.ts";
 
 /** A chat is picked up again within this many days of silence. */
 const CHAT_REUSE_DAYS = 7;
@@ -89,7 +90,7 @@ async function acceptMessage(ctx: WhatsappContext, business: Business, message: 
   if (await takeOwnerMessage(ctx, business, message)) return null;
   const sessionId = await openChatFor(business, message.from, message.profileName, ctx.sessionSecret);
   const sentAt = message.sentAt && message.sentAt.getTime() <= Date.now() + 60_000 ? message.sentAt : new Date();
-  return inBusiness(async (_db, client) => {
+  const inboundId = await inBusiness(async (_db, client) => {
     const { rows } = await client.query(
       `insert into whatsapp_inbound (business_id, session_id, message_id, kind, body, media)
        values ($1, $2, $3, $4, $5, $6) on conflict (business_id, message_id) do nothing returning id`,
@@ -104,8 +105,12 @@ async function acceptMessage(ctx: WhatsappContext, business: Business, message: 
        where business_id = $1 and id = $2`,
       [business.id, sessionId, sentAt, message.profileName],
     );
-    return sessionId;
+    return String(rows[0].id);
   }, business.id);
+  if (!inboundId) return null;
+  // STOP, START, or a rating after a feedback request: answered here, not by Zaina.
+  if (await takeOutreachReply(business, sessionId, message, inboundId)) return null;
+  return sessionId;
 }
 
 /**

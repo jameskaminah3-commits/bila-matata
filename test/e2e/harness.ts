@@ -94,6 +94,8 @@ export async function startPlatform(options: { port: number; env?: Record<string
       MIGRATE_ON_START: "true",
       TURN_BUDGET_MS: "6000",
       HANDOFF_SWEEP_INTERVAL_MS: "300",
+      // Outreach only where a test turns it on (outreach.test.ts): it would add reminders to other tests' chats.
+      OUTREACH_INTERVAL_MS: "86400000",
       BUSINESS_CACHE_MS: "100",
       MODEL_PRICE_INPUT_USD_PER_MTOK: "0.1",
       MODEL_PRICE_OUTPUT_USD_PER_MTOK: "0.4",

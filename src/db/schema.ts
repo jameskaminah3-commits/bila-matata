@@ -281,6 +281,8 @@ export const businessSettings = pgTable("business_settings", {
   orderSettings: jsonb("order_settings").$type<OrderSettings | null>(),
   /** Zaina greets a returning customer on WhatsApp or signed in (migration 0033). */
   customerRecognition: boolean("customer_recognition").notNull().default(true),
+  /** Reminders, follow-ups, feedback and offers (src/outreach, migration 0036). */
+  outreach: jsonb("outreach").$type<OutreachSettings | null>(),
   updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
   updatedBy: uuid("updated_by"),
 });
@@ -762,12 +764,31 @@ export const customers = pgTable("customers", {
   preferences: jsonb("preferences").$type<CustomerPreference[]>().notNull().default([]),
   teamNote: text("team_note"),
   followedUpAt: at("followed_up_at"),
+  /** Replied STOP: no reminders, follow-ups or offers (migration 0036). */
+  outreachStoppedAt: at("outreach_stopped_at"),
+  /** Said yes to offers, and how. */
+  offersAgreedAt: at("offers_agreed_at"),
+  offersSource: text("offers_source"),
+  offersAskedAt: at("offers_asked_at"),
+  unsubscribeToken: text("unsubscribe_token").notNull(),
   firstSeenAt: at("first_seen_at").notNull().defaultNow(),
   lastSeenAt: at("last_seen_at").notNull().defaultNow(),
   createdAt: createdAt(),
   updatedAt: at("updated_at").notNull().defaultNow(),
 });
 export type Customer = typeof customers.$inferSelect;
+
+/** What a business sends customers who aren't chatting, and its approved WhatsApp templates for it. */
+export type OutreachSettings = {
+  reminders: boolean;
+  reminderHours: number;
+  followUps: boolean;
+  feedback: boolean;
+  feedbackHours: number;
+  offers: boolean;
+  /** Meta-approved template names, for when a customer's 24-hour window has closed. */
+  templates: { reminder: string | null; feedback: string | null; offer: string | null; language: string };
+};
 
 // ── Billing (Phase 5): what businesses pay the platform ────────────────
 

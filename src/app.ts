@@ -81,6 +81,9 @@ import { registerCustomerExtras } from "./customers/tool.ts";
 import { linkCustomers } from "./customers/store.ts";
 import { registerPerformanceRoutes } from "./reports/performance-routes.ts";
 import { registerOwnerRoutes } from "./owner/routes.ts";
+import { registerOutreachRoutes } from "./outreach/routes.ts";
+import { registerOutreachExtras } from "./outreach/tool.ts";
+import { runOutreach } from "./outreach/jobs.ts";
 import { sendMonthlyReports } from "./reports/performance.ts";
 import { syncFeeds } from "./prices/feed.ts";
 
@@ -212,6 +215,7 @@ export function createApp(config: PlatformConfig, engine: EngineOptions, whatsap
   registerCustomerRoutes(app, config);
   registerPerformanceRoutes(app, config);
   registerOwnerRoutes(app, config);
+  registerOutreachRoutes(app, config);
   registerCalendarRoutes(app, config);
   registerSignupRoutes(app, config);
   registerOnboardingRoutes(app, config);
@@ -255,6 +259,7 @@ function registerExtrasOnce(): void {
   registerLeadExtras();
   registerOrderExtras();
   registerCustomerExtras();
+  registerOutreachExtras();
   registerPolicyExtras();
   registerIntegrationExtras();
 }
@@ -363,6 +368,11 @@ export async function startServer(config: PlatformConfig): Promise<{ server: Ser
     every("performance reports", Number(process.env.PERFORMANCE_REPORT_INTERVAL_MS ?? "") || 30 * 60_000, async () => {
       const sent = await sendMonthlyReports();
       if (sent) console.log(`[platform] sent ${sent} monthly performance report(s)`);
+    }),
+    // Reminders, follow-ups, feedback requests and approved offers, within consent and each channel's rules.
+    every("outreach", Number(process.env.OUTREACH_INTERVAL_MS ?? "") || 5 * 60_000, async () => {
+      const sent = await runOutreach();
+      if (sent) console.log(`[platform] sent ${sent} outreach message(s)`);
     }),
     every("callbacks", Number(process.env.CALLBACK_SWEEP_INTERVAL_MS ?? "") || 60_000, () => sweepCallbacks()),
     // Websites a business asked to keep in step with: read again every week.

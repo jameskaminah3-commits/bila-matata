@@ -132,8 +132,9 @@ cancellation before going live.
 - **Customers**: one record per customer, by phone (or email): every chat,
   request, booking and order, what they prefer, what's still open, and a
   **Follow up** list (asked and didn't buy, let something lapse, a past
-  customer quiet for two months). Zaina never messages anyone on her own;
-  the team follows up and marks it done. Zaina recognises a returning
+  customer quiet for two months). The team follows up and marks it done;
+  Zaina messages customers first only through **Outreach** (below), as the
+  business has set it. Zaina recognises a returning
   customer only on WhatsApp (the number proves who they are) or when they're
   signed in on the business's own site, and keeps lasting preferences they
   tell her there (never health, faith or money matters). In the website
@@ -157,6 +158,31 @@ cancellation before going live.
   applies it** (within 30 minutes, and only if nothing changed meanwhile).
   Agents can ask but not change. Every change is in the log on that page.
   Customers writing to the same number still reach the customer Zaina.
+- **Outreach** (managers): what Zaina sends customers who aren't chatting.
+  Go through it with the owner; every message, sent or skipped, is logged
+  there with the reason.
+  - **Reminders** before a booking or appointment (on from the start, 24
+    hours before; 2 to 72).
+  - **Follow-ups** (off until turned on): once, on WhatsApp only, to someone
+    who asked about prices, items or free times and didn't book, order or
+    leave a request, 2 to 20 hours after their last message, while their chat
+    is still open and no one from the team has taken it over.
+  - **Feedback** (off until turned on): after an order is delivered or a
+    visit ends, "reply 1 to 5". A 3 or less becomes a request for the team.
+  - **Offers** (off until turned on): only to customers who said yes. Zaina
+    asks a WhatsApp customer once, after she's helped them, and keeps the
+    answer; the team can record a yes given elsewhere, saying where. A
+    manager writes the offer, previews who gets it and how, and approves by
+    the exact number. At most one offer a week per customer, never by email.
+  - How each goes: by WhatsApp while the customer's chat is open (within 24
+    hours of their last message); after that only by a template the business
+    created and Meta approved (Meta may charge for these; enter the names
+    under *WhatsApp templates*); otherwise reminders and feedback go by
+    email, with an unsubscribe link, and offers are skipped.
+  - Between 08:00 and 20:00 in the business's time zone, at most one
+    message a day per customer (reminders aside), each one once.
+  - A customer who replies **STOP** (or ACHA) gets nothing more; **START**
+    brings back reminders but not offers, which need a new yes.
 - A salon or clinic: **Services** with durations and prices, and
   **Calendars** if they keep one, so Zaina books real free times.
 - **QR code & link** (Settings): choose where the code sends people (their

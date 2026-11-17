@@ -10,7 +10,7 @@ import { recognitionPrompt } from "../../src/customers/tool.ts";
 const NOW = new Date("2026-11-17T09:00:00Z");
 const daysAgo = (days: number) => new Date(NOW.getTime() - days * 86_400_000);
 const profile = (over: Partial<Profile> = {}, customer: Partial<Profile["customer"]> = {}): Profile => ({
-  customer: { id: "c1", businessId: "b", name: "Achieng Otieno", phone: "+254711222333", phoneKey: "711222333", email: null, externalId: null, preferences: [], teamNote: null, followedUpAt: null, firstSeenAt: daysAgo(90), lastSeenAt: daysAgo(3), createdAt: daysAgo(90), updatedAt: daysAgo(3), ...customer },
+  customer: { id: "c1", businessId: "b", name: "Achieng Otieno", phone: "+254711222333", phoneKey: "711222333", email: null, externalId: null, preferences: [], teamNote: null, followedUpAt: null, outreachStoppedAt: null, offersAgreedAt: null, offersSource: null, offersAskedAt: null, unsubscribeToken: "t", firstSeenAt: daysAgo(90), lastSeenAt: daysAgo(3), createdAt: daysAgo(90), updatedAt: daysAgo(3), ...customer },
   chats: [], leads: [], bookings: [], orders: [], ...over,
 });
 const order = (status: string, days: number, extra = {}) => ({ id: `o${days}`, reference: `ORD-00000${days % 10}`, status, items: "10 × Sukuma wiki", totalMinor: 30000, paidMinor: status === "completed" ? 30000 : 0, currency: "KES", conflict: null, createdAt: daysAgo(days), completedAt: status === "completed" ? daysAgo(days) : null, ...extra });
