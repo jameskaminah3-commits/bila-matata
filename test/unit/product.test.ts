@@ -3,6 +3,8 @@
 // starting prices, support's inputs, and the home page's demonstration.
 
 import assert from "node:assert/strict";
+import { bookingModules, capabilitiesFromType } from "../../src/capabilities/catalog.ts";
+import { platformConnectorFor } from "../../src/connectors/platform/index.ts";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
@@ -36,8 +38,9 @@ test("on Starter a business works as a general one, whatever it sells; on Full a
   // So Zaina has no booking tools on Starter: she answers, quotes the price list and takes leads.
   assert.equal(await connectorFor({ id: "s1", businessType: "salon", tier: "starter" }), basicConnector);
   assert.equal(await connectorFor({ id: "s2", businessType: "guesthouse", tier: "starter" }), basicConnector);
-  assert.equal(await connectorFor({ id: "s3", businessType: "salon", tier: "full" }), appointmentsConnector);
-  assert.equal(await connectorFor({ id: "s4", businessType: "guesthouse", tier: "full" }), hospitalityConnector);
+  // On Full, what it books follows its capabilities: until it chooses, those of its type.
+  assert.equal(platformConnectorFor(bookingModules({ businessType: "salon", tier: "full" }, capabilitiesFromType("salon"))), appointmentsConnector);
+  assert.equal(platformConnectorFor(bookingModules({ businessType: "guesthouse", tier: "full" }, capabilitiesFromType("guesthouse"))), hospitalityConnector);
   const starterTools = basicConnector.toolDeclarations().map((tool) => tool.name);
   for (const tool of ["check_times", "create_appointment", "create_booking", "check_availability"]) assert.ok(!starterTools.includes(tool), tool);
   assert.ok(starterTools.includes("create_lead"));

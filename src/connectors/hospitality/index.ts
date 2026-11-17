@@ -30,7 +30,8 @@ import { formatMoney } from "../../booking/money.ts";
 import { bookingWhen, holdUntil, payLink, stayDates, tellTeam } from "../../booking/notices.ts";
 import { listOfferings } from "../../booking/offerings.ts";
 import { fromNightly, type PricingRules, type StayQuote } from "../../booking/pricing.ts";
-import { canTakeDeposits, depositChosen, depositText, getBookingSettings, paymentMethodsText, paymentOptionsOf } from "../../booking/settings.ts";
+import { canTakeDeposits, depositChosen, depositText, getBookingSettings, offeringDepositText, paymentMethodsText, paymentOptionsOf } from "../../booking/settings.ts";
+import { roomTypesOf } from "../../capabilities/of-business.ts";
 import { amountDue, submitMpesaCode } from "../../payments/checkout.ts";
 import { sharesPhoneNumber, textArg } from "../../engine/tool-args.ts";
 import { contactLineFor, createLead, leadDeclarations } from "../basic/index.ts";
@@ -108,7 +109,8 @@ const whole = (value: unknown, fallback: number | null = null) => {
 
 async function listRooms(context: ToolContext) {
   const business = context.business;
-  const [rooms, settings] = await Promise.all([listOfferings(business.id, { activeOnly: true }), getBookingSettings(business.id)]);
+  const [offerings, settings] = await Promise.all([listOfferings(business.id, { activeOnly: true }), getBookingSettings(business.id)]);
+  const rooms = roomTypesOf(offerings);
   const options = paymentOptionsOf(settings);
   return {
     ok: true,
@@ -121,6 +123,8 @@ async function listRooms(context: ToolContext) {
         description: room.description.slice(0, 400),
         from_price_per_night: formatMoney(fromNightly(rules), settings.currency),
         minimum_nights: rules.min_nights ?? 1,
+        // A room type with its own deposit says so: the house rule below doesn't apply to it.
+        ...(offeringDepositText(rules, settings, "at the property") ? { deposit: offeringDepositText(rules, settings, "at the property") } : {}),
         booked: room.bookingMode === "instant" ? "online, confirmed by paying the deposit" : room.bookingMode === "request" ? "on request: the team confirms" : "by enquiry: the team gets back to the customer",
       };
     }),
@@ -141,7 +145,8 @@ async function checkAvailability(args: any, context: ToolContext) {
   const guests = whole(args?.guests);
   const units = whole(args?.rooms, 1)!;
   if (!guests) return { ok: false, error: "guests_required", hint: "Ask how many guests." };
-  const [all, settings] = await Promise.all([listOfferings(business.id, { activeOnly: true }), getBookingSettings(business.id)]);
+  const [offerings, settings] = await Promise.all([listOfferings(business.id, { activeOnly: true }), getBookingSettings(business.id)]);
+  const all = roomTypesOf(offerings);
   const dates = checkStayDates(checkIn, checkOut, business.timeZone, settings);
   if (dates) return { ok: false, error: dates.error, message: dates.message };
   let rooms = all;
@@ -244,7 +249,7 @@ async function bookingResult(business: Business, booking: Booking, room: Offerin
 
 async function makeBooking(args: any, context: ToolContext) {
   const { business, sessionId } = context;
-  const rooms = await listOfferings(business.id, { activeOnly: true });
+  const rooms = roomTypesOf(await listOfferings(business.id, { activeOnly: true }));
   const room = findRoomType(rooms, textArg(args?.room_type));
   if (!room) return { ok: false, error: "unknown_room_type", room_types: rooms.map((entry) => entry.name) };
   if (room.bookingMode === "enquiry") {

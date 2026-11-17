@@ -684,3 +684,17 @@ table.lines tr.total th, table.lines tr.total td { font-weight: 700; border-top:
 .signin-or::before, .signin-or::after { content: ""; flex: 1; height: 1px; background: var(--line); }
 .code-input { font-size: 24px; letter-spacing: 0.4em; text-align: center; font-variant-numeric: tabular-nums; }
 .signin-links { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+
+/* What a business offers, and setting it up in plain words (pages/offer.tsx). */
+.offer-group { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; margin: 0; display: grid; gap: 10px; min-width: 0; }
+.offer-group legend { font-weight: 600; padding: 0 6px; }
+.offer-group legend label { display: inline-flex; gap: 8px; align-items: center; }
+.offer-option { display: flex; gap: 10px; align-items: flex-start; min-height: 44px; cursor: pointer; }
+.offer-option input[type="checkbox"], .offer-group legend input[type="checkbox"] { width: 20px; height: 20px; margin-top: 2px; flex: none; }
+.offer-option > span { min-width: 0; }
+.offer-option .chip { margin-left: 8px; }
+.block { display: block; }
+.quote { margin: 4px 0 0; padding-left: 10px; border-left: 3px solid var(--line); color: var(--muted); font-style: italic; overflow-wrap: anywhere; }
+.draft-item .form { margin-top: 6px; }
+.offer-notes { border-radius: 12px; padding: 10px 14px; background: var(--surface-2); }
+.offer-notes ul { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 4px; }

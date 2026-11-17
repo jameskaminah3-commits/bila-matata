@@ -9,7 +9,8 @@ import { ZAINA_FACE_DATA_URI } from "../../../src/brand/zaina-face.ts";
 import { useEffect, useState } from "react";
 import { api, businessPath } from "../api.ts";
 import { WEEKDAYS } from "../format.ts";
-import { atLeast, type Me, type Operations, type Role, type Settings, type WhatsappState } from "../types.ts";
+import { atLeast, booksOfType, type Books, type Me, type Operations, type Role, type Settings, type WhatsappState } from "../types.ts";
+import { OfferSetup } from "./offer.tsx";
 import { Brand } from "./brand.tsx";
 import { FrontDoor } from "./front-door.tsx";
 import { BusinessCards } from "./business-cards.tsx";
@@ -19,8 +20,8 @@ import { BookingSettings } from "./booking-settings.tsx";
 import { Calendars } from "./calendars.tsx";
 import { Integration } from "./integration.tsx";
 
-type Tab = "profile" | "brand" | "door" | "cards" | "notifications" | "widget" | "whatsapp" | "system" | "hours" | "bookings" | "calendars" | "billing";
-const TABS: Tab[] = ["profile", "brand", "door", "cards", "notifications", "widget", "whatsapp", "system", "hours", "bookings", "calendars", "billing"];
+type Tab = "profile" | "offer" | "brand" | "door" | "cards" | "notifications" | "widget" | "whatsapp" | "system" | "hours" | "bookings" | "calendars" | "billing";
+const TABS: Tab[] = ["profile", "offer", "brand", "door", "cards", "notifications", "widget", "whatsapp", "system", "hours", "bookings", "calendars", "billing"];
 
 /**
  * The tab in the address (#/b/<business>/settings/<tab>?…), and what a
@@ -32,10 +33,12 @@ function fromAddress(value: string | null | undefined): { tab: Tab; outcome: str
   return { tab: TABS.includes(name as Tab) ? name as Tab : "profile", outcome: params.get("google") ?? params.get("paid") };
 }
 
-export function SettingsPage(props: { businessId: string; role: Role; me: Me; businessType?: string | null; tab?: string | null; onBusinessChanged?: () => void }) {
+export function SettingsPage(props: { businessId: string; role: Role; me: Me; businessType?: string | null; books?: Books; tab?: string | null; onBusinessChanged?: () => void; onOfferChanged?: () => void }) {
   const initial = fromAddress(props.tab);
   const [tab, setTab] = useState<Tab>(initial.tab);
-  const stays = ["guesthouse", "salon", "restaurant"].includes(props.businessType ?? "");
+  const books = props.books ?? booksOfType(props.businessType ?? null);
+  const stays = books.rooms || books.services || books.tables;
+  const ownSystem = props.businessType === "custom";
   return (
     <div className="page">
       <div className="page-head"><h1>Settings</h1></div>
@@ -45,6 +48,7 @@ export function SettingsPage(props: { businessId: string; role: Role; me: Me; bu
         onChange={setTab}
         tabs={[
           { id: "profile", label: "Business" },
+          ...(ownSystem ? [] : [{ id: "offer" as const, label: "What you offer" }]),
           { id: "brand", label: "Brand" },
           { id: "door", label: "QR code & link" },
           { id: "cards", label: "Business cards" },
@@ -57,8 +61,9 @@ export function SettingsPage(props: { businessId: string; role: Role; me: Me; bu
           { id: "billing", label: "Plan & billing" },
         ]}
       />
-      {tab === "bookings" && stays ? <BookingSettings businessId={props.businessId} role={props.role} slots={props.businessType !== "guesthouse"} /> : null}
-      {tab === "calendars" && stays ? <Calendars businessId={props.businessId} role={props.role} businessType={props.businessType ?? null} outcome={initial.tab === "calendars" ? initial.outcome : null} /> : null}
+      {tab === "bookings" && stays ? <BookingSettings businessId={props.businessId} role={props.role} rooms={books.rooms} slots={books.services || books.tables} /> : null}
+      {tab === "calendars" && stays ? <Calendars businessId={props.businessId} role={props.role} businessType={props.businessType ?? null} rooms={books.rooms} outcome={initial.tab === "calendars" ? initial.outcome : null} /> : null}
+      {tab === "offer" && !ownSystem ? <OfferSetup businessId={props.businessId} role={props.role} onChanged={props.onOfferChanged} /> : null}
       {tab === "profile" ? <Profile businessId={props.businessId} /> : null}
       {tab === "brand" ? <Brand businessId={props.businessId} role={props.role} /> : null}
       {tab === "door" ? <FrontDoor businessId={props.businessId} role={props.role} /> : null}

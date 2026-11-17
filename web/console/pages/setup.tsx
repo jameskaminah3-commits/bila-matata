@@ -11,12 +11,13 @@ import { api, businessPath } from "../api.ts";
 import { go } from "../app.tsx";
 import { atLeast, type Role } from "../types.ts";
 import { Button, ErrorLine, Field, Icon, Message, useAction, useLoad } from "../ui.tsx";
+import { OfferSetup } from "./offer.tsx";
 
 type Step = { id: string; title: string; detail: string; done: boolean; required: boolean; page: string; tab?: string };
 type WebsiteRead = { site: string; pages: Array<{ url: string; source: { title: string } }>; skipped: Array<{ url: string; reason: string }>; description: string | null };
 type Onboarding = { status: "onboarding" | "active" | "paused"; pause_reason: "platform" | "billing" | null; went_live_at: string | null; steps: Step[]; done: number; ready: boolean };
 
-export function SetupPage(props: { businessId: string; role: Role; onLive: () => void }) {
+export function SetupPage(props: { businessId: string; role: Role; onLive: () => void; onOfferChanged?: () => void }) {
   const loaded = useLoad(() => api<Onboarding>("GET", businessPath(props.businessId, "/onboarding")), [props.businessId]);
   const action = useAction();
   const tryRef = useRef<HTMLElement>(null);
@@ -40,6 +41,7 @@ export function SetupPage(props: { businessId: string; role: Role; onLive: () =>
         <p className="muted">Do these steps in any order. Zaina doesn't answer your customers until you go live.</p>
       )}
       {data.status === "onboarding" && atLeast(props.role, "manager") ? <StartFromWebsite businessId={props.businessId} onChanged={() => void loaded.reload()} /> : null}
+      {data.status === "onboarding" ? <OfferSetup businessId={props.businessId} role={props.role} onChanged={() => { void loaded.reload(); props.onOfferChanged?.(); }} /> : null}
       <div className="progress" role="progressbar" aria-valuemin={0} aria-valuemax={data.steps.length} aria-valuenow={data.done} aria-label="Steps done">
         <span style={{ width: `${Math.round((data.done / data.steps.length) * 100)}%` }} />
       </div>

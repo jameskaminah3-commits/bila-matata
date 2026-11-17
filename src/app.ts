@@ -54,6 +54,9 @@ import { registerNotificationRoutes } from "./notifications/routes.ts";
 import { registerFrontDoorRoutes } from "./frontdoor/routes.ts";
 import { registerCardRoutes } from "./cards/routes.ts";
 import { registerInterviewRoutes } from "./onboarding/interview-routes.ts";
+import { registerCapabilityRoutes } from "./capabilities/routes.ts";
+import { registerPolicyExtras } from "./capabilities/policies.ts";
+import { registerDescribeRoutes } from "./onboarding/describe-routes.ts";
 import { registerOneTapRoutes } from "./booking/one-tap.ts";
 import { registerMarkFullRoutes } from "./booking/mark-full.ts";
 import { registerLeadExtras, sweepCallbacks } from "./leads/extra-tools.ts";
@@ -202,6 +205,8 @@ export function createApp(config: PlatformConfig, engine: EngineOptions, whatsap
   registerFrontDoorRoutes(app, config);
   registerCardRoutes(app, config);
   registerInterviewRoutes(app, config);
+  registerCapabilityRoutes(app, config);
+  registerDescribeRoutes(app, config, engine);
   registerOneTapRoutes(app, config);
   registerMarkFullRoutes(app, config);
   registerIntegrationRoutes(app, config);
@@ -231,6 +236,7 @@ function registerExtrasOnce(): void {
   if (extrasRegistered) return;
   extrasRegistered = true;
   registerLeadExtras();
+  registerPolicyExtras();
   registerIntegrationExtras();
 }
 

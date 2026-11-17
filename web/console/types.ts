@@ -207,6 +207,7 @@ export type Pricing = {
 
 export type Offering = {
   id: string;
+  kind?: "room_type" | "service" | "table";
   name: string;
   description: string;
   units: number;
@@ -453,3 +454,17 @@ export type Billing = {
   payment_instructions: string | null;
   grace_days: number;
 };
+
+/** What a business offers through Zaina (capabilities) and what is booked here. */
+export type Books = { rooms: boolean; services: boolean; tables: boolean };
+export type OfferView = {
+  enabled: string[];
+  chosen: boolean;
+  industry: string;
+  books: Books;
+  catalog: Array<{ key: string; label: string; what: string; module: string; usual: boolean; primary: boolean }>;
+};
+/** Before the business's capabilities load: what its type has always booked. */
+export function booksOfType(type: string | null): Books {
+  return { rooms: type === "guesthouse", services: type === "salon", tables: type === "restaurant" };
+}

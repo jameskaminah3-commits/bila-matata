@@ -51,16 +51,44 @@ Do this together, on the owner's phone if that's what they'll use.
    and answer the questions in their own words. This is what a website
    never says (deposits, cancellations, parking, children, what to bring).
    Five answers is the minimum; all of them is better.
-4. **What they sell**: rooms and rates (Rooms), services and the schedule
-   (Services), or a price list (Prices). Every price Zaina quotes comes from
-   here.
-5. **Alerts** (Settings → Notifications): at least one email that gets
+4. **What they offer** (Setup, or Settings → What you offer): tick
+   everything customers can ask Zaina for. A business can have several: a
+   hotel with rooms, table reservations, spa appointments and airport
+   transfers. Rooms, tables and appointments are booked through Zaina (Full
+   plan); transfers, activities, orders and quoted jobs are arranged by the
+   team: Zaina quotes the price list and passes the request on. Nothing is
+   ticked for them: what's usual for their industry is only suggested.
+5. **Describe how they work** (same page): the owner writes it in their own
+   words ("We offer three types of rooms. Standard rooms accommodate two
+   guests. Breakfast is included. Airport transfers are available at an
+   additional cost. Reservations require a 30% deposit."). Zaina drafts the
+   settings from it. Each item shows the owner's words it came from; a
+   price, number or rule they didn't write is left out, never guessed. The
+   owner fills in what's missing (how many rooms, the price a night), unticks
+   anything wrong and approves. Only then is it saved: room types, services,
+   price list lines, the deposit, times, cancellation, and the rest as
+   knowledge. Answer the "Still to tell Zaina" list before going live.
+6. **What they sell, in full**: check and finish rooms and rates (Rooms),
+   services, tables and the schedule (Services), and the price list
+   (Prices). Every price Zaina quotes comes from here.
+7. **Alerts** (Settings → Notifications): at least one email that gets
    every lead and booking; add team members under Team.
-6. **Payments** (Full plan, Settings → Bookings & payments): the owner
+8. **Payments and rules** (Full plan, Settings → Bookings & payments): the owner
    connects **their own** M-Pesa or card account. Test with a small amount.
-7. **Try it** (Setup → Try Zaina): the owner asks ten questions their
+9. **Try it** (Setup → Try Zaina): the owner asks ten questions their
    customers really ask. Every answer that's wrong or missing gets fixed
    now, in Knowledge or the interview.
+
+### Their rules, not the usual ones
+
+Zaina is told each business's own rules on every message (the deposit to
+confirm, any room or service with its own deposit, ways to pay,
+cancellation, times) and that they win over what is usual for its kind of
+business. Two hotels on the same setup can work differently: one takes
+payment in full to confirm, another a 30% deposit. A rule the business
+hasn't set is said to be not set, and Zaina says the team will confirm,
+rather than describing what most places do. So set the deposit and
+cancellation before going live.
 
 ## 4. The path
 

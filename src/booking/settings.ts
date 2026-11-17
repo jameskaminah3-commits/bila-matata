@@ -107,6 +107,19 @@ export function depositText(settings: BookingSettings, rest = "at the venue"): s
   }
 }
 
+/**
+ * An offering's own deposit, in words, when it has one ("50% to confirm, the
+ * rest at the property"); null when the business's usual rule applies.
+ */
+export function offeringDepositText(rules: { deposit_percent?: number; deposit_fixed?: number } | null | undefined, settings: BookingSettings, rest = "at the venue"): string | null {
+  if (rules?.deposit_percent !== undefined) {
+    const percent = rules.deposit_percent;
+    return percent === 0 ? `none: paid ${rest}` : percent === 100 ? "paid in full to confirm" : `${percent}% to confirm, the rest ${rest}`;
+  }
+  if (rules?.deposit_fixed !== undefined) return `${formatMoney(rules.deposit_fixed, settings.currency)} to confirm, the rest ${rest}`;
+  return null;
+}
+
 /** The tax the business's prices carry, if any. */
 export function taxRuleOf(settings: BookingSettings): TaxRule | null {
   const percent = settings.taxPercent === null ? 0 : Number(settings.taxPercent);

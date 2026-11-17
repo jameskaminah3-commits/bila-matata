@@ -13,7 +13,7 @@
 import { useEffect, useState } from "react";
 import { api, businessPath } from "../api.ts";
 import type { BookingMode, BookingSettingsView, Closure, ResourceKind, ResourceRow, Role, Service, WeekHours } from "../types.ts";
-import { Button, Empty, ErrorLine, Field, Icon, Message, Modal, Toggle, useAction, useLoad } from "../ui.tsx";
+import { Tabs, Button, Empty, ErrorLine, Field, Icon, Message, Modal, Toggle, useAction, useLoad } from "../ui.tsx";
 
 const major = (minor: number | undefined) => (minor === undefined ? "" : String(minor / 100));
 const minor = (value: string) => Math.round(Number(value.replace(/,/g, "")) * 100);
@@ -28,8 +28,11 @@ const MODES: Record<BookingMode, string> = {
 };
 const KINDS: Record<ResourceKind, string> = { staff: "Person", chair: "Chair or station", table: "Table", room: "Room", other: "Other" };
 
-export function ServicesPage(props: { businessId: string; role: Role; businessType: string | null }) {
-  const restaurant = props.businessType === "restaurant";
+export function ServicesPage(props: { businessId: string; role: Role; kinds: Array<"service" | "table"> }) {
+  // A business that books both (a hotel with a spa and a restaurant) switches between them.
+  const both = props.kinds.length > 1;
+  const [shown, setShown] = useState<"service" | "table">(props.kinds[0] ?? "service");
+  const restaurant = (props.kinds.length === 1 ? props.kinds[0] : shown) === "table";
   const settings = useLoad(() => api<BookingSettingsView>("GET", businessPath(props.businessId, "/booking-settings")), [props.businessId]);
   const services = useLoad(() => api<{ currency: "KES" | "USD"; offerings: Service[] }>("GET", businessPath(props.businessId, "/offerings")), [props.businessId]);
   const resources = useLoad(() => api<{ resources: ResourceRow[] }>("GET", businessPath(props.businessId, "/resources")), [props.businessId]);
@@ -37,20 +40,25 @@ export function ServicesPage(props: { businessId: string; role: Role; businessTy
   const [editingResource, setEditingResource] = useState<ResourceRow | "new" | null>(null);
   const currency = services.data?.currency ?? "KES";
   const people = resources.data?.resources ?? [];
+  // Only this kind: never a hotel's room types, nor its tables among its spa treatments.
+  const ofKind = (list: Service[]) => list.filter((service) => service.kind === (restaurant ? "table" : "service"));
   return (
     <div className="page stack">
-      <div className="page-head"><h1>{restaurant ? "Tables" : "Services"}</h1></div>
+      <div className="page-head"><h1>{both ? "Services and tables" : restaurant ? "Tables" : "Services"}</h1></div>
+      {both ? (
+        <Tabs label="What's booked" active={shown} onChange={setShown} tabs={[{ id: "service", label: "Appointments" }, { id: "table", label: "Table reservations" }]} />
+      ) : null}
       {settings.data ? <OpeningHours businessId={props.businessId} settings={settings.data} onSaved={() => void settings.reload()} /> : <ErrorLine error={settings.error} />}
 
       <section className="card stack-tight">
         <div className="row"><h2>{restaurant ? "Table bookings" : "Services"}</h2><Button kind="primary" small onClick={() => setEditing("new")}><Icon name="plus" /> Add</Button></div>
-        {!services.data ? <ErrorLine error={services.error} /> : !services.data.offerings.length ? (
+        {!services.data ? <ErrorLine error={services.error} /> : !ofKind(services.data.offerings).length ? (
           <Empty title={restaurant ? "No table bookings yet. Add one, like \"Dinner\" (90 minutes, parties of 1 to 8)." : "No services yet. Add one, like \"Haircut\" (45 minutes)."} />
         ) : (
           <table className="table">
             <thead><tr><th>Name</th><th>Length</th><th>{restaurant ? "Parties" : "With"}</th><th>Price</th><th>Booked</th></tr></thead>
             <tbody>
-              {services.data.offerings.map((service) => (
+              {ofKind(services.data.offerings).map((service) => (
                 <tr key={service.id}>
                   <td><button type="button" className="link" onClick={() => setEditing(service)}>{service.name}</button>{service.status === "hidden" ? <span className="chip">hidden</span> : null}</td>
                   <td>{service.duration_minutes} min{service.buffer_minutes ? <span className="muted small"> + {service.buffer_minutes}</span> : null}</td>
@@ -185,6 +193,7 @@ function ServiceForm(props: { businessId: string; restaurant: boolean; currency:
           if (form.price.trim()) pricing.price = minor(form.price);
           if (form.per_person.trim()) pricing.per_person = minor(form.per_person);
           const body = {
+            kind: props.restaurant ? "table" : "service",
             name: form.name, description: form.description, duration_minutes: Number(form.duration_minutes), buffer_minutes: Number(form.buffer_minutes),
             min_party: Number(form.min_party), max_party: Number(form.max_party), booking_mode: form.booking_mode, status: form.status, pricing, resource_ids: who,
           };

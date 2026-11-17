@@ -3,15 +3,14 @@
 // Which connector serves which business. The server registers the connectors
 // it runs at start-up (TBM's, when TBM's database is configured); tests
 // register scripted ones. Any other business gets the platform's own
-// connector for its type: a place to stay gets rooms and bookings
-// (hospitality), a salon or restaurant gets time slots (appointments), and
-// anything else answers from its settings and takes leads for its team
-// (basic).
+// connector for what it books here (its capabilities and plan): rooms
+// (hospitality), services or tables (appointments), both (a hotel with a
+// restaurant or a spa), or nothing booked here, answering from its settings
+// and taking leads for its team (basic).
 
-import { booksTime, workingType, type Business } from "../db/schema.ts";
-import { appointmentsConnector } from "./appointments/index.ts";
-import { basicConnector } from "./basic/index.ts";
-import { hospitalityConnector } from "./hospitality/index.ts";
+import { businessBookingModules } from "../capabilities/of-business.ts";
+import type { Business } from "../db/schema.ts";
+import { platformConnectorFor } from "./platform/index.ts";
 import type { BusinessConnector } from "./types.ts";
 
 const connectors = new Map<string, BusinessConnector>();
@@ -35,9 +34,7 @@ export async function connectorFor(business: Pick<Business, "id" | "businessType
   const connector = connectors.get(business.id);
   if (connector) return connector;
   if (expected.has(business.id)) throw new Error(`The connector for "${business.id}" isn't configured on this server`);
-  // On the Starter tier there are no booking tools: Zaina answers, quotes the price list and takes leads.
-  const type = workingType(business);
-  if (type === "guesthouse") return hospitalityConnector;
-  if (booksTime(type)) return appointmentsConnector;
-  return basicConnector;
+  // On the Starter tier there are no booking tools: Zaina answers, quotes the price list and takes requests.
+  if (business.tier === "starter" || business.businessType === "custom") return platformConnectorFor({ rooms: false, slotKinds: [] });
+  return platformConnectorFor(await businessBookingModules({ id: business.id, businessType: business.businessType, tier: business.tier ?? "full" }));
 }

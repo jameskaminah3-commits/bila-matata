@@ -30,7 +30,8 @@ import { formatDay, holdUntil, payLink, slotTime, tellTeam } from "../../booking
 import { listOfferings, offeringLinks, slotPriceText } from "../../booking/offerings.ts";
 import { parseDate, quoteSlot, type SlotPricing } from "../../booking/pricing.ts";
 import { listResources } from "../../booking/resources.ts";
-import { canTakeDeposits, depositChosen, depositRuleOf, depositText, getBookingSettings, paymentMethodsText, paymentOptionsOf, taxRuleOf } from "../../booking/settings.ts";
+import { canTakeDeposits, depositChosen, depositRuleOf, depositText, getBookingSettings, offeringDepositText, paymentMethodsText, paymentOptionsOf, taxRuleOf } from "../../booking/settings.ts";
+import { ofKinds, slotKindsOf } from "../../capabilities/of-business.ts";
 import { describeWeek } from "../../booking/slots.ts";
 import { TIME_PATTERN } from "../../booking/local-time.ts";
 import { textArg } from "../../engine/tool-args.ts";
@@ -115,7 +116,7 @@ async function listServices(context: ToolContext) {
     getBookingSettings(business.id),
   ]);
   const options = paymentOptionsOf(settings);
-  const services = all.filter((offering) => offering.kind === "service" || offering.kind === "table");
+  const services = ofKinds(all, await slotKindsOf(business));
   const staff = people.filter((resource) => resource.kind === "staff");
   return {
     ok: true,
@@ -131,6 +132,7 @@ async function listServices(context: ToolContext) {
         ...(offering.kind === "table" ? { party_sizes: `${offering.minParty}–${offering.maxGuests}` } : offering.maxGuests > 1 ? { up_to_people: offering.maxGuests } : {}),
         ...(offering.kind === "service" && by.length ? { with: by } : {}),
         booked: offering.bookingMode === "instant" ? "online" : offering.bookingMode === "request" ? "on request: the team confirms" : "by enquiry: the team gets back to the customer",
+        ...(offeringDepositText(offering.pricing as SlotPricing, settings, "when you arrive") ? { deposit: offeringDepositText(offering.pricing as SlotPricing, settings, "when you arrive") } : {}),
       };
     }),
     opening_hours: describeWeek(settings.openingHours),
@@ -145,7 +147,7 @@ async function listServices(context: ToolContext) {
 }
 
 async function pickService(business: Business, name: string) {
-  const all = (await listOfferings(business.id, { activeOnly: true })).filter((offering) => offering.kind === "service" || offering.kind === "table");
+  const all = ofKinds(await listOfferings(business.id, { activeOnly: true }), await slotKindsOf(business));
   return { all, service: findRoomType(all, name) };
 }
 
@@ -293,17 +295,26 @@ async function makeAppointment(args: any, context: ToolContext) {
   return bookingResult(business, created.booking, service, session?.language ?? "en");
 }
 
-const KIND_WORDS: Record<"salon" | "restaurant", { what: string; things: string; example: string }> = {
+const KIND_WORDS: Record<"salon" | "restaurant" | "appointments", { what: string; things: string; example: string }> = {
   salon: { what: "a salon", things: "services", example: "a service, the day, and anyone they'd like it with" },
   restaurant: { what: "a restaurant", things: "table bookings", example: "the day, the time and how many people" },
+  appointments: { what: "a business that takes appointments", things: "appointments", example: "the service, the day, and anyone they'd like it with" },
 };
+
+/** How the business is described: by its type, or (when it chose) by what it books. */
+async function wordsFor(business: Business) {
+  const kinds = await slotKindsOf(business);
+  if (business.businessType === "restaurant" || (kinds.length === 1 && kinds[0] === "table")) return KIND_WORDS.restaurant;
+  if (business.businessType === "salon") return KIND_WORDS.salon;
+  return KIND_WORDS.appointments;
+}
 
 export const appointmentsConnector: BusinessConnector = {
   async systemPrompt(business: Business) {
     const settings = await getBusinessSettings(business.id);
     const name = settings?.displayName ?? business.name;
     const assistant = settings?.assistantName ?? "Zaina";
-    const words = KIND_WORDS[business.businessType === "restaurant" ? "restaurant" : "salon"];
+    const words = await wordsFor(business);
     return `${personaLine(assistant, personaRole(business, settings), name)}, ${words.what}, answering customers in a chat on its website or on WhatsApp.
 
 Each customer message ends with a <turn_context> block from the system (not the customer): the date and time, and the language the customer writes in.

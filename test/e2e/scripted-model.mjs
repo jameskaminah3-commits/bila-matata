@@ -593,6 +593,9 @@ globalThis.fetch = async (input, init) => {
   } else if (/TEST:whoami/.test(customerText)) {
     // Which business's instructions and tools this chat runs on.
     out = reply([{ text: `${systemText.split("\n")[0]} Tools: ${toolNames.join(", ")}.` }]);
+  } else if (/TEST:draft64\s+\S+/.test(customerText)) {
+    // A setup draft (onboarding/describe.ts): exactly the JSON the test gives, as a model might return it.
+    out = reply([{ text: Buffer.from(customerText.match(/TEST:draft64\s+(\S+)/)[1], "base64").toString("utf8") }]);
   } else if (/TEST:has64\s+\S+/.test(customerText)) {
     // Whether the instructions contain a phrase (base64): "yes" or "no".
     out = reply([{ text: systemText.includes(Buffer.from(customerText.match(/TEST:has64\s+(\S+)/)[1], "base64").toString("utf8")) ? "yes" : "no" }]);

@@ -31,9 +31,9 @@ const OUTCOMES: Record<string, { kind: "success" | "error"; text: string }> = {
   failed: { kind: "error", text: "Google didn't complete the sign-in. Please try again." },
 };
 
-export function Calendars(props: { businessId: string; role: Role; businessType: string | null; outcome: string | null }) {
+export function Calendars(props: { businessId: string; role: Role; businessType: string | null; rooms?: boolean; outcome: string | null }) {
   const loaded = useLoad(() => api<CalendarsView>("GET", businessPath(props.businessId, "/calendars")), [props.businessId]);
-  const rooms = props.businessType === "guesthouse";
+  const rooms = props.rooms ?? props.businessType === "guesthouse";
   const targets = useLoad(async (): Promise<Target[]> => rooms
     ? (await api<{ offerings: Target[] }>("GET", businessPath(props.businessId, "/offerings"))).offerings
     : (await api<{ resources: Target[] }>("GET", businessPath(props.businessId, "/resources"))).resources, [props.businessId, rooms]);

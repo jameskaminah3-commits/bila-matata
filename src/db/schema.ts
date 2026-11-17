@@ -225,6 +225,7 @@ export const staffPushSubscriptions = pgTable("staff_push_subscriptions", {
 export type VerifiedCustomer = { id: string; name?: string; email?: string; phone?: string };
 
 import type { Industry } from "../engine/playbooks.ts";
+import type { CapabilitySettings } from "../capabilities/catalog.ts";
 export type WebsiteSync = { url: string; maxPages: number; weekly: boolean; lastReadAt: string | null; lastPages: number; lastSkipped: number; lastError: string | null };
 
 export const qrDestinations = ["page", "website", "whatsapp"] as const;
@@ -268,6 +269,8 @@ export const businessSettings = pgTable("business_settings", {
   interview: jsonb("interview").$type<{ answers: Record<string, string>; updatedAt: string } | null>(),
   /** The website Zaina reads, and whether it's read again every week (migration 0021). */
   websiteSync: jsonb("website_sync").$type<WebsiteSync | null>(),
+  /** What the business does through Zaina (migration 0028): rooms, tables, appointments, transfers…; empty: it follows from the type. */
+  capabilities: jsonb("capabilities").$type<CapabilitySettings | null>(),
   updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
   updatedBy: uuid("updated_by"),
 });

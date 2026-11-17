@@ -54,7 +54,7 @@ export function RoomsPage(props: { businessId: string; role: Role }) {
         <Empty title="No room types yet.">Add them one by one, or import a spreadsheet.</Empty>
       ) : (
         <div className="rooms-grid">
-          {data.offerings.map((room) => (
+          {data.offerings.filter((room) => (room.kind ?? "room_type") === "room_type").map((room) => (
             <article key={room.id} className={`card room${room.status === "hidden" ? " hidden-room" : ""}`}>
               <div className="room-head">
                 <h2>{room.name}</h2>
@@ -133,6 +133,8 @@ function RoomEditor(props: { businessId: string; room: Offering | null; unit: st
     }
     if (fees.length) rules.fees = fees.map((fee): Fee => ({ name: fee.name, amount: minor(fee.amount), per: fee.per }));
     return {
+      // A room type, whatever else the business books (a hotel's spa treatments are services).
+      kind: "room_type",
       name: form.name, description: form.description, units: Number(form.units), max_guests: Number(form.max_guests),
       booking_mode: form.booking_mode, status: form.status, pricing: rules,
     };

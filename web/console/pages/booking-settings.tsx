@@ -14,7 +14,9 @@ import { api, businessPath } from "../api.ts";
 import { atLeast, type BookingSettingsView, type DepositType, type PaymentWay, type Role } from "../types.ts";
 import { Button, ErrorLine, Field, Message, Toggle, useAction, useLoad } from "../ui.tsx";
 
-export function BookingSettings(props: { businessId: string; role: Role; slots?: boolean }) {
+export function BookingSettings(props: { businessId: string; role: Role; slots?: boolean; rooms?: boolean }) {
+  // Rooms have check-in times and nights; times have neither. A hotel with a spa has rooms.
+  const rooms = props.rooms ?? !props.slots;
   const loaded = useLoad(() => api<BookingSettingsView>("GET", businessPath(props.businessId, "/booking-settings")), [props.businessId]);
   const [settings, setSettings] = useState<BookingSettingsView | null>(null);
   useEffect(() => setSettings(loaded.data), [loaded.data]);
@@ -23,7 +25,7 @@ export function BookingSettings(props: { businessId: string; role: Role; slots?:
   return (
     <div className="stack">
       <Deposit key={`deposit-${settings.deposit_type}`} businessId={props.businessId} settings={settings} onSaved={setSettings} />
-      <Policy businessId={props.businessId} settings={settings} onSaved={setSettings} slots={props.slots ?? false} />
+      <Policy businessId={props.businessId} settings={settings} onSaved={setSettings} slots={!rooms} />
       <h2>Where deposits are paid</h2>
       {!settings.payments.takes_deposits ? (
         <p className="message error">No payment account is connected, so bookings with a deposit become requests the team handles. Connect at least one below.</p>
@@ -33,7 +35,7 @@ export function BookingSettings(props: { businessId: string; role: Role; slots?:
       <MpesaExpress businessId={props.businessId} settings={settings} owner={owner} onSaved={setSettings} />
       <MpesaManual businessId={props.businessId} settings={settings} owner={owner} onSaved={setSettings} />
       <WaysToPay businessId={props.businessId} settings={settings} onSaved={setSettings} />
-      <Limits businessId={props.businessId} settings={settings} onSaved={setSettings} slots={props.slots ?? false} />
+      <Limits businessId={props.businessId} settings={settings} onSaved={setSettings} slots={!rooms} />
     </div>
   );
 }

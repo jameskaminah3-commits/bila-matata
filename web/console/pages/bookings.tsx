@@ -10,7 +10,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { api, businessPath } from "../api.ts";
 import { go } from "../app.tsx";
 import { clock, day, timeAgo } from "../format.ts";
-import { atLeast, type BookingDetail, type BookingRow, type BookingStatus, type CalendarData, type Offering, type Quote, type Role } from "../types.ts";
+import { atLeast, type BookingDetail, type BookingRow, type BookingStatus, type CalendarData, type Offering, type Quote, type Role, type Books } from "../types.ts";
 import { Button, Empty, ErrorLine, Field, Icon, Message, Modal, Tabs, Toggle, useAction, useEvery, useLoad } from "../ui.tsx";
 import { NewSlotBooking, ScheduleView } from "./schedule.tsx";
 
@@ -37,8 +37,9 @@ const stay = (row: Pick<BookingRow, "check_in" | "check_out" | "nights" | "start
 
 const people = (row: Pick<BookingRow, "guests" | "starts_at">) => (row.starts_at ? `${row.guests} ${row.guests === 1 ? "person" : "people"}` : `${row.guests} guest${row.guests === 1 ? "" : "s"}`);
 
-export function BookingsPage(props: { businessId: string; role: Role; bookingId: string | null; businessType: string | null }) {
-  const slots = props.businessType === "salon" || props.businessType === "restaurant";
+export function BookingsPage(props: { businessId: string; role: Role; bookingId: string | null; books: Books }) {
+  // Times (a salon, a restaurant) unless it has rooms; a hotel's spa and table bookings are in the list too.
+  const slots = !props.books.rooms;
   const [filter, setFilter] = useState<Filter>("upcoming");
   const [creating, setCreating] = useState(false);
   const list = useLoad(

@@ -294,6 +294,7 @@ export function registerBookingRoutes(app: Express, config: PlatformConfig): voi
   const noun = (business: Business) => (business.businessType === "guesthouse" ? "room type" : business.businessType === "restaurant" ? "table booking" : "service");
 
   app.post(`${base}/offerings`, ...role("manager"), handle(async (req, res, { business, userId }) => {
+    // The kind it sends (a hotel adding a spa treatment sends "service"); else its type's usual kind.
     const checked = validateOffering(req.body ?? {}, undefined, offeringKindFor(business.businessType));
     if (!checked.ok) return res.status(400).json({ error: "invalid_offering", message: checked.error });
     const resourceIds = await resourceIdsFrom(business, req.body?.resource_ids);

@@ -85,5 +85,5 @@ Never: estimate a price yourself; promise an arrival time the tools didn't give.
 
 /** The rules for a business's industry, added to Zaina's instructions. */
 export function playbookFor(industry: Industry, businessName: string): string {
-  return `\n\nHow to work at ${businessName} (${INDUSTRY_LABELS[industry].toLowerCase()}):\n${PLAYBOOKS[industry]}\n${STAGES}`;
+  return `\n\nHow to work at ${businessName} (${INDUSTRY_LABELS[industry].toLowerCase()}). This is how such businesses usually work, not ${businessName}'s rules: where ${businessName}'s own rules, tools or information differ, theirs win, and never present a usual practice as ${businessName}'s rule.\n${PLAYBOOKS[industry]}\n${STAGES}`;
 }
