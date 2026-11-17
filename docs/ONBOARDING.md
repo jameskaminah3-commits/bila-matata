@@ -147,6 +147,16 @@ cancellation before going live.
   slipped away, repeated questions (teach Zaina the ones she couldn't
   answer), and an estimate of staff time saved. Owners and managers get it
   by email on the 1st of every month.
+- **Manage from WhatsApp** (Settings): for an owner who lives on WhatsApp.
+  They tap **Link my WhatsApp number** and send the code shown (`LINK
+  123456`) from their own phone to the business's number. From then on
+  they can write to it like an assistant: "Change the price of chicken to
+  450", "We're fully booked tomorrow", "Add a new service: kids' haircut,
+  300", "We no longer deliver to Kilimani", "How many orders today?".
+  Zaina prepares each change and shows what it affects; **only their YES
+  applies it** (within 30 minutes, and only if nothing changed meanwhile).
+  Agents can ask but not change. Every change is in the log on that page.
+  Customers writing to the same number still reach the customer Zaina.
 - A salon or clinic: **Services** with durations and prices, and
   **Calendars** if they keep one, so Zaina books real free times.
 - **QR code & link** (Settings): choose where the code sends people (their

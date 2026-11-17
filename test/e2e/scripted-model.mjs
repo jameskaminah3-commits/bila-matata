@@ -98,6 +98,8 @@ function messyReplyFor(name, result) {
   }
   // Orders: the whole result, so tests can read what Zaina was given (its link included).
   if (name === "place_order" || name === "check_order") return `System said: ${JSON.stringify(r)}`;
+  // The team's assistant on WhatsApp (src/owner): the whole result, too.
+  if (["business_numbers", "find_items", "list_orders", "delivery_settings"].includes(name) || name.startsWith("prepare_")) return `System said: ${JSON.stringify(r)}`;
   if (r.ok && r.payment_link) {
     const id = r.booking_id;
     return [

@@ -32,6 +32,7 @@ import { applyStatuses, deliverSession } from "./delivery.ts";
 import { markRead } from "./graph.ts";
 import { businessForNumber, connectionFor } from "./numbers.ts";
 import { readDelivery, type InboundMessage } from "./webhook.ts";
+import { takeOwnerMessage } from "../../owner/assistant.ts";
 
 /** A chat is picked up again within this many days of silence. */
 const CHAT_REUSE_DAYS = 7;
@@ -84,6 +85,8 @@ async function openChatFor(business: Business, address: string, profileName: str
 /** Stores one message; returns its chat, or null when there's nothing to answer (a duplicate, a reaction). */
 async function acceptMessage(ctx: WhatsappContext, business: Business, message: InboundMessage): Promise<string | null> {
   if (message.kind === "reaction" || message.kind === "sticker") return null;
+  // A link code, or a team member's linked number: the team's assistant, not a customer's chat.
+  if (await takeOwnerMessage(ctx, business, message)) return null;
   const sessionId = await openChatFor(business, message.from, message.profileName, ctx.sessionSecret);
   const sentAt = message.sentAt && message.sentAt.getTime() <= Date.now() + 60_000 ? message.sentAt : new Date();
   return inBusiness(async (_db, client) => {

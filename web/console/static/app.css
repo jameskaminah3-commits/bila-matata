@@ -762,3 +762,8 @@ a.card.customer-row:hover { border-color: var(--brand); }
 .money-lines .total dt { color: inherit; font-weight: 650; }
 .kpi-label .chip { margin-left: 6px; }
 .lost-list li { display: block; }
+
+/* Manage from WhatsApp. */
+.link-code { font-size: 1.6rem; font-weight: 750; letter-spacing: 0.08em; font-variant-numeric: tabular-nums; margin: 4px 0; overflow-wrap: anywhere; }
+.owner-examples li { color: var(--text-2); }
+.pre-line { white-space: pre-line; overflow-wrap: anywhere; }

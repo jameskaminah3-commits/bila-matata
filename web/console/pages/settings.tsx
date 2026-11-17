@@ -19,9 +19,10 @@ import { BillingSettings } from "./billing.tsx";
 import { BookingSettings } from "./booking-settings.tsx";
 import { Calendars } from "./calendars.tsx";
 import { Integration } from "./integration.tsx";
+import { OwnerWhatsapp } from "./owner-whatsapp.tsx";
 
-type Tab = "profile" | "offer" | "brand" | "door" | "cards" | "notifications" | "widget" | "whatsapp" | "system" | "hours" | "bookings" | "payments" | "calendars" | "billing";
-const TABS: Tab[] = ["profile", "offer", "brand", "door", "cards", "notifications", "widget", "whatsapp", "system", "hours", "bookings", "payments", "calendars", "billing"];
+type Tab = "profile" | "offer" | "brand" | "door" | "cards" | "notifications" | "widget" | "whatsapp" | "owner" | "system" | "hours" | "bookings" | "payments" | "calendars" | "billing";
+const TABS: Tab[] = ["profile", "offer", "brand", "door", "cards", "notifications", "widget", "whatsapp", "owner", "system", "hours", "bookings", "payments", "calendars", "billing"];
 
 /**
  * The tab in the address (#/b/<business>/settings/<tab>?…), and what a
@@ -59,6 +60,7 @@ export function SettingsPage(props: { businessId: string; role: Role; me: Me; bu
           { id: "notifications", label: "Notifications" },
           { id: "widget", label: "Website widget" },
           { id: "whatsapp", label: "WhatsApp" },
+          ...(ownSystem ? [] : [{ id: "owner" as const, label: "Manage from WhatsApp" }]),
           ...(atLeast(props.role, "manager") ? [{ id: "system" as const, label: "Your system" }] : []),
           { id: "hours", label: "Hours" },
           { id: "billing", label: "Plan & billing" },
@@ -69,6 +71,7 @@ export function SettingsPage(props: { businessId: string; role: Role; me: Me; bu
       {tab === "calendars" && stays ? <Calendars businessId={props.businessId} role={props.role} businessType={props.businessType ?? null} rooms={books.rooms} outcome={initial.tab === "calendars" ? initial.outcome : null} /> : null}
       {tab === "offer" && !ownSystem ? <OfferSetup businessId={props.businessId} role={props.role} onChanged={props.onOfferChanged} /> : null}
       {tab === "profile" ? <Profile businessId={props.businessId} /> : null}
+      {tab === "owner" && !ownSystem ? <OwnerWhatsapp businessId={props.businessId} role={props.role} /> : null}
       {tab === "brand" ? <Brand businessId={props.businessId} role={props.role} /> : null}
       {tab === "door" ? <FrontDoor businessId={props.businessId} role={props.role} /> : null}
       {tab === "cards" ? <BusinessCards businessId={props.businessId} role={props.role} /> : null}

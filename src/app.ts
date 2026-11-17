@@ -80,6 +80,7 @@ import { registerCustomerRoutes } from "./customers/routes.ts";
 import { registerCustomerExtras } from "./customers/tool.ts";
 import { linkCustomers } from "./customers/store.ts";
 import { registerPerformanceRoutes } from "./reports/performance-routes.ts";
+import { registerOwnerRoutes } from "./owner/routes.ts";
 import { sendMonthlyReports } from "./reports/performance.ts";
 import { syncFeeds } from "./prices/feed.ts";
 
@@ -210,6 +211,7 @@ export function createApp(config: PlatformConfig, engine: EngineOptions, whatsap
   registerOrderRoutes(app, config);
   registerCustomerRoutes(app, config);
   registerPerformanceRoutes(app, config);
+  registerOwnerRoutes(app, config);
   registerCalendarRoutes(app, config);
   registerSignupRoutes(app, config);
   registerOnboardingRoutes(app, config);
