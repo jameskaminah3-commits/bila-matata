@@ -147,7 +147,7 @@ const SUBJECTS: Record<CustomerNotice, (reference: string, name: string) => stri
   code_rejected: (reference, name) => `Your M-Pesa payment for booking ${reference} at ${name}`,
 };
 
-async function sendCustomerEmail(to: string, subject: string, text: string, replyTo: string | null): Promise<void> {
+export async function sendCustomerEmail(to: string, subject: string, text: string, replyTo: string | null): Promise<void> {
   const email = config.alertEmail;
   if (!email) return;
   const response = await fetch("https://api.resend.com/emails", {

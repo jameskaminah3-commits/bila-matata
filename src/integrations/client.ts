@@ -29,7 +29,7 @@ export const HANDOFF_ACTIONS = ["checkout.link"] as const;
 export const WRITE_ACTIONS = ["booking.create", "order.create"] as const;
 export const ACTIONS = [...READ_ACTIONS, ...HANDOFF_ACTIONS, ...WRITE_ACTIONS] as const;
 export type Action = (typeof ACTIONS)[number] | "ping";
-export const EVENTS = ["lead.created", "booking.requested", "booking.confirmed", "chat.handoff"] as const;
+export const EVENTS = ["lead.created", "booking.requested", "booking.confirmed", "order.confirmed", "chat.handoff"] as const;
 export type EventName = (typeof EVENTS)[number];
 
 export const isAction = (value: unknown): value is (typeof ACTIONS)[number] => (ACTIONS as readonly string[]).includes(String(value));

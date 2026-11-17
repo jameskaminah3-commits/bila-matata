@@ -275,6 +275,8 @@ export const businessSettings = pgTable("business_settings", {
   widgetSeen: jsonb("widget_seen").$type<WidgetSeen | null>(),
   /** The business's own product feed (migration 0030). */
   catalogueFeed: jsonb("catalogue_feed").$type<CatalogueFeed | null>(),
+  /** How the business takes orders (migration 0032): delivery zones and fees, collection, minimum, who confirms. */
+  orderSettings: jsonb("order_settings").$type<OrderSettings | null>(),
   updatedAt: timestamp("updated_at", { withTimezone: true, mode: "date" }).notNull().defaultNow(),
   updatedBy: uuid("updated_by"),
 });
@@ -664,7 +666,9 @@ export type PaymentMethod = (typeof paymentMethods)[number];
 export const payments = pgTable("payments", {
   id: uuid("id").primaryKey().defaultRandom(),
   businessId: text("business_id").notNull(),
-  bookingId: uuid("booking_id").notNull(),
+  /** A payment is for a booking or (migration 0032) an order, never both. */
+  bookingId: uuid("booking_id"),
+  orderId: uuid("order_id"),
   method: text("method").$type<PaymentMethod>().notNull(),
   amountMinor: bigint("amount_minor", { mode: "number" }).notNull(),
   currency: text("currency").$type<BookingCurrency>().notNull(),
@@ -681,6 +685,59 @@ export const payments = pgTable("payments", {
   updatedAt: at("updated_at").notNull().defaultNow(),
 });
 export type Payment = typeof payments.$inferSelect;
+
+// ── Orders (migration 0032) ────────────────────────────────────────────
+export const orderStatuses = ["requested", "awaiting_payment", "confirmed", "out_for_delivery", "ready_for_collection", "completed", "cancelled", "expired"] as const;
+export type OrderStatus = (typeof orderStatuses)[number];
+export type OrderLine = { itemId: string; name: string; quantity: number; unitMinor: number; priceText: string; lineTotalMinor: number | null; /** Taken out of the item's counted stock. */ counted?: boolean };
+/** A business's way of taking orders. Delivery only to its zones, each with its fee (0: free). */
+export type OrderSettings = {
+  delivery: boolean;
+  zones: Array<{ name: string; feeMinor: number }>;
+  collection: boolean;
+  collectionPoint: string | null;
+  minimumMinor: number;
+  payOnDelivery: boolean;
+  /** auto: an order is confirmed once paid (or chosen to pay on delivery); team: the team accepts it first. */
+  confirm: "auto" | "team";
+  holdMinutes: number;
+};
+
+export const orders = pgTable("orders", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  businessId: text("business_id").notNull(),
+  reference: text("reference").notNull(),
+  sessionId: uuid("session_id"),
+  status: text("status").$type<OrderStatus>().notNull(),
+  customerName: text("customer_name").notNull(),
+  customerPhone: text("customer_phone"),
+  customerEmail: text("customer_email"),
+  customerNotes: text("customer_notes"),
+  lines: jsonb("lines").$type<OrderLine[]>().notNull(),
+  currency: text("currency").$type<BookingCurrency>().notNull(),
+  subtotalMinor: bigint("subtotal_minor", { mode: "number" }).notNull(),
+  deliveryFeeMinor: bigint("delivery_fee_minor", { mode: "number" }).notNull().default(0),
+  totalMinor: bigint("total_minor", { mode: "number" }).notNull(),
+  paidMinor: bigint("paid_minor", { mode: "number" }).notNull().default(0),
+  payOnDelivery: boolean("pay_on_delivery").notNull().default(false),
+  pricedByTeam: boolean("priced_by_team").notNull().default(false),
+  fulfilment: text("fulfilment").$type<"delivery" | "collection">().notNull(),
+  zone: text("zone"),
+  address: text("address"),
+  wanted: text("wanted"),
+  payToken: text("pay_token").notNull(),
+  holdExpiresAt: at("hold_expires_at"),
+  stockReserved: boolean("stock_reserved").notNull().default(false),
+  conflict: text("conflict"),
+  staffNote: text("staff_note"),
+  cancelReason: text("cancel_reason"),
+  idempotencyKey: text("idempotency_key"),
+  createdAt: createdAt(),
+  updatedAt: at("updated_at").notNull().defaultNow(),
+  confirmedAt: at("confirmed_at"),
+  completedAt: at("completed_at"),
+});
+export type Order = typeof orders.$inferSelect;
 
 // ── Billing (Phase 5): what businesses pay the platform ────────────────
 
@@ -791,6 +848,8 @@ export const priceItems = pgTable("price_items", {
   // Migration 0031: a picture elsewhere (feed or website), or the fingerprint of one uploaded here.
   imageUrl: text("image_url"),
   imageVersion: text("image_version"),
+  /** How many are left (migration 0032); null: not counted. Orders take from it while held and once confirmed. */
+  stockQuantity: integer("stock_quantity"),
   createdAt: createdAt(),
   updatedAt: at("updated_at").notNull().defaultNow(),
   updatedBy: uuid("updated_by"),

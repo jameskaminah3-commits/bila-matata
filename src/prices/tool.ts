@@ -31,7 +31,7 @@ export const getPricesDeclaration: FunctionDeclaration = {
 
 const HOW_TO_USE =
   "These are the business's own prices. Quote each exactly as written (the amount, the currency, what it's per). " +
-  "Don't convert currencies or add up totals yourself. An item with in_stock false is out of stock right now: say so, and suggest a similar one. " +
+  "Don't convert currencies or add up totals yourself. An item with in_stock false is out of stock right now: say so, and suggest a similar one; only_left is how many remain. " +
   "If they'd like to see an item and it has a picture, send its picture link as it is. " +
   "If what the customer asks isn't listed, say you're not sure and offer to pass it to the team.";
 const NO_LIST = "This business has no price list. Don't guess a price: say you're not sure and offer to pass the question to the team.";
@@ -58,7 +58,7 @@ const shown = (item: PriceItem) => ({
   ...(item.section ? { section: item.section } : {}),
   name: item.name,
   price: priceText(item),
-  ...(item.available ? {} : { in_stock: false }),
+  ...(!item.available || item.stockQuantity === 0 ? { in_stock: false } : item.stockQuantity !== null && item.stockQuantity <= 10 ? { only_left: item.stockQuantity } : {}),
   ...(item.description ? { about: item.description } : {}),
   ...(item.url ? { page: item.url } : {}),
   ...(itemPictureUrl(item) ? { picture: itemPictureUrl(item) } : {}),

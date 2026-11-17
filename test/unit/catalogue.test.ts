@@ -1,12 +1,12 @@
-// The catalogue from a business's own feed (src/prices/feed.ts), and an
-// order's total from the catalogue (src/orders/tool.ts), without a database.
+// The catalogue from a business's own feed (src/prices/feed.ts), and the
+// rules an order follows (src/orders), without a database.
 
 import assert from "node:assert/strict";
 import test from "node:test";
 import { feedItem, feedPrice, parseFeed } from "../../src/prices/feed.ts";
-import { priceOrder } from "../../src/orders/tool.ts";
+import { firstStatus, orderAmountDue, zoneFee } from "../../src/orders/store.ts";
+import { DEFAULT_ORDER_SETTINGS, validateOrderSettings } from "../../src/orders/settings.ts";
 import { itemPictureUrl } from "../../src/prices/images.ts";
-import type { PriceItem } from "../../src/db/schema.ts";
 
 const feedUrl = new URL("https://happyfine.example/api/products");
 
@@ -46,17 +46,43 @@ test("WooCommerce's Store API and Shopify's products.json as they come", () => {
   assert.deepEqual([shopify?.priceMinor, shopify?.available, shopify?.url], [250000, true, "https://happyfine.example/products/kikoi"]);
 });
 
-test("an order's total comes from the catalogue; a range leaves it to the team", () => {
-  const item = (id: string, priceMinor: number, priceMaxMinor: number | null = null) => ({ id, name: id, priceMinor, priceMaxMinor, currency: "KES", unit: null } as unknown as PriceItem);
-  const fixed = priceOrder([{ item: item("oil", 450000), quantity: 10 }, { item: item("rice", 320000), quantity: 2 }]);
-  assert.ok(fixed.ok);
-  assert.deepEqual([fixed.totalMinor, fixed.totalText, fixed.lines[1].lineTotalMinor], [5140000, "KSh 51,400", 640000]);
-  const range = priceOrder([{ item: item("oil", 450000), quantity: 1 }, { item: item("delivery", 20000, 50000), quantity: 1 }]);
-  assert.ok(range.ok);
-  assert.equal(range.totalMinor, null);
-  assert.match(range.totalText, /confirmed by the team/);
-  const mixed = priceOrder([{ item: item("oil", 450000), quantity: 1 }, { item: { ...item("tour", 5000), currency: "USD" } as PriceItem, quantity: 1 }]);
-  assert.equal(mixed.ok, false);
+test("an order's first step: paid online, paid on delivery, or the team accepts it first", () => {
+  const settings = { ...DEFAULT_ORDER_SETTINGS };
+  const first = (over: Partial<typeof settings>, input: { pricedByTeam?: boolean; online?: boolean; wantsPayOnDelivery?: boolean }) =>
+    firstStatus({ settings: { ...settings, ...over }, pricedByTeam: input.pricedByTeam ?? false, online: input.online ?? true, wantsPayOnDelivery: input.wantsPayOnDelivery ?? false });
+  assert.deepEqual(first({}, {}), { status: "awaiting_payment", payOnDelivery: false });
+  assert.deepEqual(first({}, { wantsPayOnDelivery: true }), { status: "awaiting_payment", payOnDelivery: false }, "the business doesn't take payment on delivery");
+  assert.deepEqual(first({ payOnDelivery: true }, { wantsPayOnDelivery: true }), { status: "confirmed", payOnDelivery: true });
+  assert.deepEqual(first({ payOnDelivery: true }, { online: false }), { status: "confirmed", payOnDelivery: true }, "no way to pay online: on delivery");
+  assert.deepEqual(first({}, { online: false }), { status: "requested", payOnDelivery: false }, "no way to pay at all: the team says how");
+  assert.deepEqual(first({}, { pricedByTeam: true }), { status: "requested", payOnDelivery: false }, "a price range: the team sets the total");
+  assert.deepEqual(first({ confirm: "team" }, {}), { status: "requested", payOnDelivery: false });
+});
+
+test("delivery areas, their fees and the order settings a team can set", () => {
+  const checked = validateOrderSettings({ delivery: true, zones: [{ name: "Westlands", fee: "200" }, { name: "CBD", fee: 0 }], minimum: "1,000", collection_point: "  Shop 4,  Gikomba  " }, DEFAULT_ORDER_SETTINGS);
+  assert.ok(checked.ok);
+  assert.deepEqual(checked.value.zones, [{ name: "Westlands", feeMinor: 20000 }, { name: "CBD", feeMinor: 0 }]);
+  assert.deepEqual([checked.value.minimumMinor, checked.value.collectionPoint], [100000, "Shop 4, Gikomba"]);
+  assert.deepEqual(zoneFee(checked.value, " westlands "), { name: "Westlands", feeMinor: 20000 });
+  assert.equal(zoneFee(checked.value, "Karen"), null);
+  assert.equal(zoneFee(checked.value, ""), null);
+  const refuse = (input: Record<string, unknown>) => { const result = validateOrderSettings(input, DEFAULT_ORDER_SETTINGS); return result.ok ? "" : result.error; };
+  assert.match(refuse({ delivery: true }), /areas you deliver to/);
+  assert.match(refuse({ collection: false }), /delivery, collection, or both/);
+  assert.match(refuse({ delivery: true, zones: [{ name: "CBD", fee: 1 }, { name: "cbd", fee: 2 }] }), /twice/);
+  assert.match(refuse({ hold_minutes: 5 }), /10 to 1,440/);
+  assert.match(refuse({ confirm: "maybe" }), /auto or team/);
+});
+
+test("what's due on an order: online until it's paid, on delivery when the customer chose that", () => {
+  const order = { status: "awaiting_payment", totalMinor: 517000, paidMinor: 0, payOnDelivery: false } as const;
+  assert.equal(orderAmountDue(order), 517000);
+  assert.equal(orderAmountDue({ ...order, status: "requested" }), 0, "not before the team accepts it");
+  assert.equal(orderAmountDue({ ...order, status: "confirmed" }), 0, "paid");
+  assert.equal(orderAmountDue({ ...order, status: "out_for_delivery", payOnDelivery: true }), 517000);
+  assert.equal(orderAmountDue({ ...order, status: "expired", paidMinor: 17000 }), 500000);
+  assert.equal(orderAmountDue({ ...order, status: "cancelled" }), 0);
 });
 
 test("a feed's pictures, wherever the shop keeps them, https only; an uploaded photo's address", () => {

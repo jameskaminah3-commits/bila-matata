@@ -108,13 +108,27 @@ cancellation before going live.
   phone's camera, a name and a price (the rest is optional). Photos are made
   the right size on the phone and kept in the database; Zaina sends a
   customer the photo's link when they want to see an item, and the chat
-  shows it as a picture. What's out of stock is one tap. Turn on **Orders and delivery** in
-  Settings → What you offer, and on Full Zaina takes orders from it: the
-  items and quantities, delivery or collection, the area and time, and the
-  customer's name and phone. The server adds up the total from the
-  catalogue (a price range leaves it to the team). Orders arrive in **Leads**
-  with their lines and total; the team confirms, says any delivery charge and
-  how to pay them, and marks it delivered. Zaina never takes payment.
+  shows it as a picture. What's out of stock is one tap; **How many are
+  left** (optional) is counted down by each order and given back when an
+  unpaid one lapses. Turn on **Orders and delivery** in Settings → What you
+  offer, and on Full Zaina takes orders from it, end to end:
+  - **Orders → Delivery & settings**: the areas they deliver to, each with
+    its fee (0 for free), collection and where, the smallest order, whether
+    customers may pay on delivery, whether the team accepts each order first,
+    and how long unpaid items are kept (30 minutes unless they choose).
+  - **Settings → Payments** (or Bookings & payments): their own M-Pesa till
+    or paybill, and Paystack or M-Pesa prompts if the studio connects them.
+    Customers pay straight into these; Zaina never takes payment.
+  - In the chat: the items, how many, delivery area or collection, and the
+    customer's name and phone. The server prices it from the catalogue, adds
+    the area's fee, keeps the stock and sends the order's own payment link
+    (/pay/o/…). Paying there confirms it; an M-Pesa code waits for the team
+    to tick it off. Pay on delivery is confirmed straight away. A price range,
+    no way to pay, or "we accept each order first" sends it to the team.
+  - **Orders** (Needs you, In progress, Done, Cancelled): accept or decline,
+    check codes, then Out for delivery or Ready to collect, and Delivered.
+    The customer hears every step by themselves, in the chat (WhatsApp too)
+    and by email if they gave one, and can ask Zaina "where's my order?".
 - A salon or clinic: **Services** with durations and prices, and
   **Calendars** if they keep one, so Zaina books real free times.
 - **QR code & link** (Settings): choose where the code sends people (their

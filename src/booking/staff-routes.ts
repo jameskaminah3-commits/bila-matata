@@ -551,10 +551,11 @@ export function registerBookingRoutes(app: Express, config: PlatformConfig): voi
     res.status(201).json(await bookingView(business, settled?.booking ?? booking));
   }));
 
-  async function pendingCode(business: Business, paymentId: string): Promise<Payment | undefined> {
+  /** A booking's payment (an order's is checked under orders). */
+  async function pendingCode(business: Business, paymentId: string): Promise<(Payment & { bookingId: string }) | undefined> {
     if (!/^[0-9a-f-]{36}$/i.test(paymentId)) return undefined;
     const [row] = await inBusiness((db) => db.select().from(payments).where(and(eq(payments.businessId, business.id), eq(payments.id, paymentId))).limit(1), business.id);
-    return row;
+    return row?.bookingId ? (row as Payment & { bookingId: string }) : undefined;
   }
 
   app.post(`${base}/payments/:paymentId/confirm`, ...role("agent"), handle(async (req, res, { business, userId }) => {

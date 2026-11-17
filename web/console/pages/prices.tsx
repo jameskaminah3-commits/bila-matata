@@ -18,7 +18,7 @@ import { timeAgo } from "../format.ts";
 type PriceItem = {
   id: string; section: string | null; name: string; description: string | null; price: number; price_max: number | null;
   currency: "KES" | "USD"; unit: string | null; status: "active" | "hidden"; sort_order: number; price_display: string;
-  available: boolean; source: "manual" | "feed"; url: string | null; image_url: string | null; picture_url: string | null;
+  available: boolean; stock: number | null; source: "manual" | "feed"; url: string | null; image_url: string | null; picture_url: string | null;
 };
 type Feed = { url: string; daily: boolean; last_read_at: string | null; last_items: number; last_skipped: number; last_error: string | null };
 type Parsed = { items: Array<{ section: string | null; name: string; price: string; price_max: string | null; currency: "KES" | "USD"; unit: string | null }>; problems: Array<{ line: number; text: string; reason: string }> };
@@ -77,7 +77,7 @@ export function PricesPage(props: { businessId: string; role: Role; businessType
                       {manager ? (
                         <button type="button" className={`chip stock-toggle${item.available ? " ok" : " waiting"}`} aria-pressed={item.available} disabled={action.busy}
                           onClick={() => void action.run(async () => { await api("PATCH", businessPath(props.businessId, `/price-list/${item.id}`), { available: !item.available }); await list.reload(); }, `"${item.name}" is ${item.available ? "out of stock" : "in stock"}.`)}>
-                          {item.available ? "In stock" : "Out of stock"}
+                          {item.available ? (item.stock !== null ? `${item.stock} left` : "In stock") : "Out of stock"}
                         </button>
                       ) : <span className={`chip${item.available ? " ok" : " waiting"}`}>{item.available ? "In stock" : "Out of stock"}</span>}
                     </div>
@@ -141,6 +141,7 @@ function ItemEditor(props: { businessId: string; item: PriceItem | null; section
     unit: props.item?.unit ?? "",
     status: props.item?.status ?? "active",
     image_url: props.item?.image_url ?? "",
+    stock: props.item?.stock === null || props.item?.stock === undefined ? "" : String(props.item.stock),
   });
   const [available, setAvailable] = useState(props.item?.available ?? true);
   const [photo, setPhoto] = useState<File | null>(null);
@@ -155,7 +156,7 @@ function ItemEditor(props: { businessId: string; item: PriceItem | null; section
         className="form"
         onSubmit={async (event) => {
           event.preventDefault();
-          const body = { ...form, available, section: form.section.trim() || null, description: form.description.trim() || null, unit: form.unit.trim() || null, price_max: form.price_max.trim() || null, image_url: form.image_url.trim() || null };
+          const body = { ...form, available, section: form.section.trim() || null, description: form.description.trim() || null, unit: form.unit.trim() || null, price_max: form.price_max.trim() || null, image_url: form.image_url.trim() || null, stock: form.stock.trim() === "" ? null : Number(form.stock) };
           await action.run(async () => {
             let saved = await api<{ item: PriceItem }>(props.item ? "PATCH" : "POST", businessPath(props.businessId, props.item ? `/price-list/${props.item.id}` : "/price-list"), body);
             // The photo is kept in the database once the item exists.
@@ -188,6 +189,7 @@ function ItemEditor(props: { businessId: string; item: PriceItem | null; section
           <Field label="Per (optional)"><input maxLength={40} value={form.unit} onChange={(event) => set("unit", event.target.value)} placeholder="per bunch, per kg, per head" /></Field>
         </div>
         <label className="check"><input type="checkbox" checked={available} onChange={(event) => setAvailable(event.target.checked)} /><span>In stock (Zaina takes orders for it)</span></label>
+        <Field label="How many are left (optional)" hint="Each order takes from it and an unpaid one gives it back; at 0 Zaina says it's out. Leave empty to not count."><input type="number" min={0} max={1000000} inputMode="numeric" value={form.stock} onChange={(event) => set("stock", event.target.value)} placeholder="50" /></Field>
         <details className="more-details" open={more}>
           <summary>More details (optional)</summary>
           <div className="form-row">

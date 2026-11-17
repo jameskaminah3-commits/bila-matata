@@ -16,7 +16,7 @@ import { api, businessPath } from "../api.ts";
 import { atLeast, type BookingSettingsView, type DepositType, type PaymentWay, type Role } from "../types.ts";
 import { Button, ErrorLine, Field, Message, Toggle, useAction, useLoad } from "../ui.tsx";
 
-export function BookingSettings(props: { businessId: string; role: Role; admin?: boolean; slots?: boolean; rooms?: boolean }) {
+export function BookingSettings(props: { businessId: string; role: Role; admin?: boolean; slots?: boolean; rooms?: boolean; paymentsOnly?: boolean }) {
   // Rooms have check-in times and nights; times have neither. A hotel with a spa has rooms.
   const rooms = props.rooms ?? !props.slots;
   const loaded = useLoad(() => api<BookingSettingsView>("GET", businessPath(props.businessId, "/booking-settings")), [props.businessId]);
@@ -27,10 +27,11 @@ export function BookingSettings(props: { businessId: string; role: Role; admin?:
   const admin = props.admin === true;
   return (
     <div className="stack">
-      <Deposit key={`deposit-${settings.deposit_type}`} businessId={props.businessId} settings={settings} onSaved={setSettings} />
-      <Policy businessId={props.businessId} settings={settings} onSaved={setSettings} slots={!rooms} />
-      <h2>Where deposits are paid</h2>
-      {!settings.payments.takes_deposits ? (
+      {props.paymentsOnly ? null : <Deposit key={`deposit-${settings.deposit_type}`} businessId={props.businessId} settings={settings} onSaved={setSettings} />}
+      {props.paymentsOnly ? null : <Policy businessId={props.businessId} settings={settings} onSaved={setSettings} slots={!rooms} />}
+      <h2>{props.paymentsOnly ? "Where customers pay you" : "Where deposits are paid"}</h2>
+      {props.paymentsOnly ? <p className="muted">Into your own accounts: the order's payment link offers the ways you connect here. Zaina never takes payment.</p> : null}
+      {!settings.payments.takes_deposits && !props.paymentsOnly ? (
         <p className="message error">No payment account is connected, so bookings with a deposit become requests the team handles. Connect at least one below.</p>
       ) : null}
       {!owner ? <p className="muted">Only an owner can change the M-Pesa number paid by hand.</p> : null}
@@ -38,7 +39,7 @@ export function BookingSettings(props: { businessId: string; role: Role; admin?:
       <MpesaExpress businessId={props.businessId} settings={settings} owner={admin} onSaved={setSettings} />
       <MpesaManual businessId={props.businessId} settings={settings} owner={owner} onSaved={setSettings} />
       <WaysToPay businessId={props.businessId} settings={settings} onSaved={setSettings} />
-      <Limits businessId={props.businessId} settings={settings} onSaved={setSettings} slots={!rooms} />
+      {props.paymentsOnly ? null : <Limits businessId={props.businessId} settings={settings} onSaved={setSettings} slots={!rooms} />}
     </div>
   );
 }

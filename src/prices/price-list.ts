@@ -33,6 +33,8 @@ export type PriceItemValues = {
   url: string | null;
   /** A picture of it elsewhere (https), when none is uploaded here. */
   imageUrl: string | null;
+  /** How many are left, counted down by each order (null: not counted). */
+  stockQuantity: number | null;
 };
 
 const clean = (value: unknown) => (typeof value === "string" ? value.replace(/\s+/g, " ").trim() : "");
@@ -65,7 +67,9 @@ export function validatePriceItem(input: Record<string, unknown>, current?: Pric
   if (url && (!/^https:\/\/[^\s]+$/i.test(url) || url.length > 500)) return { ok: false, error: "The item's page is an https:// address." };
   const imageUrl = has("image_url") ? (typeof input.image_url === "string" ? input.image_url.trim() : "") || null : current?.imageUrl ?? null;
   if (imageUrl && (!/^https:\/\/[^\s]+$/i.test(imageUrl) || imageUrl.length > 500)) return { ok: false, error: "A picture's address is an https:// link." };
-  return { ok: true, value: { section, name, description, priceMinor: price, priceMaxMinor: priceMax, currency, unit, status, sortOrder, available, url, imageUrl } };
+  const stockQuantity = has("stock") ? (input.stock === null || input.stock === "" ? null : Number(input.stock)) : current?.stockQuantity ?? null;
+  if (stockQuantity !== null && (!Number.isInteger(stockQuantity) || stockQuantity < 0 || stockQuantity > 1_000_000)) return { ok: false, error: "How many are left is a whole number (leave it empty to not count)." };
+  return { ok: true, value: { section, name, description, priceMinor: price, priceMaxMinor: priceMax, currency, unit, status, sortOrder, available, url, imageUrl, stockQuantity } };
 }
 
 /** "KSh 3,500 per car", "KSh 1,000–1,500 per person", "Free". */
@@ -89,6 +93,7 @@ export const publicPriceItem = (item: PriceItem) => ({
   status: item.status,
   sort_order: item.sortOrder,
   available: item.available,
+  stock: item.stockQuantity,
   source: item.source,
   url: item.url,
   image_url: item.imageUrl,
@@ -257,7 +262,7 @@ export async function importPriceItems(businessId: string, values: PriceItemValu
 }
 
 /** An item from the business's own product feed (feed.ts). */
-export type FeedItemValues = Omit<PriceItemValues, "status" | "sortOrder"> & { externalId: string | null };
+export type FeedItemValues = Omit<PriceItemValues, "status" | "sortOrder" | "stockQuantity"> & { externalId: string | null };
 
 /**
  * The business's own feed, kept in step: each item is added or updated in

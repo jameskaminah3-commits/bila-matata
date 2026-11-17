@@ -13,7 +13,7 @@ import type { Business } from "../db/schema.ts";
 import { sendEmail } from "../platform/mailer.ts";
 import { notificationAllowance, recipientsOf, type Recipient } from "./store.ts";
 
-export type RecipientAlert = { title: string; body: string; sessionId: string | null; bookingId?: string; leadId?: number; takeover: boolean };
+export type RecipientAlert = { title: string; body: string; sessionId: string | null; bookingId?: string; leadId?: number; orderId?: string; takeover: boolean };
 
 const WHO: Record<string, string> = { USER: "Customer", ZAINA_REASONING: "", AGENT: "Team" };
 const MAX_LINES = 80;
@@ -41,7 +41,7 @@ export function recipientEmail(recipient: Recipient, input: { business: string; 
   const parts: string[] = [];
   if (recipient.notifyAlerts || !input.conversation) {
     parts.push(alert.body);
-    if (input.link) parts.push(`${alert.takeover ? "Take over this chat" : alert.bookingId ? "Open the booking" : alert.leadId ? "Open your leads" : "Open the chat"}: ${input.link}`);
+    if (input.link) parts.push(`${alert.takeover ? "Take over this chat" : alert.bookingId ? "Open the booking" : alert.orderId ? "Open the order" : alert.leadId ? "Open your leads" : "Open the chat"}: ${input.link}`);
   } else {
     parts.push(alert.body);
   }

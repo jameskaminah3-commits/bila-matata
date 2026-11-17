@@ -234,7 +234,8 @@ for them. Each is a signed POST (same headers as above):
 
 | Event | `data` |
 |---|---|
-| `lead.created` | `lead`: `kind` (`lead`, `request` for something not listed, `callback`, `order` from the catalogue), `name`, `phone`, `email`, `interest`, `notes`, `callback_at`, `callback_when`, `created_at`; for an order, `order`: `reference`, `lines` (`item_id`, `name`, `quantity`, `line_total_minor`), `total_minor`, `currency`, `fulfilment`, `area`, `when` |
+| `lead.created` | `lead`: `kind` (`lead`, `request` for something not listed, `callback`), `name`, `phone`, `email`, `interest`, `notes`, `callback_at`, `callback_when`, `created_at` |
+| `order.confirmed` | `order`: `reference`, `status`, `lines` (`item_id`, `name`, `quantity`, `line_total_minor`), `subtotal_minor`, `delivery_fee_minor`, `total_minor`, `paid_minor`, `currency`, `pay_on_delivery`, `fulfilment` (`delivery` or `collection`), `zone`, `address`, `wanted`, `customer` (`name`, `phone`, `email`). Sent when an order from the catalogue is paid, or confirmed to be paid on delivery |
 | `booking.requested` | `booking`: `reference`, `status`, `summary`, `customer` (`name`, `phone`, `email`) |
 | `booking.confirmed` | the same |
 | `chat.handoff` | `reason`: why a person is needed |

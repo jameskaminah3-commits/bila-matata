@@ -10,7 +10,7 @@ import { matchPriceItems } from "../../src/prices/tool.ts";
 test("items are checked; prices are typed in shillings (or dollars) and kept in cents", () => {
   const good = validatePriceItem({ name: " Airport transfer ", section: "Transfers", price: "3,500", unit: "per car" });
   assert.ok(good.ok);
-  assert.deepEqual(good.value, { section: "Transfers", name: "Airport transfer", description: null, priceMinor: 350000, priceMaxMinor: null, currency: "KES", unit: "per car", status: "active", sortOrder: 0, available: true, url: null, imageUrl: null });
+  assert.deepEqual(good.value, { section: "Transfers", name: "Airport transfer", description: null, priceMinor: 350000, priceMaxMinor: null, currency: "KES", unit: "per car", status: "active", sortOrder: 0, available: true, url: null, imageUrl: null, stockQuantity: null });
   const range = validatePriceItem({ name: "Massage", price: 4000, price_max: "6,500", currency: "KES" });
   assert.ok(range.ok && range.value.priceMaxMinor === 650000);
   for (const [bad, pattern] of [

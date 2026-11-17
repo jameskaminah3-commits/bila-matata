@@ -1,8 +1,9 @@
 // End-to-end: Zaina helps each business the way it works.
 //
 //   no website     a wholesaler types its catalogue (with what's out of
-//                  stock); Zaina takes an order from it, the server adds up
-//                  the total, and the team confirms it in Leads
+//                  stock) and its delivery areas; Zaina takes an order, the
+//                  server adds up the total with delivery, the team accepts
+//                  it and the customer hears (orders.test.ts goes further)
 //   a product feed the same catalogue read from the shop's own system every
 //                  day, beside what the team typed
 //   its own system a custom TypeScript shop answers Zaina through
@@ -16,7 +17,7 @@ import http, { type IncomingMessage } from "node:http";
 import type { AddressInfo } from "node:net";
 import { after, before, test } from "node:test";
 import { handleZaina, type Handlers } from "../../docs/zaina-connector.ts";
-import { apiFor, PASSWORD, startPlatform, type Api, type Platform } from "./harness.ts";
+import { apiFor, eventually, PASSWORD, startPlatform, type Api, type Platform } from "./harness.ts";
 
 const PORT = 5114;
 const BASE = `http://127.0.0.1:${PORT}`;
@@ -62,6 +63,10 @@ async function openChat(business: string, origin: string) {
   const body = await opened.json() as { token: string };
   return { ...body, origin };
 }
+async function chatMessages(chat: { token: string }): Promise<Array<{ from: string; text: string }>> {
+  const response = await fetch(`${BASE}/v1/chat/messages`, { headers: { authorization: `Bearer ${chat.token}` } });
+  return ((await response.json()) as any).messages;
+}
 async function say(chat: { token: string; origin: string }, message: string) {
   const response = await fetch(`${BASE}/v1/chat`, { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${chat.token}`, origin: chat.origin }, body: JSON.stringify({ message }) });
   const body = await response.json() as any;
@@ -87,8 +92,10 @@ after(async () => {
   shop.close();
 });
 
-test("no website: the team types its catalogue; Zaina takes an order from it, totals it exactly, and the team confirms it", async () => {
+test("no website: the team types its catalogue and delivery areas; Zaina takes an order, the server totals it with delivery, and the team accepts it", async () => {
   assert.equal((await staff("duka", "PUT", "/capabilities", { enabled: ["orders"] })).status, 200);
+  const zones = await staff("duka", "PUT", "/order-settings", { delivery: true, zones: [{ name: "Kariakor", fee: "300" }, { name: "Eastleigh", fee: 0 }], collection: false });
+  assert.equal(zones.status, 200, JSON.stringify(zones.body));
   for (const item of [
     { section: "Oils", name: "Golden Fry cooking oil 20L", price: "4500", unit: "per jerrican" },
     { section: "Rice", name: "Pishori rice 25kg", price: "3,200" },
@@ -103,27 +110,34 @@ test("no website: the team types its catalogue; Zaina takes an order from it, to
   assert.equal(await say(chat, raw64("get_prices", { query: "sugar" })), "Our prices: Sugar 50kg: KSh 6,800 (out of stock).");
 
   await say(chat, "Ten jerricans of Golden Fry and two bags of Pishori rice please, delivered to Kariakor tomorrow morning. I'm Achieng Otieno, 0711 222 333");
-  const out = said(await say(chat, raw64("place_order", { items: [{ id: id("Sugar 50kg"), quantity: 1 }], fulfilment: "delivery", area: "Kariakor", name: "Achieng Otieno", phone: "0711 222 333" })));
+  const customer = { name: "Achieng Otieno", phone: "0711 222 333" };
+  const out = said(await say(chat, raw64("place_order", { items: [{ id: id("Sugar 50kg"), quantity: 1 }], fulfilment: "delivery", delivery_area: "Kariakor", address: "Kariakor market", ...customer })));
   assert.deepEqual([out.error, out.items], ["out_of_stock", ["Sugar 50kg"]]);
-  assert.equal(said(await say(chat, raw64("place_order", { items: [{ id: id("Pishori rice 25kg"), quantity: 2 }], name: "Achieng Otieno", phone: "0711 222 333" }))).error, "fulfilment_required");
-  assert.equal(said(await say(chat, raw64("place_order", { items: [{ id: "not-an-item", quantity: 2 }], fulfilment: "collection", name: "Achieng Otieno", phone: "0711 222 333" }))).error, "unknown_item");
+  assert.equal(said(await say(chat, raw64("place_order", { items: [{ id: id("Pishori rice 25kg"), quantity: 2 }], ...customer }))).error, "fulfilment_required");
+  assert.equal(said(await say(chat, raw64("place_order", { items: [{ id: "not-an-item", quantity: 2 }], fulfilment: "delivery", delivery_area: "Kariakor", address: "x", ...customer }))).error, "unknown_item");
+  assert.equal(said(await say(chat, raw64("place_order", { items: [{ id: id("Pishori rice 25kg"), quantity: 2 }], fulfilment: "collection", ...customer }))).error, "no_collection");
+  const where = said(await say(chat, raw64("place_order", { items: [{ id: id("Pishori rice 25kg"), quantity: 2 }], fulfilment: "delivery", delivery_area: "Karen", address: "x", ...customer })));
+  assert.deepEqual([where.error, where.zones], ["zone_required", ["Kariakor", "Eastleigh"]], "only the areas the business delivers to");
 
   const order = said(await say(chat, raw64("place_order", {
     items: [{ id: id("Golden Fry cooking oil 20L"), quantity: 10 }, { id: id("Pishori rice 25kg"), quantity: 2 }],
-    fulfilment: "delivery", area: "Kariakor", when: "tomorrow morning", name: "Achieng Otieno", phone: "0711 222 333",
+    fulfilment: "delivery", delivery_area: "kariakor", address: "Kariakor market, stall 12", when: "tomorrow morning", ...customer,
   })));
   assert.equal(order.ok, true, JSON.stringify(order));
   assert.match(order.reference, /^ORD-[0-9A-F]{6}$/);
-  assert.equal(order.total, "KSh 51,400", "the server adds it up: 10 × 4,500 + 2 × 3,200");
+  assert.equal(order.delivery_fee, "KSh 300");
+  assert.equal(order.total, "KSh 51,700", "the server adds it up: 10 × 4,500 + 2 × 3,200 + 300 delivery");
+  assert.equal(order.status, "waiting for the business to accept it", "no way to pay online yet: the team says how");
 
-  const leads = (await staff("duka", "GET", "/leads")).body.leads as any[];
-  const placedOrder = leads.find((lead) => lead.kind === "order");
-  assert.equal(placedOrder.name, "Achieng Otieno");
-  assert.equal(placedOrder.details.reference, order.reference);
-  assert.equal(placedOrder.details.totalMinor, 5_140_000);
-  assert.deepEqual(placedOrder.details.lines.map((line: any) => [line.name, line.quantity]), [["Golden Fry cooking oil 20L", 10], ["Pishori rice 25kg", 2]]);
-  assert.deepEqual([placedOrder.details.fulfilment, placedOrder.details.area, placedOrder.details.when], ["delivery", "Kariakor", "tomorrow morning"]);
-  assert.equal((await staff("duka", "PATCH", `/leads/${placedOrder.id}`, { status: "contacted" })).status, 200, "the team confirms it");
+  const waiting = (await staff("duka", "GET", "/orders?filter=needs_you")).body;
+  assert.equal(waiting.counts.needs_you, 1);
+  const [placedOrder] = waiting.orders;
+  assert.deepEqual([placedOrder.reference, placedOrder.customer.name, placedOrder.total, placedOrder.zone, placedOrder.wanted], [order.reference, "Achieng Otieno", "KSh 51,700", "Kariakor", "tomorrow morning"]);
+  assert.deepEqual(placedOrder.lines.map((line: any) => [line.name, line.quantity]), [["Golden Fry cooking oil 20L", 10], ["Pishori rice 25kg", 2]]);
+  const accepted = await staff("duka", "POST", `/orders/${placedOrder.id}/accept`, {});
+  assert.equal(accepted.status, 200, JSON.stringify(accepted.body));
+  assert.deepEqual([accepted.body.status, accepted.body.pay_on_delivery], ["confirmed", true], "no online way to pay: paid on delivery");
+  await eventually(async () => (await chatMessages(chat)).some((message) => message.text.includes(`Order ${order.reference} is confirmed. We'll deliver to Kariakor market, stall 12, Kariakor. You'll pay KSh 51,700 on delivery.`)), "the customer hears it's confirmed in the chat");
 });
 
 test("a product feed from the shop's own system becomes its catalogue, beside what the team typed, and is read again", async () => {

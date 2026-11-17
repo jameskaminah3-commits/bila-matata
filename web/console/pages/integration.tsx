@@ -41,6 +41,7 @@ const EVENT_LABELS: Array<[string, string]> = [
   ["lead.created", "A customer left their details (or asked for a call back)"],
   ["booking.requested", "A booking request to answer"],
   ["booking.confirmed", "A confirmed booking"],
+  ["order.confirmed", "An order from the catalogue, paid or to be paid on delivery"],
   ["chat.handoff", "A chat needs a person"],
 ];
 

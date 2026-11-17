@@ -9,7 +9,7 @@
 // from another business simply isn't found.
 //
 //   GET  /v1/staff/businesses/:businessId/sessions?filter=waiting|mine|active|callbacks|all|everything   viewer
-//   GET  /v1/staff/businesses/:businessId/pending-count  (chats waiting, mine, callbacks, new leads)      viewer
+//   GET  /v1/staff/businesses/:businessId/pending-count  (chats waiting, mine, callbacks, new leads, orders that need the team)      viewer
 //   GET  /v1/staff/businesses/:businessId/sessions/:id                                                    viewer
 //   POST /v1/staff/businesses/:businessId/sessions/:id/claim | messages | release | close | callback-done   agent
 //   GET  /v1/staff/businesses/:businessId/presence       viewer   who is taking chats
@@ -116,16 +116,18 @@ export function registerStaffConversationRoutes(app: Express, config: PlatformCo
   app.get(`${base}/pending-count`, staff, requireBusinessRole("viewer"), async (req: Request, res: Response, next: NextFunction) => {
     try {
       const { business, user } = staffOf(req);
-      const { rows: [row] } = await inBusiness((_db, client) => client.query<{ waiting: number; mine: number; callbacks: number; leads: number }>(
+      const { rows: [row] } = await inBusiness((_db, client) => client.query<{ waiting: number; mine: number; callbacks: number; leads: number; orders: number }>(
         `select count(*) filter (where managed_by = 'HUMAN' and assigned_agent_id is null)::int as waiting,
                 count(*) filter (where managed_by = 'HUMAN' and (claimed_by = $2 or (routed_to = $2 and assigned_agent_id is null)))::int as mine,
                 count(*) filter (where callback_requested_at is not null and managed_by <> 'CLOSED')::int as callbacks,
-                (select count(*)::int from leads where business_id = $1 and status = 'new') as leads
+                (select count(*)::int from leads where business_id = $1 and status = 'new') as leads,
+                (select count(*)::int from orders o where o.business_id = $1 and (o.status = 'requested' or o.conflict is not null
+                   or exists (select 1 from payments p where p.business_id = o.business_id and p.order_id = o.id and p.method = 'mpesa_code' and p.status = 'pending'))) as orders
          from chat_sessions where business_id = $1`,
         [business!.id, user.id],
       ));
       // And answers from the studio's support that nobody has read yet.
-      res.json({ pending: row?.waiting ?? 0, mine: row?.mine ?? 0, callbacks: row?.callbacks ?? 0, leads: row?.leads ?? 0, support: await unreadForBusiness(business!.id) });
+      res.json({ pending: row?.waiting ?? 0, mine: row?.mine ?? 0, callbacks: row?.callbacks ?? 0, leads: row?.leads ?? 0, orders: row?.orders ?? 0, support: await unreadForBusiness(business!.id) });
     } catch (error) {
       next(error);
     }

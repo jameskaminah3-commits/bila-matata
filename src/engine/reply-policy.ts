@@ -31,7 +31,7 @@ export function appendMissingCustomerLink(value: string, links: CustomerLink[]):
   const link = links.at(-1);
   if (!link) return value;
   const label = link.kind === "payment"
-    ? "Complete your booking here"
+    ? (/\/pay\/o\//.test(link.url) ? "Pay for your order here" : "Complete your booking here")
     : "View the full listing here";
   return `${value.trim()}\n\n${label}:\n${link.url}`;
 }

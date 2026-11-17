@@ -21,7 +21,7 @@ import { randomBytes } from "node:crypto";
 import { and, eq, inArray, lt, sql } from "drizzle-orm";
 import { anyBusinessById, everyBusiness } from "../businesses/registry.ts";
 import { getSecret } from "../businesses/secrets.ts";
-import { offerings, payments, takesBookings, type Booking, type Business, type Payment } from "../db/schema.ts";
+import { offerings, payments, type Booking, type Business, type Payment } from "../db/schema.ts";
 import { inBusiness } from "../db/tenant.ts";
 import {
   bookingByPayToken,
@@ -41,6 +41,8 @@ import { chargeFromWebhook, initializeCheckout, validWebhookSignature, verifyTra
 import { mpesaPhone, readStkCallback, stkPush, stkQuery, type MpesaAccount } from "./mpesa.ts";
 import { applyInvoiceCharge } from "../billing/payments.ts";
 import { applyStudioCharge } from "../studio/pay.ts";
+import { settleOrderPayment } from "../orders/store.ts";
+import { afterOrderSettlement, tellOrderTeam } from "../orders/notices.ts";
 
 let config: { publicBaseUrl: string | null; platformPaystackKey: string | null } = { publicBaseUrl: null, platformPaystackKey: null };
 
@@ -231,6 +233,24 @@ export async function afterSettlement(business: Business, settlement: Settlement
   }
 }
 
+type Outcome = Parameters<typeof settlePayment>[2];
+
+/**
+ * A payment settles against what it was for: a booking (bookings.ts) or an
+ * order (orders/store.ts). On success, the customer and the team hear what
+ * it means. Every provider path settles through here.
+ */
+async function settle(business: Business, payment: Payment, outcome: Outcome): Promise<{ changed: boolean } | undefined> {
+  if (payment.orderId) {
+    const settled = await settleOrderPayment(business.id, payment.id, outcome);
+    if (outcome.succeeded) await afterOrderSettlement(business, settled);
+    return settled;
+  }
+  const settled = await settlePayment(business.id, payment.id, outcome);
+  if (outcome.succeeded) await afterSettlement(business, settled);
+  return settled;
+}
+
 // ── Paystack ──────────────────────────────────────────────────────────
 
 async function paymentByReference(businessId: string, reference: string): Promise<Payment | undefined> {
@@ -240,23 +260,37 @@ async function paymentByReference(businessId: string, reference: string): Promis
 }
 
 /** Applies what Paystack says about one of our payments. */
-async function applyPaystack(business: Business, payment: Payment, transaction: VerifiedTransaction): Promise<Settlement | undefined> {
+async function applyPaystack(business: Business, payment: Payment, transaction: VerifiedTransaction): Promise<{ changed: boolean } | undefined> {
   if (transaction.status === "success") {
     if (transaction.amountMinor !== payment.amountMinor || transaction.currency !== payment.currency) {
       console.error(`[payments] ${business.id}: Paystack paid ${transaction.amountMinor} ${transaction.currency} for a payment of ${payment.amountMinor} ${payment.currency}`);
-      const settled = await settlePayment(business.id, payment.id, { succeeded: false, failure: `Paystack reported ${transaction.amountMinor / 100} ${transaction.currency}, not the amount asked` });
+      const failure = `Paystack reported ${transaction.amountMinor / 100} ${transaction.currency}, not the amount asked`;
+      const warning = "A Paystack payment arrived for a different amount than asked: check it in Paystack.";
+      if (payment.orderId) {
+        const settled = await settleOrderPayment(business.id, payment.id, { succeeded: false, failure });
+        if (settled) void tellOrderTeam(business, settled.order, "conflict", warning);
+        return settled;
+      }
+      const settled = await settlePayment(business.id, payment.id, { succeeded: false, failure });
       const booking = settled?.booking;
-      if (booking) void tellTeam(business, booking, await offeringName(business.id, booking.offeringId), "conflict", "A Paystack payment arrived for a different amount than asked: check it in Paystack.");
+      if (booking) void tellTeam(business, booking, await offeringName(business.id, booking.offeringId), "conflict", warning);
       return settled;
     }
-    const settled = await settlePayment(business.id, payment.id, { succeeded: true, receipt: transaction.id });
-    await afterSettlement(business, settled);
-    return settled;
+    return settle(business, payment, { succeeded: true, receipt: transaction.id });
   }
   if (transaction.status === "failed" || transaction.status === "reversed") {
-    return settlePayment(business.id, payment.id, { succeeded: false, failure: transaction.message ?? `Paystack: ${transaction.status}` });
+    return settle(business, payment, { succeeded: false, failure: transaction.message ?? `Paystack: ${transaction.status}` });
   }
   return undefined;
+}
+
+/** Asks Paystack about one payment and settles it (the customer came back to an order's page). */
+export async function checkPaystackPayment(business: Business, payment: Payment): Promise<void> {
+  if (payment.method !== "paystack" || payment.status !== "pending" || !payment.providerReference) return;
+  const account = await paystackAccountFor(business.id, await getBookingSettings(business.id));
+  if (!account) return;
+  const verified = await verifyTransaction(account.secretKey, payment.providerReference);
+  if (verified.ok) await applyPaystack(business, payment, verified.transaction);
 }
 
 /**
@@ -317,21 +351,17 @@ export async function checkPaystackReturn(business: Business, booking: Booking, 
 
 // ── M-Pesa Express ────────────────────────────────────────────────────
 
-async function applyStk(business: Business, payment: Payment, account: MpesaAccount): Promise<Settlement | undefined> {
+async function applyStk(business: Business, payment: Payment, account: MpesaAccount): Promise<{ changed: boolean } | undefined> {
   if (!payment.providerReference) return undefined;
   const asked = await stkQuery(account, payment.providerReference);
   if (!asked.ok) {
     console.warn(`[payments] ${business.id}: asking M-Pesa about ${payment.providerReference} failed: ${asked.message}`);
     return undefined;
   }
-  if (asked.outcome.state === "paid") {
-    const settled = await settlePayment(business.id, payment.id, { succeeded: true, receipt: payment.receipt });
-    await afterSettlement(business, settled);
-    return settled;
-  }
-  if (asked.outcome.state === "failed") return settlePayment(business.id, payment.id, { succeeded: false, failure: asked.outcome.reason });
+  if (asked.outcome.state === "paid") return settle(business, payment, { succeeded: true, receipt: payment.receipt });
+  if (asked.outcome.state === "failed") return settle(business, payment, { succeeded: false, failure: asked.outcome.reason });
   if (Date.now() - payment.createdAt.getTime() > STK_GIVE_UP_MS) {
-    return settlePayment(business.id, payment.id, { succeeded: false, failure: "The M-Pesa prompt wasn't answered." });
+    return settle(business, payment, { succeeded: false, failure: "The M-Pesa prompt wasn't answered." });
   }
   return undefined;
 }
@@ -346,7 +376,7 @@ export async function handleMpesaCallback(token: string, body: unknown): Promise
     .where(and(eq(payments.businessId, business.id), eq(payments.callbackToken, token))).limit(1), business.id);
   if (!payment || payment.status !== "pending" || payment.providerReference !== callback.checkoutRequestId) return;
   if (callback.resultCode !== 0) {
-    await settlePayment(business.id, payment.id, { succeeded: false, failure: callback.resultDesc || `M-Pesa result ${callback.resultCode}` });
+    await settle(business, payment, { succeeded: false, failure: callback.resultDesc || `M-Pesa result ${callback.resultCode}` });
     return;
   }
   if (callback.amount !== null && Math.round(callback.amount * 100) !== payment.amountMinor) {
@@ -373,7 +403,8 @@ export async function checkMpesaPayment(business: Business, payment: Payment): P
 export async function sweepPendingPayments(now = new Date()): Promise<number> {
   let settled = 0;
   for (const business of await everyBusiness()) {
-    if (!takesBookings(business.businessType)) continue;
+    // Bookings and orders both take payments.
+    if (business.businessType === "custom") continue;
     try {
       const pending = await inBusiness((db) => db.select().from(payments).where(and(
         eq(payments.businessId, business.id),
@@ -385,7 +416,7 @@ export async function sweepPendingPayments(now = new Date()): Promise<number> {
       if (!pending.length) continue;
       const settings = await getBookingSettings(business.id);
       for (const payment of pending) {
-        let result: Settlement | undefined;
+        let result: { changed: boolean } | undefined;
         if (payment.method === "paystack" && payment.providerReference) {
           const account = await paystackAccountFor(business.id, settings);
           if (!account) continue;
@@ -393,7 +424,7 @@ export async function sweepPendingPayments(now = new Date()): Promise<number> {
           if (!verified.ok) continue;
           result = await applyPaystack(business, payment, verified.transaction);
           if (!result && now.getTime() - payment.createdAt.getTime() > PAYSTACK_GIVE_UP_MS) {
-            result = await settlePayment(business.id, payment.id, { succeeded: false, failure: `Paystack: ${verified.transaction.status || "not completed"}` });
+            result = await settle(business, payment, { succeeded: false, failure: `Paystack: ${verified.transaction.status || "not completed"}` });
           }
         } else if (payment.method === "mpesa_express") {
           const account = await mpesaAccountFor(business.id, settings);

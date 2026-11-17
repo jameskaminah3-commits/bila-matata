@@ -73,6 +73,9 @@ import { configureStudioPay, sweepStudio } from "./studio/pay.ts";
 import { registerStudioRoutes } from "./studio/routes.ts";
 import { registerWidgetInstallRoutes } from "./widget/routes.ts";
 import { registerOrderExtras } from "./orders/tool.ts";
+import { expireOrders } from "./orders/store.ts";
+import { tellOrderCustomer } from "./orders/notices.ts";
+import { registerOrderRoutes } from "./orders/routes.ts";
 import { syncFeeds } from "./prices/feed.ts";
 
 /** Browsers may call the API from any website a business allows. */
@@ -199,6 +202,7 @@ export function createApp(config: PlatformConfig, engine: EngineOptions, whatsap
   // The studio's site and invoices (/pay, /pay/BM-…) come before the booking payment pages (/pay/:token).
   registerStudioRoutes(app, config);
   registerPaymentRoutes(app, config);
+  registerOrderRoutes(app, config);
   registerCalendarRoutes(app, config);
   registerSignupRoutes(app, config);
   registerOnboardingRoutes(app, config);
@@ -330,6 +334,10 @@ export async function startServer(config: PlatformConfig): Promise<{ server: Ser
     every("bookings and payments", Number(process.env.BOOKING_SWEEP_INTERVAL_MS ?? "") || 60_000, async () => {
       const expired = await expireHolds();
       if (expired.length) console.log(`[platform] ${expired.length} unpaid booking(s) let go of their rooms`);
+      // Unpaid orders, and requests the team never answered, put their stock back; the customer hears.
+      const lapsed = await expireOrders();
+      for (const { business, order } of lapsed) void tellOrderCustomer(business, order, "expired");
+      if (lapsed.length) console.log(`[platform] ${lapsed.length} unpaid order(s) put their stock back`);
       await sweepPendingPayments();
     }),
     ...(whatsapp ? [every("whatsapp", Number(process.env.WHATSAPP_SWEEP_INTERVAL_MS ?? "") || 5_000, () => sweepWhatsapp(whatsapp))] : []),

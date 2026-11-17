@@ -96,6 +96,8 @@ function messyReplyFor(name, result) {
     if (!passage) return "I'm not sure about that one — shall I ask the team for you?";
     return `From our ${passage.source}: ${passage.text.split("\n")[0].slice(0, 220)}${passage.link ? ` More: ${passage.link}` : ""}`;
   }
+  // Orders: the whole result, so tests can read what Zaina was given (its link included).
+  if (name === "place_order" || name === "check_order") return `System said: ${JSON.stringify(r)}`;
   if (r.ok && r.payment_link) {
     const id = r.booking_id;
     return [

@@ -20,8 +20,8 @@ import { BookingSettings } from "./booking-settings.tsx";
 import { Calendars } from "./calendars.tsx";
 import { Integration } from "./integration.tsx";
 
-type Tab = "profile" | "offer" | "brand" | "door" | "cards" | "notifications" | "widget" | "whatsapp" | "system" | "hours" | "bookings" | "calendars" | "billing";
-const TABS: Tab[] = ["profile", "offer", "brand", "door", "cards", "notifications", "widget", "whatsapp", "system", "hours", "bookings", "calendars", "billing"];
+type Tab = "profile" | "offer" | "brand" | "door" | "cards" | "notifications" | "widget" | "whatsapp" | "system" | "hours" | "bookings" | "payments" | "calendars" | "billing";
+const TABS: Tab[] = ["profile", "offer", "brand", "door", "cards", "notifications", "widget", "whatsapp", "system", "hours", "bookings", "payments", "calendars", "billing"];
 
 /**
  * The tab in the address (#/b/<business>/settings/<tab>?…), and what a
@@ -33,11 +33,13 @@ function fromAddress(value: string | null | undefined): { tab: Tab; outcome: str
   return { tab: TABS.includes(name as Tab) ? name as Tab : "profile", outcome: params.get("google") ?? params.get("paid") };
 }
 
-export function SettingsPage(props: { businessId: string; role: Role; me: Me; businessType?: string | null; books?: Books; tab?: string | null; onBusinessChanged?: () => void; onOfferChanged?: () => void }) {
+export function SettingsPage(props: { businessId: string; role: Role; me: Me; businessType?: string | null; books?: Books; orders?: boolean; tab?: string | null; onBusinessChanged?: () => void; onOfferChanged?: () => void }) {
   const initial = fromAddress(props.tab);
-  const [tab, setTab] = useState<Tab>(initial.tab);
   const books = props.books ?? booksOfType(props.businessType ?? null);
   const stays = books.rooms || books.services || books.tables;
+  // A business that takes orders but no bookings still connects where it's paid.
+  const payments = !stays && props.orders === true;
+  const [tab, setTab] = useState<Tab>(initial.tab === "payments" && stays ? "bookings" : initial.tab);
   const ownSystem = props.businessType === "custom";
   return (
     <div className="page">
@@ -53,6 +55,7 @@ export function SettingsPage(props: { businessId: string; role: Role; me: Me; bu
           { id: "door", label: "QR code & link" },
           { id: "cards", label: "Business cards" },
           ...(stays ? [{ id: "bookings" as const, label: "Bookings & payments" }, { id: "calendars" as const, label: "Calendars" }] : []),
+          ...(payments ? [{ id: "payments" as const, label: "Payments" }] : []),
           { id: "notifications", label: "Notifications" },
           { id: "widget", label: "Website widget" },
           { id: "whatsapp", label: "WhatsApp" },
@@ -62,6 +65,7 @@ export function SettingsPage(props: { businessId: string; role: Role; me: Me; bu
         ]}
       />
       {tab === "bookings" && stays ? <BookingSettings businessId={props.businessId} role={props.role} admin={props.me.user.is_platform_admin} rooms={books.rooms} slots={books.services || books.tables} /> : null}
+      {tab === "payments" && payments ? <BookingSettings businessId={props.businessId} role={props.role} admin={props.me.user.is_platform_admin} paymentsOnly /> : null}
       {tab === "calendars" && stays ? <Calendars businessId={props.businessId} role={props.role} businessType={props.businessType ?? null} rooms={books.rooms} outcome={initial.tab === "calendars" ? initial.outcome : null} /> : null}
       {tab === "offer" && !ownSystem ? <OfferSetup businessId={props.businessId} role={props.role} onChanged={props.onOfferChanged} /> : null}
       {tab === "profile" ? <Profile businessId={props.businessId} /> : null}

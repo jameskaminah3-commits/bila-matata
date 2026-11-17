@@ -13,6 +13,7 @@ import { api, ApiError, businessPath } from "./api.ts";
 import { BookingsPage } from "./pages/bookings.tsx";
 import { InboxPage } from "./pages/inbox.tsx";
 import { LeadsPage } from "./pages/leads.tsx";
+import { OrdersPage } from "./pages/orders.tsx";
 import { KnowledgePage } from "./pages/knowledge.tsx";
 import { PlatformPage } from "./pages/platform.tsx";
 import { SupportPage } from "./pages/support.tsx";
@@ -303,11 +304,13 @@ function SignInCode(props: { email: string; challenge: string; sentTo: string; o
 // the bar at the bottom and the rest are under "More". Conversations and
 // handoffs are the Inbox (waiting, mine, with the team, callbacks, all);
 // offerings are Rooms or Services, and Prices.
-const PAGES: Array<{ id: string; label: string; icon: string; minimum: Role; only?: string[]; status?: string; needs?: "bookings" | "rooms" | "times" }> = [
+const PAGES: Array<{ id: string; label: string; icon: string; minimum: Role; only?: string[]; status?: string; needs?: "bookings" | "rooms" | "times" | "orders" }> = [
   // A business that signed up by itself, until it goes live (Phase 5).
   { id: "setup", label: "Set up", icon: "check", minimum: "viewer", status: "onboarding" },
   { id: "inbox", label: "Inbox", icon: "inbox", minimum: "viewer" },
   // People who want the team to get back to them (not for TBM, which keeps its own).
+  // Orders from the catalogue, for a business that takes them (and has no system of its own for them).
+  { id: "orders", label: "Orders", icon: "tag", minimum: "agent", needs: "orders" },
   { id: "leads", label: "Leads", icon: "user", minimum: "agent", only: ["general", "guesthouse", "salon", "restaurant"] },
   // Bookings, by what the business books here: rooms, services (a spa, a salon), tables, or several (a hotel with a restaurant).
   { id: "bookings", label: "Bookings", icon: "calendar", minimum: "viewer", needs: "bookings" },
@@ -329,7 +332,7 @@ const BAR_ITEMS = 4;
 function Console(props: { me: Me; route: Route; reloadMe: () => Promise<void> }) {
   const { me, route } = props;
   const admin = me.user.is_platform_admin;
-  const [counts, setCounts] = useState({ pending: 0, mine: 0, callbacks: 0, leads: 0, support: 0 });
+  const [counts, setCounts] = useState({ pending: 0, mine: 0, callbacks: 0, leads: 0, orders: 0, support: 0 });
   // For the studio's admins: what's waiting for them (support questions and new requests).
   const [attention, setAttention] = useState(0);
   const refreshAttention = useCallback(async () => {
@@ -367,7 +370,8 @@ function Console(props: { me: Me; route: Route; reloadMe: () => Promise<void> })
   );
   const books = offer.data?.books ?? booksOfType(businessType);
   const times = books.services || books.tables;
-  const shows = (needs?: "bookings" | "rooms" | "times") => needs === "rooms" ? books.rooms : needs === "times" ? times : needs === "bookings" ? books.rooms || times : true;
+  const takesOrders = businessType !== "custom" && (offer.data?.enabled ?? []).includes("orders");
+  const shows = (needs?: "bookings" | "rooms" | "times" | "orders") => needs === "rooms" ? books.rooms : needs === "times" ? times : needs === "bookings" ? books.rooms || times : needs === "orders" ? takesOrders : true;
 
   useEffect(() => {
     if (!route.businessId && businessId && route.page !== "platform") go({ businessId, page: businessStatus === "onboarding" ? "setup" : "inbox" });
@@ -377,7 +381,7 @@ function Console(props: { me: Me; route: Route; reloadMe: () => Promise<void> })
   const refreshCounts = useCallback(async () => {
     if (!businessId || !role) return;
     try {
-      setCounts({ support: 0, ...(await api<{ pending: number; mine: number; callbacks: number; leads: number; support?: number }>("GET", businessPath(businessId, "/pending-count"))) });
+      setCounts({ support: 0, orders: 0, ...(await api<{ pending: number; mine: number; callbacks: number; leads: number; orders?: number; support?: number }>("GET", businessPath(businessId, "/pending-count"))) });
     } catch {}
   }, [businessId, role]);
   useEffect(() => void refreshCounts(), [refreshCounts]);
@@ -418,8 +422,8 @@ function Console(props: { me: Me; route: Route; reloadMe: () => Promise<void> })
       href: `#/b/${encodeURIComponent(businessId ?? "")}/${item.id}`,
       icon: item.icon,
       label: item.id === "services" ? (books.services && books.tables ? "Services & tables" : books.tables ? "Tables" : item.label) : item.label,
-      count: item.id === "inbox" ? counts.pending : item.id === "leads" ? counts.leads : item.id === "support" ? counts.support : 0,
-      countLabel: item.id === "inbox" ? "waiting" : item.id === "support" ? "answered" : "new",
+      count: item.id === "inbox" ? counts.pending : item.id === "leads" ? counts.leads : item.id === "orders" ? counts.orders : item.id === "support" ? counts.support : 0,
+      countLabel: item.id === "inbox" ? "waiting" : item.id === "support" ? "answered" : item.id === "orders" ? "need you" : "new",
     })),
     ...(admin ? [{ id: "platform", href: "#/platform", icon: "shield", label: "Bila Matata", count: attention, countLabel: "waiting for you" }] : []),
   ];
@@ -432,11 +436,12 @@ function Console(props: { me: Me; route: Route; reloadMe: () => Promise<void> })
   else if (page === "bookings" && shows("bookings")) content = <BookingsPage businessId={businessId} role={role} bookingId={route.id} books={books} />;
   else if (page === "services" && times && atLeast(role, "manager")) content = <ServicesPage businessId={businessId} role={role} kinds={[...(books.services ? (["service"] as const) : []), ...(books.tables ? (["table"] as const) : [])]} />;
   else if (page === "rooms" && books.rooms && atLeast(role, "manager")) content = <RoomsPage businessId={businessId} role={role} />;
+  else if (page === "orders" && takesOrders && atLeast(role, "agent")) content = <OrdersPage businessId={businessId} role={role} onChanged={() => void refreshCounts()} />;
   else if (page === "leads" && businessType !== "custom" && atLeast(role, "agent")) content = <LeadsPage businessId={businessId} role={role} onChanged={() => void refreshCounts()} />;
   else if (page === "prices" && businessType !== "custom") content = <PricesPage businessId={businessId} role={role} businessType={businessType} />;
   else if (page === "knowledge") content = <KnowledgePage businessId={businessId} role={role} />;
   else if (page === "reports" && atLeast(role, "manager")) content = <ReportsPage businessId={businessId} />;
-  else if (page === "settings" && atLeast(role, "manager")) content = <SettingsPage key={route.id ?? "settings"} businessId={businessId} role={role} me={me} businessType={businessType} books={books} tab={route.id} onBusinessChanged={() => void props.reloadMe()} onOfferChanged={() => void offer.reload()} />;
+  else if (page === "settings" && atLeast(role, "manager")) content = <SettingsPage key={route.id ?? "settings"} businessId={businessId} role={role} me={me} businessType={businessType} books={books} orders={takesOrders} tab={route.id} onBusinessChanged={() => void props.reloadMe()} onOfferChanged={() => void offer.reload()} />;
   else if (page === "team" && atLeast(role, "manager")) content = <TeamPage businessId={businessId} role={role} me={me} />;
   else if (page === "support") content = <SupportPage businessId={businessId} role={role} threadId={route.id} onChanged={() => void refreshCounts()} />;
   else content = <InboxPage businessId={businessId} role={role} me={me} chatId={route.page === "inbox" ? route.id : null} counts={counts} onChanged={refreshCounts} />;

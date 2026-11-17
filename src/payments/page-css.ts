@@ -78,6 +78,7 @@ table.lines { width: 100%; border-collapse: collapse; font-variant-numeric: tabu
 table.lines th { text-align: left; font-weight: 400; padding: 6px 12px 6px 0; }
 table.lines td { text-align: right; padding: 6px 0; white-space: nowrap; }
 table.lines tr.sub th, table.lines tr.sub td { color: var(--muted); font-size: 0.92rem; }
+table.lines .each { display: block; color: var(--muted); font-size: 0.85rem; }
 table.lines tr.total th, table.lines tr.total td { font-weight: 700; border-top: 1px solid var(--line); padding-top: 10px; }
 table.lines tr.due th, table.lines tr.due td { font-weight: 700; color: var(--accent); }
 form { margin: 0; }

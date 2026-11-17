@@ -45,6 +45,8 @@ export type AlertEvent =
   | { kind: "booking"; what: "request" | "confirmed" | "conflict" | "code"; bookingId: string; sessionId: string | null; summary: string }
   /** Someone left their details for the team to get back to them. */
   | { kind: "lead"; leadId: number; sessionId: string | null; summary: string; title?: string; urgent?: boolean }
+  /** Something about an order from the catalogue needs the team, or is worth knowing. */
+  | { kind: "order"; what: "request" | "new" | "paid" | "code" | "conflict"; orderId: string; sessionId: string | null; summary: string }
   /** The team closed a chat: the addresses that asked for transcripts get it. */
   | { kind: "chat-closed"; sessionId: string };
 
@@ -60,7 +62,15 @@ export function pushPublicKey(): string | null {
 }
 
 type Person = { id: string; name: string; email: string; role: string; alertEmail: boolean };
-type Alert = { title: string; body: string; sessionId: string | null; urgent: boolean; bookingId?: string; leadId?: number; oneTap?: boolean };
+type Alert = { title: string; body: string; sessionId: string | null; urgent: boolean; bookingId?: string; leadId?: number; orderId?: string; oneTap?: boolean };
+
+const ORDER_ALERTS: Record<"request" | "new" | "paid" | "code" | "conflict", { title: string; urgent: boolean }> = {
+  request: { title: "An order to accept", urgent: true },
+  new: { title: "A new order to prepare", urgent: true },
+  paid: { title: "An order was paid: prepare it", urgent: true },
+  code: { title: "An M-Pesa code to check for an order", urgent: true },
+  conflict: { title: "An order needs you", urgent: true },
+};
 
 /** Everyone who works for the business, with their role. */
 async function peopleOf(businessId: string): Promise<Person[]> {
@@ -93,15 +103,15 @@ function recipientAlert(event: AlertEvent, alert: Alert | null): RecipientAlert 
   if (event.kind === "chat-closed") return { title: "Conversation closed", body: "The team closed this conversation. Here is how it went.", sessionId: event.sessionId, takeover: false };
   if (!alert) return null;
   if (event.kind === "handoff" || event.kind === "handoff-unclaimed") return { title: alert.title, body: alert.body, sessionId: alert.sessionId, takeover: true };
-  if (event.kind === "callback" || event.kind === "lead" || (event.kind === "booking" && event.what !== "conflict")) {
-    return { title: alert.title, body: alert.body, sessionId: alert.sessionId, bookingId: alert.bookingId, leadId: alert.leadId, takeover: false };
+  if (event.kind === "callback" || event.kind === "lead" || (event.kind === "booking" && event.what !== "conflict") || (event.kind === "order" && event.what !== "conflict")) {
+    return { title: alert.title, body: alert.body, sessionId: alert.sessionId, bookingId: alert.bookingId, leadId: alert.leadId, orderId: alert.orderId, takeover: false };
   }
   return null;
 }
 
-function consoleLink(businessId: string, alert: Pick<Alert, "sessionId" | "bookingId" | "leadId">): string {
+function consoleLink(businessId: string, alert: Pick<Alert, "sessionId" | "bookingId" | "leadId" | "orderId">): string {
   const base = settings.publicBaseUrl ?? "";
-  const page = alert.bookingId ? `bookings/${alert.bookingId}` : alert.leadId ? "leads" : `inbox${alert.sessionId ? `/${alert.sessionId}` : ""}`;
+  const page = alert.bookingId ? `bookings/${alert.bookingId}` : alert.orderId ? `orders/${alert.orderId}` : alert.leadId ? "leads" : `inbox${alert.sessionId ? `/${alert.sessionId}` : ""}`;
   return `${base}/app/#/b/${encodeURIComponent(businessId)}/${page}`;
 }
 
@@ -161,6 +171,12 @@ async function plan(business: Business, event: AlertEvent): Promise<{ people: Pe
         alert: { ...BOOKING_ALERTS[event.what], body: event.summary, sessionId: event.sessionId, bookingId: event.bookingId, oneTap: event.what === "request" },
         email: true,
       };
+    case "order":
+      return {
+        people: people.filter(event.what === "conflict" ? runsTheBusiness : answersChats),
+        alert: { ...ORDER_ALERTS[event.what], body: event.summary, sessionId: event.sessionId, orderId: event.orderId },
+        email: true,
+      };
     case "lead":
       return {
         people: people.filter(answersChats),
@@ -203,7 +219,7 @@ async function sendPushes(businessId: string, people: Person[], alert: Alert, bu
     title: `${alert.title} · ${businessName}`,
     body: alert.body.slice(0, 180),
     url: consoleLink(businessId, alert),
-    tag: alert.bookingId ? `booking-${alert.bookingId}` : alert.leadId ? `lead-${alert.leadId}` : alert.sessionId ?? `business-${businessId}`,
+    tag: alert.bookingId ? `booking-${alert.bookingId}` : alert.orderId ? `order-${alert.orderId}` : alert.leadId ? `lead-${alert.leadId}` : alert.sessionId ?? `business-${businessId}`,
   });
   let sent = 0;
   await Promise.all(subscriptions.map(async (subscription) => {
@@ -263,8 +279,8 @@ async function sendEmails(businessId: string, people: Person[], alert: Alert, bu
             "",
             ...oneTapLines(businessId, alert, person),
             settings.publicBaseUrl
-              ? `${alert.bookingId ? "Open the booking" : alert.leadId ? "Open your leads" : "Open the chat"}: ${consoleLink(businessId, alert)}`
-              : `Open the Zaina console to see the ${alert.bookingId ? "booking" : alert.leadId ? "lead" : "chat"}.`,
+              ? `${alert.bookingId ? "Open the booking" : alert.orderId ? "Open the order" : alert.leadId ? "Open your leads" : "Open the chat"}: ${consoleLink(businessId, alert)}`
+              : `Open the Zaina console to see the ${alert.bookingId ? "booking" : alert.orderId ? "order" : alert.leadId ? "lead" : "chat"}.`,
             "",
             "You get these emails because you work on this business's chats. You can turn them off in the console (menu → Alerts).",
           ].join("\n"),
@@ -284,7 +300,7 @@ async function sendEmails(businessId: string, people: Person[], alert: Alert, bu
 export async function alertTeam(business: Business, event: AlertEvent): Promise<void> {
   // The business's own system hears about it too, if it asked (Phase 4 events).
   void sendIntegrationEvent(business, event);
-  const connectorEvent = event.kind !== "handoff-unclaimed" && event.kind !== "customer-replied" && event.kind !== "booking" && event.kind !== "lead" && event.kind !== "chat-closed";
+  const connectorEvent = event.kind !== "handoff-unclaimed" && event.kind !== "customer-replied" && event.kind !== "booking" && event.kind !== "order" && event.kind !== "lead" && event.kind !== "chat-closed";
   await Promise.all([
     connectorEvent
       ? connectorFor(business)
@@ -299,7 +315,7 @@ export async function alertTeam(business: Business, event: AlertEvent): Promise<
         // The addresses the business added (Settings → Notifications), each with what it chose.
         const forRecipients = recipientAlert(event, target?.alert ?? null);
         if (forRecipients) {
-          await notifyRecipients(business, name, businessSettings?.assistantName ?? "Zaina", forRecipients, forRecipients.sessionId || forRecipients.bookingId || forRecipients.leadId ? consoleLink(business.id, forRecipients) : null);
+          await notifyRecipients(business, name, businessSettings?.assistantName ?? "Zaina", forRecipients, forRecipients.sessionId || forRecipients.bookingId || forRecipients.orderId || forRecipients.leadId ? consoleLink(business.id, forRecipients) : null);
         }
         if (!target || target.people.length === 0) return;
         await Promise.all([

@@ -406,7 +406,7 @@ export async function paymentsOf(businessId: string, bookingId: string): Promise
 }
 
 /** The business a payment-page token belongs to, found without any business in scope. */
-export async function businessForToken(kind: "pay" | "mpesa" | "paystack", token: string): Promise<string | null> {
+export async function businessForToken(kind: "pay" | "order" | "mpesa" | "paystack", token: string): Promise<string | null> {
   if (!token || token.length > 200) return null;
   const { rows: [row] } = await appPool().query<{ business_id: string | null }>("select payment_route($1, $2) as business_id", [kind, token]);
   return row?.business_id ?? null;
@@ -647,7 +647,8 @@ export async function settlePayment(
 ): Promise<Settlement | undefined> {
   return inBusiness(async (db, client) => {
     const [payment] = await db.select().from(payments).where(and(eq(payments.businessId, businessId), eq(payments.id, paymentId))).for("update").limit(1);
-    if (!payment) return undefined;
+    // An order's payment settles in orders/store.ts.
+    if (!payment || !payment.bookingId) return undefined;
     const booking = await lockedBooking(db, businessId, payment.bookingId);
     if (!booking) return undefined;
     if (payment.status !== "pending") return { changed: false, payment, booking, confirmed: false, conflict: false };
