@@ -152,6 +152,9 @@ input, select, textarea { font: inherit; color: var(--text); background: var(--s
 input[type="checkbox"], input[type="color"] { width: auto; }
 input[type="color"] { height: 40px; padding: 2px; width: 96px; }
 textarea { resize: vertical; }
+/* Phones: 16px fields, or iPhone Safari zooms the page in on every tap into one. */
+@media (max-width: 720px), (pointer: coarse) { input, select, textarea, .business-switch select { font-size: 16px; } }
+summary { cursor: pointer; padding-block: 6px; }
 .actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
 .message { padding: 9px 12px; border-radius: 8px; font-size: 14px; }
 .message.error { background: var(--danger-soft); color: var(--danger); }
@@ -336,9 +339,11 @@ table.lines tr.total th, table.lines tr.total td { font-weight: 700; border-top:
   .more-sheet a.active { background: var(--brand-soft); color: var(--brand); }
   .main { padding-bottom: 64px; }
   .page { padding: 16px; }
-  .business-switch select { max-width: 160px; }
+  .business-switch select { max-width: 150px; }
   .brand span:last-child { display: none; }
-  .availability .toggle span:last-child { display: none; }
+  /* The full label stays for screen readers; the eye gets one short word. */
+  .availability .toggle span:last-child { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .availability::before { content: "Chats"; font-size: 12px; font-weight: 600; color: var(--text-2); margin-right: 6px; }
   .inbox { grid-template-columns: 1fr; height: calc(100vh - 56px - 64px); }
   .inbox.has-chat .inbox-list { display: none; }
   .inbox:not(.has-chat) .inbox-chat { display: none; }
@@ -722,7 +727,7 @@ table.lines tr.total th, table.lines tr.total td { font-weight: 700; border-top:
 .order-lines .number { white-space: nowrap; }
 
 /* Catalogue: the stock switch on each item, and the card for the business's own feed. */
-.stock-toggle { cursor: pointer; border: 0; margin-top: 4px; font: inherit; font-size: 0.8rem; }
+.stock-toggle { cursor: pointer; border: 0; margin-top: 4px; font: inherit; font-size: 0.8rem; min-height: 30px; padding: 4px 12px; }
 .feed-card .ellipsis { display: inline-block; max-width: 100%; vertical-align: bottom; }
 
 /* Catalogue photos: a thumbnail per item, and picking a photo in the item form. */
@@ -733,7 +738,7 @@ table.lines tr.total th, table.lines tr.total td { font-weight: 700; border-top:
 .photo-preview.empty { display: grid; place-items: center; color: var(--muted, inherit); border: 1px dashed var(--line); }
 .photo-preview.wide { width: 100%; height: auto; max-height: 320px; object-fit: contain; }
 .photo-button { justify-self: start; }
-.more-details > summary { cursor: pointer; font-weight: 600; padding: 4px 0; }
+.more-details > summary { cursor: pointer; font-weight: 600; padding: 8px 0; }
 .more-details[open] > summary { margin-bottom: 8px; }
 
 /* Customers: one record per customer, with their history. */
