@@ -8,6 +8,7 @@
 // The instructions never change between calls: the clock and the customer's
 // language come with each message.
 
+import { sessionSpot } from "../../frontdoor/spot.ts";
 import { personaLine, personaRole } from "../../engine/persona.ts";
 import { Type, type FunctionDeclaration } from "@google/genai";
 import { getBusinessSettings } from "../../businesses/settings.ts";
@@ -63,9 +64,11 @@ export async function createLead(args: any, context: ToolContext) {
         : "What's the best phone number or email for the team to reach you on?",
     };
   }
+  const spot = await sessionSpot(context.business.id, context.sessionId).catch(() => null);
   const [row] = await inBusiness((db) => db.insert(leads).values({
     businessId: context.business.id,
     sessionId: context.sessionId,
+    spot,
     name: contact.ok ? contact.name : name,
     email: contact.ok ? contact.email : null,
     phone: phoneTyped,

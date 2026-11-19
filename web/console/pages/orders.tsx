@@ -19,7 +19,7 @@ type Order = {
   customer: { name: string; phone: string | null; email: string | null; notes: string | null };
   lines: Array<{ item_id: string; name: string; quantity: number; price: string; line_total: string | null }>;
   subtotal: string; delivery_fee: string; total: string; paid: string; paid_minor: number; due: string;
-  pay_on_delivery: boolean; priced_by_team: boolean; fulfilment: "delivery" | "collection"; zone: string | null; address: string | null; wanted: string | null;
+  pay_on_delivery: boolean; priced_by_team: boolean; fulfilment: "delivery" | "collection"; spot: string | null; zone: string | null; address: string | null; wanted: string | null;
   hold_expires_at: string | null; conflict: string | null; cancel_reason: string | null; code_to_check: boolean; pay_link: string; session_id: string | null; customer_id: string | null; created_at: string;
 };
 type Payment = { id: string; method: string; status: string; amount: string; code: string | null };
@@ -113,7 +113,7 @@ function OrderCard(props: { order: Order; businessId: string; busy: boolean; act
     <article className="card lead">
       <div className="lead-head">
         <div>
-          <h2>{order.customer.name} <span className="chip">{order.reference}</span> <span className={`chip ${status.tone}`}>{status.text}</span></h2>
+          <h2>{order.customer.name} <span className="chip">{order.reference}</span> <span className={`chip ${status.tone}`}>{status.text}</span>{order.spot ? <span className="chip warn">{order.spot}</span> : null}</h2>
           <p className="muted small">{timeAgo(order.created_at)}{order.wanted ? ` · wanted ${order.wanted}` : ""}</p>
         </div>
       </div>
@@ -130,7 +130,7 @@ function OrderCard(props: { order: Order; businessId: string; busy: boolean; act
           </table>
         </div>
         <p className="small">
-          {order.fulfilment === "delivery" ? <><strong>Deliver to:</strong> {[order.address, order.zone].filter(Boolean).join(", ")}</> : <strong>They'll collect it</strong>}
+          {order.spot ? <><strong>Bring it to:</strong> {order.spot}</> : order.fulfilment === "delivery" ? <><strong>Deliver to:</strong> {[order.address, order.zone].filter(Boolean).join(", ")}</> : <strong>They'll collect it</strong>}
           {order.paid_minor > 0 ? <> · <strong>Paid:</strong> {order.paid}</> : null}
         </p>
         {order.customer.notes ? <p className="muted small">{order.customer.notes}</p> : null}
@@ -164,8 +164,8 @@ function OrderCard(props: { order: Order; businessId: string; busy: boolean; act
       {live ? (
         <div className="actions start">
           {order.status === "confirmed" && order.fulfilment === "delivery" ? <Button small kind="primary" busy={props.busy} onClick={() => act(order, `/orders/${order.id}/status`, { to: "out_for_delivery" }, "on its way; the customer has been told.")}>Out for delivery</Button> : null}
-          {order.status === "confirmed" && order.fulfilment === "collection" ? <Button small kind="primary" busy={props.busy} onClick={() => act(order, `/orders/${order.id}/status`, { to: "ready_for_collection" }, "ready; the customer has been told.")}>Ready to collect</Button> : null}
-          <Button small kind={order.status === "confirmed" ? "secondary" : "primary"} busy={props.busy} onClick={() => act(order, `/orders/${order.id}/status`, { to: "completed" }, "done.")}>{order.fulfilment === "delivery" ? "Delivered" : "Collected"}</Button>
+          {order.status === "confirmed" && order.fulfilment === "collection" ? <Button small kind="primary" busy={props.busy} onClick={() => act(order, `/orders/${order.id}/status`, { to: "ready_for_collection" }, "ready; the customer has been told.")}>{order.spot ? `Taking it to ${order.spot}` : "Ready to collect"}</Button> : null}
+          <Button small kind={order.status === "confirmed" ? "secondary" : "primary"} busy={props.busy} onClick={() => act(order, `/orders/${order.id}/status`, { to: "completed" }, "done.")}>{order.fulfilment === "delivery" || order.spot ? "Delivered" : "Collected"}</Button>
         </div>
       ) : null}
       {(order.status === "awaiting_payment" || live) && asking === null ? <p className="small"><button type="button" className="link" onClick={() => setAsking("cancel")}>Cancel this order</button></p> : null}

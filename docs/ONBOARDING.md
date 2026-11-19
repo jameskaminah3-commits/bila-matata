@@ -187,6 +187,27 @@ cancellation before going live.
   **Calendars** if they keep one, so Zaina books real free times.
 - **QR code & link** (Settings): choose where the code sends people (their
   Zaina page is the usual choice). Download the poster and table cards.
+- **Their page shows what they offer.** Once the price list has visible
+  items, or there are active rooms, services or tables, their page
+  (`/c/<id>`) opens on a catalogue tab next to *Ask Zaina*: section pills,
+  a search box, each item with its price, photo (uploaded ones only) and an
+  *Out of stock* badge. The tab is named for their industry: *Browse Menu*
+  (restaurant), *Rooms & Rates* (stays), *Services & Prices* (salon, clinic,
+  services), *Browse Catalogue* (anyone else). Tapping an item's button
+  opens the chat with "I'd like to order …" (or "book …"). With nothing to
+  show, the page stays the chat alone. Hide an item on the price list to
+  take it off the page.
+- **Numbered table cards** (Settings → QR code & link): for a restaurant,
+  bar or guesthouse, print one card per table or room ("Table" 1–10, or
+  "Room", "Lounger", …). Each card's code carries its spot
+  (`/q/<id>?spot=Table+5`), so Zaina knows where the customer is: an order
+  is brought to them there, with no address and no delivery fee, even if
+  the business only delivers otherwise; requests and call-backs show the
+  spot to the team (Orders and Requests). A code that goes to their website
+  passes the spot to the chat there; one that goes to WhatsApp starts the
+  message with "I'm at Table 5."
+- Every page and printed card says *Powered by Bila Matata*
+  (bilamatata.com).
 - **Business cards** (Settings): included with their plan. Download the
   print PDF, or the studio prints them as a separate service.
 - **Rooms on request** where there's no calendar: the owner accepts or
@@ -207,6 +228,10 @@ cancellation before going live.
   site is allowed. Once a visitor opens a page, the card shows where the
   chat last opened, and any website it was refused on, with *Allow it*.
   An owner reading their website under Knowledge allows it for the chat too.
+  Their own "Order" buttons can open the chat with a message:
+  `window.Zaina.ask("I'd like to order Masala chips")`. A table's code that
+  sends people to the website adds `?zaina_spot=Table+5`, which the chat
+  passes on.
 - **Knowledge → Read your website**, with *keep in step weekly* on, so
   a change to their site reaches Zaina by itself. A site built with
   JavaScript is read from what it still publishes (its search-engine data,

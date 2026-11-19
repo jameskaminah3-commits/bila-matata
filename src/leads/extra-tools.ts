@@ -14,6 +14,7 @@
 // Both are leads (kind request or callback), so they sit with the rest in
 // Leads. Only details the customer typed are kept.
 
+import { sessionSpot } from "../frontdoor/spot.ts";
 import { Type, type FunctionDeclaration } from "@google/genai";
 import { and, eq, isNull, lte } from "drizzle-orm";
 import { everyBusiness } from "../businesses/registry.ts";
@@ -91,9 +92,10 @@ async function passRequest(args: any, context: ExtraContext) {
   const when = textArg(args?.when).slice(0, 120);
   const budget = textArg(args?.budget).slice(0, 120);
   const notes = [when && `When: ${when}`, budget && `Budget: ${budget} (the customer's words)`].filter(Boolean).join("\n") || null;
+  const spot = await sessionSpot(context.business.id, context.sessionId).catch(() => null);
   const [row] = await inBusiness((db) => db.insert(leads).values({
     businessId: context.business.id, sessionId: context.sessionId, kind: "request",
-    name: contact.name, email: contact.email, phone: contact.phone, interest: request, notes,
+    name: contact.name, email: contact.email, phone: contact.phone, interest: request, notes, spot,
   }).returning({ id: leads.id }), context.business.id);
   void alertTeam(context.business, { kind: "lead", leadId: row.id, sessionId: context.sessionId, title: "A request for something you don't list", summary: `${contact.name} asks: ${request}${when ? ` (${when})` : ""}.`.slice(0, 300) })
     .catch((error) => console.error("[leads] request alert failed:", error));
@@ -117,8 +119,9 @@ async function scheduleCallback(args: any, context: ExtraContext) {
   }
   if (!callAt && !whenText) return { ok: false, error: "when_required", message: "Ask when they'd like the call." };
   const topic = textArg(args?.topic).slice(0, 200) || null;
+  const spot = await sessionSpot(business.id, context.sessionId).catch(() => null);
   const [row] = await inBusiness((db) => db.insert(leads).values({
-    businessId: business.id, sessionId: context.sessionId, kind: "callback",
+    businessId: business.id, sessionId: context.sessionId, kind: "callback", spot,
     name: contact.name, email: contact.email, phone: contact.phone, interest: topic,
     callbackAt: callAt, callbackWindow: whenText || null,
   }).returning({ id: leads.id }), business.id);

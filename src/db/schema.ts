@@ -106,6 +106,8 @@ export const chatSessions = pgTable("chat_sessions", {
   verifiedCustomer: jsonb("verified_customer").$type<VerifiedCustomer | null>(),
   /** The customer this chat belongs to (src/customers): by its WhatsApp number, a sign-in, or contact details typed in it. */
   customerId: uuid("customer_id"),
+  /** Where the customer is ("Table 5", "Room 12"), from the code they scanned. */
+  spot: text("spot"),
   customerLastMessageAt: at("customer_last_message_at"),
   deliveredEventId: bigint("delivered_event_id", { mode: "number" }).notNull().default(0),
   deliveryLockUntil: at("delivery_lock_until"),
@@ -323,6 +325,8 @@ export const leads = pgTable("leads", {
   // Migration 0030: an order's lines and total.
   details: jsonb("details").$type<OrderDetails | null>(),
   customerId: uuid("customer_id"),
+  /** Where the customer is ("Table 5", "Room 12"), from the code they scanned. */
+  spot: text("spot"),
 });
 export const leadKinds = ["lead", "request", "callback", "order"] as const;
 /** What a customer ordered through Zaina: lines from the catalogue, the total where every price is fixed, and how it reaches them. */
@@ -741,6 +745,8 @@ export const orders = pgTable("orders", {
   cancelReason: text("cancel_reason"),
   idempotencyKey: text("idempotency_key"),
   customerId: uuid("customer_id"),
+  /** Where the customer is ("Table 5", "Room 12"), from the code they scanned. */
+  spot: text("spot"),
   createdAt: createdAt(),
   updatedAt: at("updated_at").notNull().defaultNow(),
   confirmedAt: at("confirmed_at"),

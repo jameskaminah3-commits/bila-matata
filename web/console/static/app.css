@@ -541,8 +541,8 @@ table.lines tr.total th, table.lines tr.total td { font-weight: 700; border-top:
 .print-poster .print-qr { width: 118mm; height: 118mm; margin-top: 11mm; border: 1.2mm solid var(--print-brand); border-radius: 6mm; padding: 3mm; }
 .print-steps { font-size: 4.4mm; color: #374151; margin-top: 9mm !important; }
 .print-address { font-size: 5.2mm; font-weight: 650; margin-top: auto !important; color: var(--print-brand); }
-.print-cards { width: 210mm; height: 296mm; display: grid; grid-template-rows: 1fr 1fr; }
-.print-card { display: flex; align-items: center; justify-content: space-between; gap: 10mm; padding: 16mm 18mm; border-bottom: .3mm dashed #9ca3af; border-top: 4mm solid var(--print-brand); }
+.print-cards { width: 210mm; height: 296mm; display: grid; grid-template-rows: repeat(2, minmax(0, 1fr)); }
+.print-card { display: flex; align-items: center; justify-content: space-between; gap: 10mm; padding: 16mm 18mm; border-bottom: .3mm dashed #9ca3af; border-top: 4mm solid var(--print-brand); overflow: hidden; }
 .print-card:last-child { border-bottom: 0; }
 .print-card-text { display: grid; gap: 4mm; justify-items: start; max-width: 88mm; }
 .print-card .print-logo { width: 20mm; height: 20mm; border-radius: 5mm; font-size: 8mm; border: .3mm solid #e5e7eb; }
@@ -550,6 +550,16 @@ table.lines tr.total th, table.lines tr.total td { font-weight: 700; border-top:
 .print-call { font-size: 10.5mm; font-weight: 800; line-height: 1.05; color: var(--print-brand); }
 .print-small { font-size: 4.3mm; color: #374151; line-height: 1.4; }
 .print-card .print-qr { width: 78mm; height: 78mm; flex: none; }
+.print-cards + .print-cards { break-before: page; page-break-before: always; }
+/* A numbered card carries one more line, so it sits a little tighter to stay within its half of the page. */
+.print-card.numbered { padding-block: 11mm; }
+.print-card.numbered .print-card-text { gap: 3mm; }
+.print-card.numbered .print-call { font-size: 8.5mm; }
+.print-spot { font-size: 11mm; font-weight: 800; line-height: 1.05; color: var(--print-brand); margin: 2mm 0 !important; letter-spacing: -.01em; }
+.print-powered { font-size: 2.6mm; color: #6b7280; margin-top: 3mm !important; letter-spacing: .02em; }
+.print-poster .print-powered { margin-top: auto !important; font-size: 3.2mm; }
+.print-numbered { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); display: grid; gap: 10px; }
+.print-numbered h3 { margin: 0; }
 .print-stickers { width: 210mm; height: 296mm; padding: 12mm; display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(4, 1fr); gap: 5mm; }
 .print-sticker { display: grid; justify-items: center; align-content: center; gap: 2mm; border: .3mm dashed #9ca3af; border-radius: 5mm; padding: 3mm; text-align: center; }
 .print-sticker .print-qr { width: 42mm; height: 42mm; }

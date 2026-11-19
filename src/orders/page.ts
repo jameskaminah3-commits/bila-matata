@@ -44,7 +44,7 @@ function statusNotice(view: OrderPageView): { kind: "info" | "warn" | "ok" | "er
   const { order, businessName } = view;
   const holding = order.holdExpiresAt !== null && order.holdExpiresAt > view.now;
   const until = order.holdExpiresAt ? holdUntil(order.holdExpiresAt, view.timeZone) : "";
-  const where = order.fulfilment === "delivery" ? `We'll deliver to ${order.zone}.` : `Collect it${view.collectionPoint ? ` at ${view.collectionPoint}` : ""}.`;
+  const where = order.spot ? `We'll bring it to you at ${order.spot}.` : order.fulfilment === "delivery" ? `We'll deliver to ${order.zone}.` : `Collect it${view.collectionPoint ? ` at ${view.collectionPoint}` : ""}.`;
   switch (order.status) {
     case "awaiting_payment":
       return holding
@@ -86,7 +86,7 @@ function lines(view: OrderPageView): string {
   const toConfirm = order.pricedByTeam && order.status === "requested";
   rows.push(`<tr class="total"><th scope="row">Total</th><td>${toConfirm ? "To be confirmed" : money(order.totalMinor)}</td></tr>`);
   if (order.paidMinor > 0) rows.push(`<tr class="sub"><th scope="row">Paid</th><td>${money(order.paidMinor)}</td></tr>`);
-  if (order.payOnDelivery && view.due > 0) rows.push(`<tr class="sub"><th scope="row">To pay on ${order.fulfilment === "delivery" ? "delivery" : "collection"}</th><td>${money(view.due)}</td></tr>`);
+  if (order.payOnDelivery && view.due > 0) rows.push(`<tr class="sub"><th scope="row">To pay ${order.spot ? "when it arrives" : `on ${order.fulfilment === "delivery" ? "delivery" : "collection"}`}</th><td>${money(view.due)}</td></tr>`);
   return `<table class="lines"><tbody>${rows.join("")}</tbody></table>`;
 }
 
@@ -122,7 +122,7 @@ ${order.customerEmail ? "" : '<label>Email for your receipt<input name="email" t
     return order.payOnDelivery ? "" : `<section class="card"><h2>Paying</h2><p>The team will tell you how to pay. Questions? ${escapeHtml(view.contactLine)}.</p></section>`;
   }
   const heading = order.payOnDelivery ? `Pay now if you like: ${amount}` : `Pay ${amount} to confirm your order`;
-  return `<section class="card"><h2>${heading}</h2>${order.payOnDelivery ? `<p class="small">Or pay on ${order.fulfilment === "delivery" ? "delivery" : "collection"}, as you chose.</p>` : ""}${methods.join("")}</section>`;
+  return `<section class="card"><h2>${heading}</h2>${order.payOnDelivery ? `<p class="small">Or pay ${order.spot ? "when it arrives" : `on ${order.fulfilment === "delivery" ? "delivery" : "collection"}`}, as you chose.</p>` : ""}${methods.join("")}</section>`;
 }
 
 export function renderOrderPage(view: OrderPageView): string {
@@ -134,7 +134,9 @@ export function renderOrderPage(view: OrderPageView): string {
     : "";
   const status = statusNotice(view);
   const facts = [
-    order.fulfilment === "delivery"
+    order.spot
+      ? `<div><dt>Brought to you at</dt><dd>${escapeHtml(order.spot)}</dd></div>`
+      : order.fulfilment === "delivery"
       ? `<div><dt>Delivery</dt><dd>${escapeHtml([order.address, order.zone].filter(Boolean).join(", "))}</dd></div>`
       : `<div><dt>Collection</dt><dd>${escapeHtml(view.collectionPoint ?? "From the business")}</dd></div>`,
     order.wanted ? `<div><dt>When</dt><dd>${escapeHtml(order.wanted)}</dd></div>` : "",
@@ -176,7 +178,7 @@ ${facts}
 ${payOptions(view)}
 <section class="card">
 <h2>Good to know</h2>
-<p>You'll hear in your chat${order.customerEmail ? " and by email" : ""} when your order is ${order.fulfilment === "delivery" ? "on its way" : "ready to collect"}.</p>
+<p>You'll hear in your chat${order.customerEmail ? " and by email" : ""} when your order is ${order.spot ? "on its way to you" : order.fulfilment === "delivery" ? "on its way" : "ready to collect"}.</p>
 <p>Questions? ${escapeHtml(view.contactLine)}.</p>
 </section>
 <footer>

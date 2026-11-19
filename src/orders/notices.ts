@@ -34,10 +34,14 @@ function text(notice: OrderNotice, w: Words): string {
   const total = formatMoney(order.totalMinor, order.currency);
   const sw = w.language === "sw";
   const until = order.holdExpiresAt ? holdUntil(order.holdExpiresAt, w.timeZone, w.language) : "";
-  const handing = order.fulfilment === "delivery"
+  const handing = order.spot
+    ? (sw ? `Tutakuletea ${order.spot}.` : `We'll bring it to you at ${order.spot}.`)
+    : order.fulfilment === "delivery"
     ? (sw ? `Tutakuletea ${order.address ? `${order.address}, ` : ""}${order.zone}.` : `We'll deliver to ${order.address ? `${order.address}, ` : ""}${order.zone}.`)
     : (sw ? `Utaichukua${w.collectionPoint ? ` ${w.collectionPoint}` : ""}.` : `You'll collect it${w.collectionPoint ? ` at ${w.collectionPoint}` : ""}.`);
-  const payNote = order.payOnDelivery ? (sw ? ` Utalipa ${total} ${order.fulfilment === "delivery" ? "ukiletewa" : "ukichukua"}.` : ` You'll pay ${total} on ${order.fulfilment === "delivery" ? "delivery" : "collection"}.`) : "";
+  const payNote = !order.payOnDelivery ? ""
+    : order.spot ? (sw ? ` Utalipa ${total} ikifika.` : ` You'll pay ${total} when it arrives.`)
+    : (sw ? ` Utalipa ${total} ${order.fulfilment === "delivery" ? "ukiletewa" : "ukichukua"}.` : ` You'll pay ${total} on ${order.fulfilment === "delivery" ? "delivery" : "collection"}.`);
   switch (notice) {
     case "awaiting_payment":
       return sw
@@ -60,6 +64,7 @@ function text(notice: OrderNotice, w: Words): string {
     case "out_for_delivery":
       return sw ? `Oda ${order.reference} iko njiani kukuletea.${payNote}` : `Order ${order.reference} is on its way to you.${payNote}`;
     case "ready_for_collection":
+      if (order.spot) return sw ? `Oda ${order.reference} iko tayari: tunakuletea ${order.spot}.${payNote}` : `Order ${order.reference} is ready: we're bringing it to you at ${order.spot}.${payNote}`;
       return sw ? `Oda ${order.reference} iko tayari kuchukuliwa${w.collectionPoint ? ` ${w.collectionPoint}` : ""}.${payNote}` : `Order ${order.reference} is ready for you to collect${w.collectionPoint ? ` at ${w.collectionPoint}` : ""}.${payNote}`;
     case "completed":
       return sw ? `Oda ${order.reference} imekamilika. Asante kwa kununua kutoka ${w.name}!` : `Order ${order.reference} is complete. Thank you for ordering from ${w.name}!`;
@@ -96,7 +101,7 @@ export async function tellOrderCustomer(business: Business, order: Order, notice
       }
       if (order.customerEmail) {
         const english = words.language === "en" ? message : text(notice, { ...words, language: "en" });
-        await sendCustomerEmail(order.customerEmail, `${SUBJECTS[notice]} (${order.reference}, ${words.name})`, `${english}\n\n— ${words.name}`, settings?.supportEmail ?? null);
+        await sendCustomerEmail(order.customerEmail, `${order.spot && notice === "ready_for_collection" ? "Your order is ready" : SUBJECTS[notice]} (${order.reference}, ${words.name})`, `${english}\n\n— ${words.name}`, settings?.supportEmail ?? null);
       }
     });
   } catch (error) {

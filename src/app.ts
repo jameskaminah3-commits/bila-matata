@@ -83,6 +83,7 @@ import { registerPerformanceRoutes } from "./reports/performance-routes.ts";
 import { registerOwnerRoutes } from "./owner/routes.ts";
 import { registerOutreachRoutes } from "./outreach/routes.ts";
 import { registerOutreachExtras } from "./outreach/tool.ts";
+import { registerSpotExtras } from "./frontdoor/spot.ts";
 import { runOutreach } from "./outreach/jobs.ts";
 import { sendMonthlyReports } from "./reports/performance.ts";
 import { syncFeeds } from "./prices/feed.ts";
@@ -260,6 +261,7 @@ function registerExtrasOnce(): void {
   registerOrderExtras();
   registerCustomerExtras();
   registerOutreachExtras();
+  registerSpotExtras();
   registerPolicyExtras();
   registerIntegrationExtras();
 }

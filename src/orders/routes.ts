@@ -104,6 +104,7 @@ export function publicOrder(order: Order & { codeToCheck?: boolean }) {
     pay_on_delivery: order.payOnDelivery,
     priced_by_team: order.pricedByTeam,
     fulfilment: order.fulfilment,
+    spot: order.spot ?? null,
     zone: order.zone,
     address: order.address,
     wanted: order.wanted,

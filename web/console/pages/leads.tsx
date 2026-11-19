@@ -13,7 +13,7 @@ import { Button, Empty, ErrorLine, Message, Tabs, useAction, useLoad } from "../
 
 type LeadStatus = "new" | "contacted" | "won" | "lost";
 type Lead = {
-  id: number; sessionId: string | null; name: string; email: string | null; phone: string | null; interest: string | null; notes: string | null;
+  id: number; sessionId: string | null; name: string; email: string | null; phone: string | null; interest: string | null; notes: string | null; spot?: string | null;
   createdAt: string; status: LeadStatus; teamNote: string | null; updatedAt: string | null; channel: "web" | "whatsapp" | null;
   kind?: "lead" | "request" | "callback" | "order"; callbackAt?: string | null; callbackWindow?: string | null;
   details?: OrderDetails | null;
@@ -129,6 +129,7 @@ function LeadCard(props: { lead: Lead; businessId: string; busy: boolean; onUpda
         </label>
       </div>
       {lead.kind === "callback" ? <p className="lead-callback"><strong>Call {lead.callbackAt ? callTime(lead.callbackAt) : lead.callbackWindow ?? "soon"}</strong>{lead.callbackAt && lead.callbackWindow ? <span className="muted"> ({lead.callbackWindow})</span> : null}</p> : null}
+      {lead.spot ? <p className="lead-spot"><span className="chip warn">{lead.spot}</span> <span className="muted small">where they are, from the code they scanned</span></p> : null}
       {lead.kind === "order" && lead.details ? <OrderLines order={lead.details} /> : lead.interest ? <p><strong>{lead.kind === "request" ? "Asks for:" : lead.kind === "callback" ? "About:" : "Wants:"}</strong> {lead.interest}</p> : null}
       {lead.notes ? <p className="muted lead-notes">{lead.notes}</p> : null}
       <div className="lead-contact">

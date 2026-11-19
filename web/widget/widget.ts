@@ -10,7 +10,9 @@
 // (/c/<business>) the chat fills the page instead of floating:
 // data-mode="page" with data-mount="<selector>", and data-via="qr" | "link" | "card".
 // A link to any page with the chat that ends in #zaina opens the chat. The page can also call
-// window.Zaina.open(), .close() and .setCurrency("USD" | "KES").
+// window.Zaina.open(), .close(), .setCurrency("USD" | "KES") and .ask("I'd like to order Masala chips")
+// (opens the chat and sends it, as the customer). Where the customer is (a table or room code's spot,
+// "Table 5") comes from data-spot, or on a website from ?zaina_spot=…, and goes with every message.
 //
 // When the business has WhatsApp connected (and offers it), the chat also
 // has a "Chat on WhatsApp" link to its number.
@@ -29,7 +31,7 @@ type Stored = { token: string; sessionId: string };
 
 declare global {
   interface Window {
-    Zaina?: { open(): void; close(): void; setCurrency(currency: "USD" | "KES"): void };
+    Zaina?: { open(): void; close(): void; setCurrency(currency: "USD" | "KES"): void; ask(text: string): void };
     __zainaWidgetLoaded?: boolean;
   }
 }
@@ -58,6 +60,16 @@ const POLL_OPEN_MS = 30_000;
   const customerToken = () => (signedIn && signedIn.length <= 2000 ? signedIn : null);
   (window as any).Zaina = { ...((window as any).Zaina ?? {}), signIn: (token: unknown) => { signedIn = typeof token === "string" ? token.trim() || null : null; } };
   const via = script.dataset.via === "qr" || script.dataset.via === "link" || script.dataset.via === "card" ? script.dataset.via : null;
+  // Where the customer is. On the business's own page it's always said (null clears an earlier visit's table).
+  const spotParam = (() => {
+    try {
+      return new URLSearchParams(location.search).get("zaina_spot");
+    } catch {
+      return null;
+    }
+  })();
+  const spot = (script.dataset.spot ?? spotParam ?? "").trim().slice(0, 40) || null;
+  const spotBody = (): { spot?: string | null } => (pageMode ? { spot } : spot ? { spot } : {});
 
   let config: Config;
   let currency: "USD" | "KES" | null = script.dataset.currency === "KES" || script.dataset.currency === "USD" ? script.dataset.currency : null;
@@ -335,7 +347,8 @@ textarea { flex: 1; resize: none; border: 1px solid var(--line); border-radius: 
       whatsapp.append(document.createTextNode("Chat on WhatsApp instead"));
       panel.append(whatsapp);
     }
-    panel.append(footer);
+    // The business's own page carries the Bila Matata credit under the chat; one line is enough.
+    if (!pageMode) panel.append(footer);
     panel.addEventListener("keydown", (event) => {
       if (event.key === "Escape" && !pageMode) setOpen(false);
     });
@@ -422,7 +435,7 @@ textarea { flex: 1; resize: none; border: 1px solid var(--line); border-radius: 
   }
 
   async function openSession(): Promise<boolean> {
-    const result = await call("/api/zaina/sessions", { method: "POST", json: { business, display_currency: currency ?? config.currency, ...(pageMode && via ? { via } : {}), ...(customerToken() ? { customer_token: customerToken() } : {}) } });
+    const result = await call("/api/zaina/sessions", { method: "POST", json: { business, display_currency: currency ?? config.currency, ...(pageMode && via ? { via } : {}), ...(customerToken() ? { customer_token: customerToken() } : {}), ...spotBody() } });
     if (result.status !== 201) {
       notice(result.body?.message ?? "The chat isn't available right now. Please try again later.", true);
       return false;
@@ -446,12 +459,12 @@ textarea { flex: 1; resize: none; border: 1px solid var(--line); border-radius: 
     scrollDown();
     try {
       if (!stored && !(await openSession())) throw new Error("no session");
-      let result = await call("/api/zaina/chat", { method: "POST", json: { message: text } });
+      let result = await call("/api/zaina/chat", { method: "POST", json: { message: text, ...spotBody() } });
       if (result.status === 401) {
         // The chat expired: start a new one and send again.
         writeStored(null);
         if (!(await openSession())) throw new Error("no session");
-        result = await call("/api/zaina/chat", { method: "POST", json: { message: text } });
+        result = await call("/api/zaina/chat", { method: "POST", json: { message: text, ...spotBody() } });
       }
       if (result.status === 200 || result.status === 409) {
         pending.remove();
@@ -526,6 +539,15 @@ textarea { flex: 1; resize: none; border: 1px solid var(--line); border-radius: 
       close: () => void setOpen(false),
       setCurrency: (value) => {
         if (value === "USD" || value === "KES") currency = value;
+      },
+      // The page's own buttons ("Order / Ask"): open the chat and send it, as if the customer typed it.
+      ask: (value) => {
+        const text = typeof value === "string" ? value.trim().slice(0, 500) : "";
+        if (!text) return;
+        void setOpen(true).then(() => {
+          textarea.value = text;
+          void send();
+        });
       },
     };
     if (stored) {

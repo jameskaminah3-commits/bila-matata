@@ -12,7 +12,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { api, businessPath } from "../api.ts";
 import { atLeast, type Role } from "../types.ts";
-import { Button, ErrorLine, Message, Toggle, useAction, useLoad } from "../ui.tsx";
+import { Button, ErrorLine, Field, Message, Toggle, useAction, useLoad } from "../ui.tsx";
 
 type Destination = "page" | "website" | "whatsapp";
 export type Door = {
@@ -72,6 +72,10 @@ export function FrontDoor(props: { businessId: string; role: Role }) {
   const [door, setDoor] = useState<Door | null>(null);
   const [copied, setCopied] = useState(false);
   const [sheet, setSheet] = useState<Sheet | null>(null);
+  // Numbered table cards: each with its own code, which tells Zaina where the customer is ("Table 5").
+  const [numbering, setNumbering] = useState({ label: "Table", count: 10 });
+  const [numbered, setNumbered] = useState<Array<{ spot: string; svg: string }> | null>(null);
+  const numberedAction = useAction();
   const [classic, setClassic] = useState(false);
   const action = useAction();
   const route = useAction();
@@ -80,7 +84,10 @@ export function FrontDoor(props: { businessId: string; role: Role }) {
   // Print once the sheet is on the page, then put the dashboard back.
   useEffect(() => {
     if (!sheet) return;
-    const done = () => setSheet(null);
+    const done = () => {
+      setSheet(null);
+      setNumbered(null);
+    };
     window.addEventListener("afterprint", done, { once: true });
     const timer = setTimeout(() => window.print(), 150);
     return () => {
@@ -183,9 +190,35 @@ export function FrontDoor(props: { businessId: string; role: Role }) {
         <p className="muted">Each prints on ordinary A4 paper, with your name, logo and colour. Choose "Save as PDF" in the print window to send it to a print shop.</p>
         <div className="print-choices">
           <PrintChoice title="Poster" text="One A4 page for the door, the wall or the counter." onPrint={() => setSheet("poster")} />
-          <PrintChoice title="Table cards" text="Two cards to a page: cut along the line and stand them on tables." onPrint={() => setSheet("cards")} />
+          <PrintChoice title="Table cards" text="Two cards to a page: cut along the line and stand them on tables." onPrint={() => { setNumbered(null); setSheet("cards"); }} />
           <PrintChoice title="Stickers" text="Twelve small codes to a page, for menus, bags and receipts." onPrint={() => setSheet("stickers")} />
         </div>
+        <form className="print-numbered" onSubmit={(event) => {
+          event.preventDefault();
+          const label = numbering.label.replace(/\s+/g, " ").trim();
+          const count = Math.round(numbering.count);
+          void numberedAction.run(async () => {
+            if (!/^[\p{L}\p{N}][\p{L}\p{N} #.\-\/']{0,24}$/u.test(label)) throw new Error("Use a short word for the label, like Table, Room or Chair.");
+            if (!(count >= 1 && count <= 60)) throw new Error("Print 1 to 60 cards at a time.");
+            const cards = await Promise.all(Array.from({ length: count }, async (_, index) => {
+              const spot = `${label} ${index + 1}`;
+              const response = await fetch(`/c/${encodeURIComponent(props.businessId)}/qr.svg?spot=${encodeURIComponent(spot).replace(/%20/g, "+")}`);
+              if (!response.ok) throw new Error("Couldn't make the codes. Please try again.");
+              return { spot, svg: await response.text() };
+            }));
+            setNumbered(cards);
+            setSheet("cards");
+          });
+        }}>
+          <h3>Numbered table cards</h3>
+          <p className="muted small">Each card has its own code. When a customer scans {numbering.label || "Table"} 5's card, {door.assistant} knows they're at {numbering.label || "Table"} 5: an order is brought to them, with no address or delivery fee, and the team sees where.</p>
+          <div className="form-grid">
+            <Field label="Label"><input value={numbering.label} maxLength={25} onChange={(event) => setNumbering({ ...numbering, label: event.target.value })} placeholder="Table" /></Field>
+            <Field label="How many"><input type="number" min={1} max={60} value={numbering.count} onChange={(event) => setNumbering({ ...numbering, count: Number(event.target.value) })} /></Field>
+          </div>
+          <Message message={numberedAction.message} />
+          <div className="actions start"><Button small kind="primary" type="submit" busy={numberedAction.busy}>Print numbered cards</Button></div>
+        </form>
       </section>
 
       <section className="card">
@@ -199,7 +232,7 @@ export function FrontDoor(props: { businessId: string; role: Role }) {
         </div>
       </section>
 
-      {sheet ? createPortal(<PrintSheet door={door} sheet={sheet} />, document.body) : null}
+      {sheet ? createPortal(<PrintSheet door={door} sheet={sheet} numbered={sheet === "cards" ? numbered : null} />, document.body) : null}
     </div>
   );
 }
@@ -220,22 +253,28 @@ const lettersOf = (name: string) => {
 };
 
 /** What goes to the printer: one A4 page in the business's own colours. */
-function PrintSheet(props: { door: Door; sheet: Sheet }) {
+const POWERED = "Powered by Bila Matata · bilamatata.com";
+
+function PrintSheet(props: { door: Door; sheet: Sheet; numbered?: Array<{ spot: string; svg: string }> | null }) {
   const { door, sheet } = props;
   const qr = <img className="print-qr premium" src={svgUri(door.qr_svg)} alt="" />;
   const logo = <span className={`print-logo${door.logo_url ? "" : " letters"}`}>{door.logo_url ? <img src={door.logo_url} alt="" /> : lettersOf(door.name)}</span>;
   const address = door.url.replace(/^https?:\/\//, "");
-  const card = (key: number) => (
-    <div className="print-card" key={key}>
+  const card = (key: number, numbered?: { spot: string; svg: string }) => (
+    <div className={numbered ? "print-card numbered" : "print-card"} key={key}>
       <div className="print-card-text">
         {logo}
         <p className="print-name">{door.name}</p>
-        <p className="print-call">Scan to chat with us</p>
-        <p className="print-small">Ask a question, check what's available or book. {door.assistant} answers day and night.</p>
+        {numbered ? <p className="print-spot">{numbered.spot}</p> : null}
+        <p className="print-call">{numbered ? "Scan to see what we offer and order" : "Scan to chat with us"}</p>
+        <p className="print-small">{numbered ? `Order here and it comes to you. ${door.assistant} answers day and night.` : `Ask a question, check what's available or book. ${door.assistant} answers day and night.`}</p>
+        <p className="print-powered">{POWERED}</p>
       </div>
-      {qr}
+      {numbered ? <img className="print-qr premium" src={svgUri(numbered.svg)} alt="" /> : qr}
     </div>
   );
+  const numbered = props.numbered ?? null;
+  const pages = numbered ? Array.from({ length: Math.ceil(numbered.length / 2) }, (_, index) => numbered.slice(index * 2, index * 2 + 2)) : null;
   return (
     <div className={`print-root ${sheet}`} ref={(node) => node?.style.setProperty("--print-brand", door.color)}>
       {sheet === "poster" ? (
@@ -246,9 +285,11 @@ function PrintSheet(props: { door: Door; sheet: Sheet }) {
           {qr}
           <p className="print-steps">1. Open your phone's camera&nbsp;&nbsp;·&nbsp;&nbsp;2. Point it at the code&nbsp;&nbsp;·&nbsp;&nbsp;3. Tap the link</p>
           <p className="print-address">{address}</p>
+          <p className="print-powered">{POWERED}</p>
         </div>
       ) : null}
-      {sheet === "cards" ? <div className="print-cards">{[0, 1].map(card)}</div> : null}
+      {sheet === "cards" && pages ? pages.map((pair, page) => <div className="print-cards" key={page}>{pair.map((entry, index) => card(page * 2 + index, entry))}</div>) : null}
+      {sheet === "cards" && !pages ? <div className="print-cards">{[0, 1].map((key) => card(key))}</div> : null}
       {sheet === "stickers" ? (
         <div className="print-stickers">
           {Array.from({ length: 12 }, (_, index) => (

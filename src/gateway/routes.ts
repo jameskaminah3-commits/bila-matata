@@ -12,6 +12,7 @@
 //   GET  /v1/widget/config       ?business=<id> (or ?key=<public key>): the widget's name, colour, position,
 //                                greeting, and its WhatsApp link when it offers one
 
+import { cleanSpot, setSessionSpot } from "../frontdoor/spot.ts";
 import { attachVerifiedCustomer } from "../integrations/identity.ts";
 import { personaRole } from "../engine/persona.ts";
 import { brandAssetUrl, brandAssetsOf } from "../brand/assets.ts";
@@ -129,6 +130,9 @@ export function registerGatewayRoutes(app: Express, config: PlatformConfig, engi
         displayCurrency: currencyOf(req.body?.display_currency) ?? "USD",
         visitorKey: visitor,
       });
+      // Where the customer is, from the table or room code they scanned (src/frontdoor/spot.ts).
+      const spot = cleanSpot(req.body?.spot);
+      if (spot) await setSessionSpot(business.id, session.id, spot);
       // A customer signed in on the business's own site, vouched for by its system (docs/INTEGRATION.md).
       const verified = req.body?.customer_token ? await attachVerifiedCustomer(business.id, session.id, req.body.customer_token).catch(() => false) : false;
       // A chat opened from the business's own page on this service: counted, by how the visitor arrived (its QR code, or the link).
@@ -161,6 +165,8 @@ export function registerGatewayRoutes(app: Express, config: PlatformConfig, engi
         { key: `messages:business:${auth.business.id}`, limit: limits.businessMessagesPerHour, windowSeconds: 3600 },
       ], auth.sessionId)) return;
 
+      // Where the customer is now: a table or room code's spot, or none (null) when the page they're on has none.
+      if (req.body && "spot" in req.body) await setSessionSpot(auth.business.id, auth.sessionId, cleanSpot(req.body.spot));
       // The site's currency switch applies to the prices Zaina quotes next.
       const currency = currencyOf(req.header("x-zaina-currency"));
       if (currency) await runForBusiness(auth.business.id, () => setDisplayCurrency(auth.sessionId, currency));

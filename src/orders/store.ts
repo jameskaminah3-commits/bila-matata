@@ -49,6 +49,8 @@ export type PlaceOrderInput = {
   notes?: string | null;
   payOnDelivery?: boolean;
   idempotencyKey?: string | null;
+  /** Where the customer is ("Table 5"), from the code they scanned: the order is brought to them (no address, no delivery fee). */
+  spot?: string | null;
   now?: Date;
 };
 export type OrderProblem = { ok: false; error: string; message: string; items?: string[]; zones?: string[] };
@@ -103,7 +105,7 @@ export async function placeOrder(input: PlaceOrderInput): Promise<PlacedOrder | 
       return problem("zone_required", `Ask which of the delivery areas they're in: ${settings.zones.map((entry) => entry.name).join(", ")}. If none, say the business doesn't deliver there${settings.collection ? " and offer collection" : ""}.`, { zones: settings.zones.map((entry) => entry.name) });
     }
     if (!(input.address ?? "").trim()) return problem("address_required", "Ask for the delivery address or a landmark.");
-  } else if (!settings.collection) {
+  } else if (!settings.collection && !input.spot) {
     return problem("no_collection", "This business delivers only: ask which delivery area they're in.");
   }
 
@@ -171,13 +173,13 @@ export async function placeOrder(input: PlaceOrderInput): Promise<PlacedOrder | 
         const { rows } = await client.query(
           `insert into orders (business_id, reference, session_id, status, customer_name, customer_phone, customer_email, customer_notes, lines, currency,
              subtotal_minor, delivery_fee_minor, total_minor, pay_on_delivery, priced_by_team, fulfilment, zone, address, wanted, pay_token, hold_expires_at,
-             stock_reserved, idempotency_key, confirmed_at, created_at, updated_at)
-           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $25)
+             stock_reserved, idempotency_key, confirmed_at, created_at, updated_at, spot)
+           values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $25, $26)
            returning *`,
           [businessId, newOrderReference(), input.sessionId, status, input.customer.name.slice(0, 120), input.customer.phone, input.customer.email,
             input.notes?.slice(0, 500) || null, JSON.stringify(lines), currency, subtotal, fee, total, payOnDelivery, pricedByTeam, input.fulfilment,
             zone?.name ?? null, input.fulfilment === "delivery" ? (input.address ?? "").trim().slice(0, 200) : null, input.wanted?.slice(0, 120) || null,
-            newPayToken(), hold, lines.some((line) => line.counted), input.idempotencyKey ?? null, status === "confirmed" ? now : null, now],
+            newPayToken(), hold, lines.some((line) => line.counted), input.idempotencyKey ?? null, status === "confirmed" ? now : null, now, input.fulfilment === "collection" ? input.spot ?? null : null],
         );
         await client.query("release savepoint new_order");
         return { ok: true as const, order: rowToOrder(rows[0]), created: true, note };
@@ -203,7 +205,7 @@ function rowToOrder(row: Record<string, any>): Order {
     totalMinor: number(row.total_minor) as number, paidMinor: number(row.paid_minor) as number, payOnDelivery: row.pay_on_delivery, pricedByTeam: row.priced_by_team,
     fulfilment: row.fulfilment, zone: row.zone, address: row.address, wanted: row.wanted, payToken: row.pay_token, holdExpiresAt: row.hold_expires_at,
     stockReserved: row.stock_reserved, conflict: row.conflict, staffNote: row.staff_note, cancelReason: row.cancel_reason, idempotencyKey: row.idempotency_key,
-    customerId: row.customer_id ?? null, createdAt: row.created_at, updatedAt: row.updated_at, confirmedAt: row.confirmed_at, completedAt: row.completed_at,
+    customerId: row.customer_id ?? null, spot: row.spot ?? null, createdAt: row.created_at, updatedAt: row.updated_at, confirmedAt: row.confirmed_at, completedAt: row.completed_at,
   };
 }
 

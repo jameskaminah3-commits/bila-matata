@@ -14,6 +14,7 @@
 // paid and confirmed, on its way or ready to collect, delivered. Zaina never
 // collects money and never adds up totals herself.
 
+import { sessionSpot } from "../frontdoor/spot.ts";
 import { createHash } from "node:crypto";
 import { Type, type FunctionDeclaration } from "@google/genai";
 import { formatMoney } from "../booking/money.ts";
@@ -34,7 +35,7 @@ export const CHECK_ORDER = "check_order";
 export const placeOrderDeclaration: FunctionDeclaration = {
   name: PLACE_ORDER,
   description:
-    "Place the customer's order from the business's catalogue once they've confirmed the items, how many, delivery or collection, and their name and phone. " +
+    "Place the customer's order from the business's catalogue once they've confirmed the items, how many, delivery or collection (or, when your instructions say where they are, that it's brought to them there), and their name and phone. " +
     "The server works out the total (delivery included) and returns the business's own payment link, or confirms it. You never take payment.",
   parameters: {
     type: Type.OBJECT,
@@ -44,7 +45,7 @@ export const placeOrderDeclaration: FunctionDeclaration = {
         description: "What they're ordering.",
         items: { type: Type.OBJECT, properties: { id: { type: Type.STRING, description: "The item's id from get_prices." }, quantity: { type: Type.INTEGER, description: "How many." } }, required: ["id", "quantity"] },
       },
-      fulfilment: { type: Type.STRING, enum: ["delivery", "collection"], description: "Delivered to them, or they collect it." },
+      fulfilment: { type: Type.STRING, enum: ["delivery", "collection", "on_site"], description: "Delivered to them, they collect it, or on_site: brought to them where they are (their table or room), only when your instructions say where the customer is." },
       delivery_area: { type: Type.STRING, description: "For delivery: which of the business's delivery areas, exactly as listed in your instructions." },
       address: { type: Type.STRING, description: "For delivery: the address or a landmark, in the customer's words." },
       when: { type: Type.STRING, description: "When they'd like it, in the customer's words." },
@@ -86,12 +87,12 @@ function orderView(order: Order, timeZone: string) {
   const due = orderAmountDue(order);
   return {
     reference: order.reference,
-    status: STATUS_WORDS[order.status],
+    status: order.spot && order.status === "ready_for_collection" ? `ready: being brought to ${order.spot}` : order.spot && order.status === "completed" ? `brought to ${order.spot}` : STATUS_WORDS[order.status],
     items: order.lines.map((line) => `${line.quantity} × ${line.name}`),
     ...(order.deliveryFeeMinor ? { delivery_fee: formatMoney(order.deliveryFeeMinor, order.currency) } : {}),
     total: order.pricedByTeam && order.status === "requested" ? "to be confirmed by the business" : formatMoney(order.totalMinor, order.currency),
     ...(order.paidMinor ? { paid: formatMoney(order.paidMinor, order.currency) } : {}),
-    fulfilment: order.fulfilment === "delivery" ? `delivery to ${order.zone}${order.address ? ` (${order.address})` : ""}` : "collection",
+    fulfilment: order.fulfilment === "delivery" ? `delivery to ${order.zone}${order.address ? ` (${order.address})` : ""}` : order.spot ? `brought to ${order.spot}` : "collection",
     ...(order.payOnDelivery && due > 0 ? { pay_on_delivery: formatMoney(due, order.currency) } : {}),
     ...(order.status === "awaiting_payment" ? { payment_link: orderPayLink(order), pay_by: order.holdExpiresAt ? holdUntil(order.holdExpiresAt, timeZone) : null } : {}),
     ...(order.cancelReason ? { reason: order.cancelReason } : {}),
@@ -103,12 +104,17 @@ async function runPlaceOrder(args: any, context: ExtraContext) {
     id: textArg(entry?.id).slice(0, 60),
     quantity: Number.isInteger(entry?.quantity) ? entry.quantity : Number.parseInt(String(entry?.quantity ?? ""), 10),
   })).filter((entry: { id: string }) => entry.id);
-  const fulfilment = args?.fulfilment === "delivery" || args?.fulfilment === "collection" ? args.fulfilment : null;
+  // A customer at a table or room (the code they scanned said where) has it brought to them: no address, no delivery fee.
+  const spot = await sessionSpot(context.business.id, context.sessionId).catch(() => null);
+  const asked = args?.fulfilment;
+  if (asked === "on_site" && !spot) return { ok: false, error: "no_spot", message: "It isn't known where the customer is: ask whether they'd like it delivered or will collect it." };
+  const onSite = Boolean(spot) && (asked === "on_site" || !asked);
+  const fulfilment = onSite ? "collection" : asked === "delivery" || asked === "collection" ? asked : null;
   if (!fulfilment) return { ok: false, error: "fulfilment_required", message: "Ask whether they'd like it delivered or will collect it." };
   const contact = await contactOf(args, context.sessionId, true);
   if (!contact.ok) return contact;
   // The same order asked twice in a chat (a retried call) is placed once.
-  const key = createHash("sha256").update(JSON.stringify([context.sessionId, [...items].sort((a, b) => a.id.localeCompare(b.id)), fulfilment, textArg(args?.delivery_area), textArg(args?.address)])).digest("hex").slice(0, 40);
+  const key = createHash("sha256").update(JSON.stringify([context.sessionId, [...items].sort((a, b) => a.id.localeCompare(b.id)), fulfilment, onSite ? spot : null, textArg(args?.delivery_area), textArg(args?.address)])).digest("hex").slice(0, 40);
   const placed = await placeOrder({
     business: context.business,
     sessionId: context.sessionId,
@@ -121,6 +127,7 @@ async function runPlaceOrder(args: any, context: ExtraContext) {
     notes: textArg(args?.notes) || null,
     payOnDelivery: args?.pay_on_delivery === true,
     idempotencyKey: key,
+    spot: onSite ? spot : null,
   });
   if (!placed.ok) return placed;
   const { order } = placed;
@@ -130,7 +137,9 @@ async function runPlaceOrder(args: any, context: ExtraContext) {
   const next = order.status === "awaiting_payment"
     ? "Read back the items and total, then send the payment link exactly as it is: paying there confirms the order, and the customer hears every step after that here. Say until when their items are kept."
     : order.status === "confirmed"
-      ? `Tell the customer the order is confirmed, to be paid on ${order.fulfilment === "delivery" ? "delivery" : "collection"}, and that they'll hear here when it's ${order.fulfilment === "delivery" ? "on its way" : "ready to collect"}.`
+      ? order.spot
+        ? `Tell the customer the order is confirmed and will be brought to ${order.spot}${order.payOnDelivery ? ", to be paid when it arrives" : ""}.`
+        : `Tell the customer the order is confirmed, to be paid on ${order.fulfilment === "delivery" ? "delivery" : "collection"}, and that they'll hear here when it's ${order.fulfilment === "delivery" ? "on its way" : "ready to collect"}.`
       : "Tell the customer the business will confirm the order here shortly (and the total, if a price depends on the details). Don't promise a time.";
   return { ok: true, ...orderView(order, context.business.timeZone), ...(placed.note ? { note: placed.note } : {}), next_step: next };
 }
