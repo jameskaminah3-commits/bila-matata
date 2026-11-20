@@ -59,17 +59,20 @@ export function PricesPage(props: { businessId: string; role: Role; businessType
       {sections.map((section) => (
         <section key={section || "none"} className="stack-tight">
           {section ? <h2 className="section-title">{section}</h2> : null}
-          <table className="table">
+          <table className="table price-table">
             <thead><tr><th>Item</th><th>Price</th>{manager ? <th><span className="visually-hidden">Actions</span></th> : null}</tr></thead>
             <tbody>
               {items.filter((item) => (item.section ?? "") === section).map((item) => (
                 <tr key={item.id}>
-                  <td className="item-cell">
-                    {item.picture_url ? <img className="item-thumb" src={item.picture_url} alt="" loading="lazy" /> : null}
-                    <strong>{item.name}</strong>
-                    {item.status === "hidden" ? <span className="chip closed">Hidden</span> : null}
-                    {item.source === "feed" ? <span className="chip">From your system</span> : null}
-                    {item.description ? <div className="muted small">{item.description}</div> : null}
+                  <td>
+                    {/* The flex layout sits inside the cell: on the cell itself it stops being a table cell and the row's lines don't meet. */}
+                    <div className="item-cell">
+                      {item.picture_url ? <img className="item-thumb" src={item.picture_url} alt="" loading="lazy" /> : null}
+                      <strong>{item.name}</strong>
+                      {item.status === "hidden" ? <span className="chip closed">Hidden</span> : null}
+                      {item.source === "feed" ? <span className="chip">From your system</span> : null}
+                      {item.description ? <div className="muted small item-desc">{item.description}</div> : null}
+                    </div>
                   </td>
                   <td className="nowrap">
                     {item.price_display}

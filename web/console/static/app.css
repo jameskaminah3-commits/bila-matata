@@ -746,6 +746,9 @@ table.lines tr.total th, table.lines tr.total td { font-weight: 700; border-top:
 
 /* Catalogue photos: a thumbnail per item, and picking a photo in the item form. */
 .item-cell { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; }
+.item-cell .item-desc { flex-basis: 100%; }
+/* Every section is its own table: fixed price and action columns keep them lined up down the page. */
+@media (min-width: 720px) { .price-table th:nth-child(2) { width: 150px; } .price-table th:nth-child(3) { width: 170px; } }
 .item-thumb { width: 44px; height: 44px; border-radius: 8px; object-fit: cover; flex: none; background: var(--surface-2); }
 .photo-pick { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
 .photo-preview { width: 96px; height: 96px; border-radius: 12px; object-fit: cover; background: var(--surface-2); flex: none; }
