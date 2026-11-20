@@ -116,7 +116,7 @@ test("with a catalogue, the page opens on it: cards open in place, and Zaina is 
   assert.match(quiet, /You're at <strong>Table 5<\/strong>\.<\/span>/);
   // Many sections: a one-tap jump as well as the pills.
   const big = renderFrontDoor(view({ catalogue: { ...menu, sections: ["Food", "Gins", "Wines", "Beers", "Shots"] } }));
-  assert.match(big, /<select id="cat-jump"><option value="">All sections<\/option><option value="Food">Food<\/option>/);
+  assert.match(big, /<select id="cat-jump"><option value="">Jump to…<\/option><option value="Food">Food<\/option>/);
 });
 
 test("without a catalogue the page is the chat alone, as before, with the same footer", () => {

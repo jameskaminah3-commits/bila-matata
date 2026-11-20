@@ -66,7 +66,7 @@ function renderCatalogue(catalogue: DoorCatalogue, view: DoorView): string {
     : "";
   // A long list of sections gets a one-tap jump as well as the pills.
   const jump = catalogue.sections.length > 4
-    ? `<label class="cat-jump"><span class="visually-hidden">Jump to a section</span><select id="cat-jump"><option value="">All sections</option>${catalogue.sections.map((section) => `<option value="${esc(section)}">${esc(section)}</option>`).join("")}</select></label>`
+    ? `<label class="cat-jump"><span class="visually-hidden">Jump to a section</span><select id="cat-jump"><option value="">Jump to…</option>${catalogue.sections.map((section) => `<option value="${esc(section)}">${esc(section)}</option>`).join("")}</select></label>`
     : "";
   const orders = catalogue.items.some((item) => item.order?.verb === "order");
   const cards = catalogue.items.map((item) => {
@@ -270,8 +270,8 @@ body { font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; 
 .cat-pill:focus-visible { outline: 3px solid var(--brand); outline-offset: 2px; }
 .cat-row { display: flex; gap: 8px; }
 .cat-row .cat-search { flex: 1; min-width: 0; }
-.cat-jump { flex: none; max-width: 44%; display: flex; }
-.cat-jump select { width: 100%; min-height: 46px; padding: 0 12px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg); color: var(--ink); font: inherit; font-size: 16px; font-weight: 600; }
+.cat-jump { flex: none; width: 36%; display: flex; }
+.cat-jump select { width: 100%; min-width: 0; text-overflow: ellipsis; min-height: 46px; padding: 0 12px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg); color: var(--ink); font: inherit; font-size: 16px; font-weight: 600; }
 .cat-jump select:focus-visible { outline: 3px solid var(--brand); outline-offset: 1px; }
 .cat-list { list-style: none; margin: 0; padding: 4px 16px 8px; }
 .cat-item { border-bottom: 1px solid var(--line); }
