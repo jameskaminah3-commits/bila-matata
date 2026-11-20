@@ -144,9 +144,9 @@ test("the page's script and styles: tabs, filters, the jump, the optional pill, 
 
 test("a table's code takes its spot along: to the page, the website and WhatsApp", () => {
   const base = { base: "https://bilamatata.com", businessId: "kibanda", name: "Kibanda Lounge", websiteUrl: "https://kibanda.example", allowedOrigins: ["https://kibanda.example"], whatsapp: "https://wa.me/254700000111", on: "qr" as const };
-  assert.equal(scanDestination({ ...base, choice: "page", spot: "Table 5" }).url, "https://bilamatata.com/c/kibanda?s=qr&spot=Table+5");
-  assert.equal(scanDestination({ ...base, choice: "page" }).url, "https://bilamatata.com/c/kibanda?s=qr");
-  assert.equal(scanDestination({ ...base, choice: "page", spot: "<b>x</b>" }).url, "https://bilamatata.com/c/kibanda?s=qr", "a spot that isn't a plain label is dropped");
+  assert.equal(scanDestination({ ...base, choice: "page", spot: "Table 5" }).url, "https://kibanda.bilamatata.com/?s=qr&spot=Table+5");
+  assert.equal(scanDestination({ ...base, choice: "page" }).url, "https://kibanda.bilamatata.com/?s=qr");
+  assert.equal(scanDestination({ ...base, choice: "page", spot: "<b>x</b>" }).url, "https://kibanda.bilamatata.com/?s=qr", "a spot that isn't a plain label is dropped");
   assert.equal(scanDestination({ ...base, choice: "website", spot: "Table 5" }).url, "https://kibanda.example/?zaina_spot=Table+5#zaina");
   assert.equal(websiteWithChat("https://kibanda.example/menu", ["https://kibanda.example"]), "https://kibanda.example/menu#zaina");
   assert.equal(scanDestination({ ...base, choice: "whatsapp", spot: "Table 5" }).url, `https://wa.me/254700000111?text=${encodeURIComponent("Hi Kibanda Lounge! I'm at Table 5.")}`);

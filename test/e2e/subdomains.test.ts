@@ -80,6 +80,10 @@ test("anything else on a business's address, and www., goes to the main address;
   const www = await get("www.localhost", "/pricing?x=1");
   assert.equal(www.status, 301);
   assert.equal(www.location, `${MAIN}/pricing?x=1`);
+  // A link to the main address's page goes on to the business's own.
+  const link = await get("localhost", "/c/clubxo?s=link");
+  assert.equal(link.status, 302);
+  assert.equal(link.location, "http://clubxo.localhost:5127/?s=link");
   // A code printed with the main address before the switch.
   const old = await get("localhost", "/q/clubxo");
   assert.equal(old.status, 302);

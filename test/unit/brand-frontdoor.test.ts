@@ -166,10 +166,11 @@ test("the premium code keeps the business's colour when it scans, and darkens it
 
 test("a scan goes where the business's Zaina really works, and to its page when that isn't ready", async () => {
   const { doorQrTarget, scanDestination, websiteWithChat } = await import("../../src/frontdoor/routes.ts");
-  assert.equal(doorQrTarget("https://bilamatata.co.ke", "palm-cove"), "https://bilamatata.co.ke/q/palm-cove");
-  assert.equal(doorQrTarget("https://bilamatata.co.ke", "palm-cove", "card"), "https://bilamatata.co.ke/k/palm-cove");
+  // On a real domain each business has its own address (src/frontdoor/subdomains.ts): the name shows first.
+  assert.equal(doorQrTarget("https://bilamatata.co.ke", "palm-cove"), "https://palm-cove.bilamatata.co.ke/q");
+  assert.equal(doorQrTarget("https://bilamatata.co.ke", "palm-cove", "card"), "https://palm-cove.bilamatata.co.ke/k");
   const base = { base: "https://bilamatata.co.ke", businessId: "palm-cove", name: "Palm Cove", websiteUrl: "https://www.palmcove.example/rooms", allowedOrigins: ["https://www.palmcove.example"], whatsapp: "https://wa.me/254700000321", on: "qr" as const };
-  assert.deepEqual(scanDestination({ ...base, choice: "page" }), { kind: "page", url: "https://bilamatata.co.ke/c/palm-cove?s=qr" });
+  assert.deepEqual(scanDestination({ ...base, choice: "page" }), { kind: "page", url: "https://palm-cove.bilamatata.co.ke/?s=qr" });
   assert.deepEqual(scanDestination({ ...base, choice: "website" }), { kind: "website", url: "https://www.palmcove.example/rooms#zaina" });
   assert.deepEqual(scanDestination({ ...base, choice: "whatsapp" }), { kind: "whatsapp", url: "https://wa.me/254700000321?text=Hi%20Palm%20Cove!" });
   // Not ready: the chat isn't allowed on the website, or WhatsApp isn't connected to Zaina. The page always works.
@@ -177,7 +178,7 @@ test("a scan goes where the business's Zaina really works, and to its page when 
   assert.equal(scanDestination({ ...base, choice: "website", websiteUrl: null }).kind, "page");
   assert.equal(scanDestination({ ...base, choice: "whatsapp", whatsapp: null }).kind, "page");
   assert.equal(scanDestination({ ...base, choice: "whatsapp", whatsapp: "https://evil.example/254700000321" }).kind, "page");
-  assert.equal(scanDestination({ ...base, choice: "page", on: "card" }).url, "https://bilamatata.co.ke/c/palm-cove?s=card");
+  assert.equal(scanDestination({ ...base, choice: "page", on: "card" }).url, "https://palm-cove.bilamatata.co.ke/?s=card");
   assert.equal(websiteWithChat("http://www.palmcove.example", ["http://www.palmcove.example"]), null, "only https");
   assert.equal(websiteWithChat("not a url", ["https://x.example"]), null);
   assert.equal(websiteWithChat("https://www.palmcove.example/#book", ["https://www.palmcove.example"]), "https://www.palmcove.example/#zaina");

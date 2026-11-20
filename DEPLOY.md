@@ -262,10 +262,11 @@ every business: Railway's second custom domain, nothing per business.
    stay as they are; the wildcard doesn't change them.
 3. Check `https://<a live business's id>.bilamatata.com` opens its page with
    a padlock.
-4. Only then, in Railway's variables: `BUSINESS_SUBDOMAINS=on`. From that
-   moment the dashboard's QR codes, table cards, posters and links use each
-   business's own address. Codes printed before keep working: they open the
-   same page.
+4. That's all: on the real domain, the dashboard's QR codes, table cards,
+   posters and links use each business's own address, and codes and links
+   made before (`bilamatata.com/q/…`, `/c/…`) go on to it. Codes printed
+   before keep working. Until the wildcard answers, or to go back, set
+   `BUSINESS_SUBDOMAINS=off` in Railway's variables.
 
 How it behaves: `/` on a business's address is its page, `/q` and `/k` its
 codes; the chat works there and opens only that business's chat. Anything

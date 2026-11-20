@@ -60,14 +60,14 @@ const DOOR_CSP = [
 ].join("; ");
 
 /** The address of a business's page: its own (clubxo.bilamatata.com) once those are on, else /c/<business>. */
-export const doorUrl = (baseUrl: string, businessId: string) => (subdomainsOn() && canBeSubdomain(businessId)
+export const doorUrl = (baseUrl: string, businessId: string) => (subdomainsOn(baseUrl) && canBeSubdomain(businessId)
   ? `${businessOrigin(baseUrl, businessId)}/`
   : `${baseUrl}/c/${encodeURIComponent(businessId)}`);
 /**
  * What a printed code carries: short (a smaller code reads from further away),
  * and never changing, whatever the business later chooses as its destination.
  */
-export const doorQrTarget = (baseUrl: string, businessId: string, on: "qr" | "card" = "qr") => (subdomainsOn() && canBeSubdomain(businessId)
+export const doorQrTarget = (baseUrl: string, businessId: string, on: "qr" | "card" = "qr") => (subdomainsOn(baseUrl) && canBeSubdomain(businessId)
   ? `${businessOrigin(baseUrl, businessId)}/${on === "card" ? "k" : "q"}`
   : `${baseUrl}/${on === "card" ? "k" : "q"}/${encodeURIComponent(businessId)}`);
 
@@ -208,6 +208,11 @@ export function registerFrontDoorRoutes(app: Express, config: PlatformConfig): v
 
   app.get("/c/:business", doorLimit, async (req: Request, res: Response, next: NextFunction) => {
     try {
+      // A link to the main address's page goes on to the business's own address (the name shows first there too).
+      const id = String(req.params.business);
+      if (!res.locals.businessHost && config.publicBaseUrl && subdomainsOn(config.publicBaseUrl) && canBeSubdomain(id)) {
+        return res.redirect(302, `${businessOrigin(config.publicBaseUrl, id)}/${req.url.slice(req.path.length)}`);
+      }
       res.setHeader("Content-Security-Policy", doorCsp);
       res.setHeader("X-Frame-Options", "DENY");
       res.setHeader("X-Content-Type-Options", "nosniff");

@@ -21,20 +21,24 @@ test("a host is a business's when it's one plain name under the main domain, and
   assert.equal(businessOrigin("http://localhost:5127", "clubxo"), "http://clubxo.localhost:5127");
 });
 
-test("codes and links use the business's own address only once it's switched on", () => {
+test("codes and links use the business's own address on a real domain, unless it's switched off", () => {
   const before = process.env.BUSINESS_SUBDOMAINS;
   try {
     delete process.env.BUSINESS_SUBDOMAINS;
-    assert.equal(subdomainsOn(), false);
-    assert.equal(doorQrTarget(BASE, "clubxo"), "https://bilamatata.com/q/clubxo");
-    assert.equal(doorUrl(BASE, "clubxo"), "https://bilamatata.com/c/clubxo");
-    process.env.BUSINESS_SUBDOMAINS = "on";
+    assert.equal(subdomainsOn(BASE), true, "on by default on the real domain");
+    assert.equal(subdomainsOn("http://127.0.0.1:5125"), false, "off on an IP address");
+    assert.equal(subdomainsOn("http://localhost:5127"), false, "off on localhost");
     assert.equal(doorQrTarget(BASE, "clubxo"), "https://clubxo.bilamatata.com/q");
     assert.equal(doorQrTarget(BASE, "clubxo", "card"), "https://clubxo.bilamatata.com/k");
     assert.equal(doorUrl(BASE, "clubxo"), "https://clubxo.bilamatata.com/");
     assert.equal(doorQrTarget(BASE, "admin"), "https://bilamatata.com/q/admin", "a business on a kept name stays on the main address");
     const page = scanDestination({ base: BASE, businessId: "clubxo", name: "Club XO", choice: "page", websiteUrl: null, allowedOrigins: [], whatsapp: null, on: "qr", spot: "Table 5" });
     assert.equal(page.url, "https://clubxo.bilamatata.com/?s=qr&spot=Table+5");
+    process.env.BUSINESS_SUBDOMAINS = "off";
+    assert.equal(doorQrTarget(BASE, "clubxo"), "https://bilamatata.com/q/clubxo");
+    assert.equal(doorUrl(BASE, "clubxo"), "https://bilamatata.com/c/clubxo");
+    process.env.BUSINESS_SUBDOMAINS = "on";
+    assert.equal(subdomainsOn("http://localhost:5127"), true, "on forces it");
   } finally {
     if (before === undefined) delete process.env.BUSINESS_SUBDOMAINS;
     else process.env.BUSINESS_SUBDOMAINS = before;

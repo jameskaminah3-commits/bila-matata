@@ -11,11 +11,13 @@
 // can never lead to another. Names the service keeps (www, app, api, …) are
 // never a business's address, and a new business can't take one.
 //
-// The service answers on these addresses whenever they reach it. Printed
-// codes and links use them only with BUSINESS_SUBDOMAINS=on, set once the
-// wildcard domain works in Railway and DNS, so no code ever points at an
-// address that doesn't answer yet. Codes already printed with the main
-// address keep working either way.
+// Codes, links and the main address's /q/ and /c/ pages use these
+// addresses whenever the main address is a real domain (the wildcard domain
+// is set up there, DEPLOY.md 5F); BUSINESS_SUBDOMAINS=off turns that off,
+// =on forces it. On a local or IP address (tests, a laptop) they're off.
+// Codes already printed with the main address keep working either way.
+
+import { isIP } from "node:net";
 
 const BUSINESS_ID = /^[a-z][a-z0-9-]{1,39}$/;
 
@@ -25,9 +27,18 @@ export const RESERVED_SUBDOMAINS = new Set([
   "cdn", "static", "assets", "ns1", "ns2", "webhook", "webhooks", "auth", "login", "account", "zaina", "bilamatata",
 ]);
 
-/** Whether printed codes and links use each business's own address. */
-export function subdomainsOn(env: NodeJS.ProcessEnv = process.env): boolean {
-  return env.BUSINESS_SUBDOMAINS?.trim().toLowerCase() === "on";
+/** Whether codes and links use each business's own address under this main address. */
+export function subdomainsOn(publicBaseUrl: string | null | undefined, env: NodeJS.ProcessEnv = process.env): boolean {
+  const setting = env.BUSINESS_SUBDOMAINS?.trim().toLowerCase();
+  if (setting === "off") return false;
+  if (setting === "on") return true;
+  if (!publicBaseUrl) return false;
+  try {
+    const host = new URL(publicBaseUrl).hostname;
+    return host !== "localhost" && !isIP(host) && host.includes(".");
+  } catch {
+    return false;
+  }
 }
 
 /** Whether a business ID can be an address of its own. */
