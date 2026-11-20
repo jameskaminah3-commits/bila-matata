@@ -9,7 +9,7 @@ import express, { type Express, type NextFunction, type Request, type Response }
 import type { Server } from "node:http";
 import { GoogleGenAI } from "@google/genai";
 import type { PlatformConfig } from "./config.ts";
-import { anyAllowedOrigins, setExtraAllowedOrigins, setFrontDoorOrigins, setOwnSiteOrigins } from "./businesses/registry.ts";
+import { anyAllowedOrigins, setBusinessAddressBase, setExtraAllowedOrigins, setFrontDoorOrigins, setOwnSiteOrigins } from "./businesses/registry.ts";
 import { loadSecretKeys, setSecretKeys } from "./businesses/secrets.ts";
 import type { WhatsappContext } from "./channels/whatsapp/context.ts";
 import { registerWhatsappRoutes, WEBHOOK_PATH } from "./channels/whatsapp/routes.ts";
@@ -52,6 +52,7 @@ import { fullTierOnly } from "./billing/tier-gate.ts";
 import { registerSupportRoutes } from "./support/routes.ts";
 import { registerNotificationRoutes } from "./notifications/routes.ts";
 import { registerFrontDoorRoutes } from "./frontdoor/routes.ts";
+import { businessOfHost, isKeptHost } from "./frontdoor/subdomains.ts";
 import { registerCardRoutes } from "./cards/routes.ts";
 import { registerInterviewRoutes } from "./onboarding/interview-routes.ts";
 import { registerCapabilityRoutes } from "./capabilities/routes.ts";
@@ -142,6 +143,7 @@ export function createApp(config: PlatformConfig, engine: EngineOptions, whatsap
   setOwnSiteOrigins(STUDIO.businessId, [config.publicBaseUrl]);
   // Every business has a page of its own on the service (/c/<business>, behind its QR code).
   setFrontDoorOrigins([config.publicBaseUrl]);
+  setBusinessAddressBase(config.publicBaseUrl);
   // A business that signed up by itself chooses a plan before going live, once the platform offers plans.
   setPlanCheck(planStep);
   setWhatsappRuntime(whatsapp);
@@ -179,6 +181,30 @@ export function createApp(config: PlatformConfig, engine: EngineOptions, whatsap
       if (!redirectHosts.has(req.hostname.toLowerCase()) || (req.method !== "GET" && req.method !== "HEAD")) return next();
       if (/^\/(api|v1)\//.test(req.path) || req.path === "/zaina.js" || req.path === "/widget.js") return next();
       res.redirect(301, `${canonical.origin}${req.originalUrl}`);
+    });
+  }
+  // A business's own address (clubxo.bilamatata.com, src/frontdoor/subdomains.ts): "/" is its page and
+  // "/q", "/k" its codes; the chat, its script and the page's styles and pictures answer there as
+  // everywhere. Anything else (the dashboard, the studio's site) and the kept names (www., app., …)
+  // go to the main address, so a business's address only ever shows that business.
+  if (canonical) {
+    app.use((req: Request, res: Response, next: NextFunction) => {
+      const host = req.hostname;
+      const own = businessOfHost(host, config.publicBaseUrl);
+      const page = req.method === "GET" || req.method === "HEAD";
+      if (!own) {
+        if (page && isKeptHost(host, config.publicBaseUrl) && !/^\/(api|v1)\//.test(req.path)) return res.redirect(301, `${canonical.origin}${req.originalUrl}`);
+        return next();
+      }
+      res.locals.businessHost = own;
+      if (!page) return next();
+      const query = req.url.slice(req.path.length);
+      if (req.path === "/") req.url = `/c/${own}${query}`;
+      else if (req.path === "/q" || req.path === "/k") req.url = `${req.path}/${own}${query}`;
+      else if (!/^\/(api|v1|c-assets|catalogue|brand|site)\//.test(req.path) && !["/zaina.js", "/widget.js", "/favicon.ico", "/robots.txt"].includes(req.path)) {
+        return res.redirect(301, `${canonical.origin}${req.originalUrl}`);
+      }
+      next();
     });
   }
   // /api/zaina/* is the public name of the API (the widget and embeds use it);

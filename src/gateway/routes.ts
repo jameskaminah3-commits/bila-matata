@@ -12,6 +12,7 @@
 //   GET  /v1/widget/config       ?business=<id> (or ?key=<public key>): the widget's name, colour, position,
 //                                greeting, and its WhatsApp link when it offers one
 
+import { businessOrigin, canBeSubdomain } from "../frontdoor/subdomains.ts";
 import { cleanSpot, setSessionSpot } from "../frontdoor/spot.ts";
 import { attachVerifiedCustomer } from "../integrations/identity.ts";
 import { personaRole } from "../engine/persona.ts";
@@ -136,7 +137,8 @@ export function registerGatewayRoutes(app: Express, config: PlatformConfig, engi
       // A customer signed in on the business's own site, vouched for by its system (docs/INTEGRATION.md).
       const verified = req.body?.customer_token ? await attachVerifiedCustomer(business.id, session.id, req.body.customer_token).catch(() => false) : false;
       // A chat opened from the business's own page on this service: counted, by how the visitor arrived (its QR code, or the link).
-      if ((req.body?.via === "qr" || req.body?.via === "link" || req.body?.via === "card") && isOriginAllowed(req.header("origin"), consoleOrigin) && req.header("origin")) {
+      const ownAddress = config.publicBaseUrl && canBeSubdomain(business.id) ? [businessOrigin(config.publicBaseUrl, business.id)] : [];
+      if ((req.body?.via === "qr" || req.body?.via === "link" || req.body?.via === "card") && isOriginAllowed(req.header("origin"), [...consoleOrigin, ...ownAddress]) && req.header("origin")) {
         void recordDoorChat(business.id, doorSource(req.body.via));
       }
       res.status(201).json({

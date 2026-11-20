@@ -6,6 +6,7 @@
 // platform creates businesses. Cached briefly: settings change rarely, and
 // every chat message needs them.
 
+import { businessOrigin, canBeSubdomain } from "../frontdoor/subdomains.ts";
 import { eq } from "drizzle-orm";
 import { appDb } from "../db/platform-db.ts";
 import { businesses, type Business } from "../db/schema.ts";
@@ -80,8 +81,16 @@ export function setFrontDoorOrigins(origins: Array<string | null>) {
   frontDoor = origins.filter((origin): origin is string => Boolean(origin));
 }
 
+/** The main address, for each business's own (clubxo.bilamatata.com, src/frontdoor/subdomains.ts). */
+let ownAddressBase: string | null = null;
+export function setBusinessAddressBase(publicBaseUrl: string | null) {
+  ownAddressBase = publicBaseUrl;
+}
+
 export function allowedOriginsFor(business: Business): string[] {
-  return [...business.allowedOrigins, ...extraOrigins, ...frontDoor, ...(ownSite?.businessId === business.id ? ownSite.origins : [])];
+  // A business's own address opens its chat, and only its chat.
+  const own = ownAddressBase && canBeSubdomain(business.id) ? [businessOrigin(ownAddressBase, business.id)] : [];
+  return [...business.allowedOrigins, ...extraOrigins, ...frontDoor, ...own, ...(ownSite?.businessId === business.id ? ownSite.origins : [])];
 }
 
 /** Every origin any active business allows (answers browsers' CORS preflight). */

@@ -247,6 +247,34 @@ PLATFORM_TERMS_URL=https://bilamatata.com/terms   (only if you set it before)
   and comes back.
 - Point your uptime monitor (section 8) at `https://bilamatata.com/v1/status`.
 
+**F. Each business at its own address (clubxo.bilamatata.com)**
+
+A phone that reads a QR code shows its domain first, so codes for
+`clubxo.bilamatata.com` show the business's name. One wildcard domain serves
+every business: Railway's second custom domain, nothing per business.
+
+1. Railway → the service → **Settings → Networking → Custom Domain** → add
+   `*.bilamatata.com`. Railway shows the records: a `CNAME` for
+   `*.bilamatata.com`, a `CNAME` for `_acme-challenge` (so it can issue the
+   certificate) and a `TXT` to verify.
+2. Cloudflare → DNS: create them, all **DNS only** (grey cloud) until the
+   certificate shows as issued in Railway. The `www` record and its redirect
+   stay as they are; the wildcard doesn't change them.
+3. Check `https://<a live business's id>.bilamatata.com` opens its page with
+   a padlock.
+4. Only then, in Railway's variables: `BUSINESS_SUBDOMAINS=on`. From that
+   moment the dashboard's QR codes, table cards, posters and links use each
+   business's own address. Codes printed before keep working: they open the
+   same page.
+
+How it behaves: `/` on a business's address is its page, `/q` and `/k` its
+codes; the chat works there and opens only that business's chat. Anything
+else (`/app`, the studio's pages) and kept names (`www`, `app`, `api`,
+`admin`, …) go to `bilamatata.com`. A paused business, or a name that isn't a
+business, shows "This page isn't available". Businesses are paused, never
+deleted, so an ID is never given to another business and an old code never
+leads elsewhere; new businesses can't take a kept name.
+
 ## 6. Search engines
 
 In Google Search Console, add `bilamatata.com` (a *Domain* property,

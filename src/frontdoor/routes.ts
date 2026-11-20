@@ -39,6 +39,7 @@ import { requireBusinessRole, requireStaff, staffOf } from "../staff/auth.ts";
 import { brandCss, DOOR_CSS, DOOR_JS, initials, renderDoorClosed, renderFrontDoor } from "./page.ts";
 import { doorCatalogue } from "./catalogue.ts";
 import { cleanSpot } from "./spot.ts";
+import { businessOrigin, canBeSubdomain, subdomainsOn } from "./subdomains.ts";
 import { qrSvg } from "./qr.ts";
 import { isOriginAllowed } from "../gateway/origin.ts";
 import type { QrDestination } from "../db/schema.ts";
@@ -58,13 +59,17 @@ const DOOR_CSP = [
   "base-uri 'none'",
 ].join("; ");
 
-/** The address of a business's page. */
-export const doorUrl = (baseUrl: string, businessId: string) => `${baseUrl}/c/${encodeURIComponent(businessId)}`;
+/** The address of a business's page: its own (clubxo.bilamatata.com) once those are on, else /c/<business>. */
+export const doorUrl = (baseUrl: string, businessId: string) => (subdomainsOn() && canBeSubdomain(businessId)
+  ? `${businessOrigin(baseUrl, businessId)}/`
+  : `${baseUrl}/c/${encodeURIComponent(businessId)}`);
 /**
  * What a printed code carries: short (a smaller code reads from further away),
  * and never changing, whatever the business later chooses as its destination.
  */
-export const doorQrTarget = (baseUrl: string, businessId: string, on: "qr" | "card" = "qr") => `${baseUrl}/${on === "card" ? "k" : "q"}/${encodeURIComponent(businessId)}`;
+export const doorQrTarget = (baseUrl: string, businessId: string, on: "qr" | "card" = "qr") => (subdomainsOn() && canBeSubdomain(businessId)
+  ? `${businessOrigin(baseUrl, businessId)}/${on === "card" ? "k" : "q"}`
+  : `${baseUrl}/${on === "card" ? "k" : "q"}/${encodeURIComponent(businessId)}`);
 
 type Destination = { kind: QrDestination; url: string };
 
@@ -120,6 +125,8 @@ export function registerFrontDoorRoutes(app: Express, config: PlatformConfig): v
   const staff = requireStaff(config.sessionTokenSecret);
   const baseOf = (req: Request) => config.publicBaseUrl ?? `${req.protocol}://${req.get("host")}`;
   const live = async (id: string) => (BUSINESS_ID.test(id) ? businessById(id) : undefined);
+  // On a business's own address the page is a different origin from the main one: its pictures from the main address are allowed too.
+  const doorCsp = config.publicBaseUrl ? DOOR_CSP.replace("img-src 'self' data:", `img-src 'self' data: ${new URL(config.publicBaseUrl).origin}`) : DOOR_CSP;
 
   app.get("/c-assets/door.css", (_req: Request, res: Response) => {
     res.setHeader("Cache-Control", "public, max-age=300");
@@ -201,7 +208,7 @@ export function registerFrontDoorRoutes(app: Express, config: PlatformConfig): v
 
   app.get("/c/:business", doorLimit, async (req: Request, res: Response, next: NextFunction) => {
     try {
-      res.setHeader("Content-Security-Policy", DOOR_CSP);
+      res.setHeader("Content-Security-Policy", doorCsp);
       res.setHeader("X-Frame-Options", "DENY");
       res.setHeader("X-Content-Type-Options", "nosniff");
       res.setHeader("Referrer-Policy", "no-referrer");
@@ -210,7 +217,8 @@ export function registerFrontDoorRoutes(app: Express, config: PlatformConfig): v
       const business = await live(String(req.params.business));
       const settings = business ? await getBusinessSettings(business.id) : null;
       if (!business || !settings || settings.frontDoor === false) return res.status(404).type("html").send(renderDoorClosed());
-      const base = baseOf(req);
+      // Served on the business's own address, its pictures come from that address too.
+      const base = res.locals.businessHost === business.id ? `${req.protocol}://${req.get("host")}` : baseOf(req);
       const [assets, number] = await Promise.all([brandAssetsOf(business.id), settings.widgetWhatsapp === false ? null : getNumber(business.id)]);
       const via = doorSource(req.query.s);
       if (looksLikePerson(req.header("user-agent"))) void recordDoorVisit(business.id, via);

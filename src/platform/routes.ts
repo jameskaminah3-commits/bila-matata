@@ -21,6 +21,7 @@
 // A new business starts with a daily model budget and a retention period, so
 // none runs with unlimited spend or keeps conversations forever by accident.
 
+import { RESERVED_SUBDOMAINS } from "../frontdoor/subdomains.ts";
 import { randomBytes } from "node:crypto";
 import type { Express, NextFunction, Request, Response } from "express";
 import type { PlatformConfig } from "../config.ts";
@@ -222,6 +223,8 @@ export function registerPlatformRoutes(app: Express, config: PlatformConfig): vo
         return res.status(400).json({ error: "connector_required", message: `A ${businessType} business needs its own connector, set up by the platform team.` });
       }
       if (!/^[a-z][a-z0-9-]{1,39}$/.test(id)) return res.status(400).json({ error: "invalid_id", message: "Ids are lowercase letters, digits and dashes." });
+      // The ID becomes the business's own address (clubxo.bilamatata.com): names the service keeps aren't free.
+      if (RESERVED_SUBDOMAINS.has(id)) return res.status(400).json({ error: "reserved_id", message: `"${id}" is kept for the service: choose another ID, such as the business's name.` });
       if (!name) return res.status(400).json({ error: "name_required" });
       if (origins.some((origin: string | null) => !origin)) return res.status(400).json({ error: "invalid_origin" });
       if (dailyTokenCap === null || retentionDays === null) {
