@@ -282,7 +282,8 @@ body { font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; 
 .cat-card[open] summary::after { transform: rotate(225deg); margin-top: 12px; }
 .cat-card summary:focus-visible { outline: 3px solid var(--brand); outline-offset: 2px; border-radius: 12px; }
 .cat-thumb, .cat-mono { width: 64px; height: 64px; border-radius: 14px; }
-.cat-thumb { object-fit: cover; background: var(--tint); display: block; }
+/* A light plate behind every photo, so a cut-out with no background still reads in dark mode. */
+.cat-thumb { object-fit: cover; background: #f4f4f1; display: block; }
 .cat-mono { display: grid; place-items: center; background: color-mix(in srgb, var(--brand) 16%, var(--surface)); color: var(--ink); border: 1px solid var(--line); font-weight: 800; font-size: 1.15rem; letter-spacing: .03em; }
 .cat-body { min-width: 0; display: grid; gap: 4px; }
 .cat-name { font-size: 1.0625rem; font-weight: 700; line-height: 1.3; overflow-wrap: anywhere; }
@@ -297,7 +298,7 @@ body { font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; 
 .cat-out { align-self: center; font-size: .8rem; font-weight: 800; color: var(--alert); border: 1.5px solid currentColor; border-radius: 999px; padding: 5px 10px; white-space: nowrap; }
 .cat-item.out .cat-name, .cat-item.out .cat-price { color: var(--muted); }
 .cat-more { display: grid; gap: 12px; padding: 0 0 16px; }
-.cat-photo { width: 100%; max-height: 320px; object-fit: cover; border-radius: 16px; background: var(--tint); display: block; }
+.cat-photo { width: 100%; max-height: 320px; object-fit: cover; border-radius: 16px; background: #f4f4f1; display: block; }
 .cat-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 .cat-zaina { min-height: 44px; padding: 0 16px; border-radius: 999px; border: 1.5px solid var(--brand); background: transparent; color: var(--ink); font: inherit; font-size: .92rem; font-weight: 700; cursor: pointer; }
 .cat-zaina.main { background: var(--brand); color: var(--on-brand); }

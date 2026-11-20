@@ -163,7 +163,7 @@ function ItemEditor(props: { businessId: string; item: PriceItem | null; section
           await action.run(async () => {
             let saved = await api<{ item: PriceItem }>(props.item ? "PATCH" : "POST", businessPath(props.businessId, props.item ? `/price-list/${props.item.id}` : "/price-list"), body);
             // The photo is kept in the database once the item exists.
-            if (photo) saved = await apiUpload<{ item: PriceItem }>("PUT", businessPath(props.businessId, `/price-list/${saved.item.id}/picture`), await shrinkPhoto(photo));
+            if (photo) saved = await apiUpload<{ item: PriceItem }>("PUT", businessPath(props.businessId, `/price-list/${saved.item.id}/picture`), await shrinkPhoto(photo, { keepTransparency: true }));
             else if (removePhoto && props.item?.picture_url) saved = await api<{ item: PriceItem }>("DELETE", businessPath(props.businessId, `/price-list/${saved.item.id}/picture`));
             props.onSaved(`Saved "${saved.item.name}": ${saved.item.price_display}.`);
           });
