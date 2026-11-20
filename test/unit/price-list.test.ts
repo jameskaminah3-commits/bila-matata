@@ -58,16 +58,36 @@ test("a pasted price list: items with their prices, headings as sections, and wh
     "We also arrange weddings and conferences on request.",
   ].join("\n"));
   assert.deepEqual(parsed.items, [
-    { section: "TRANSFERS", name: "Airport transfer (Moi Airport)", price: "3500", price_max: null, currency: "KES", unit: "per car" },
-    { section: "TRANSFERS", name: "Ukunda airstrip pick-up", price: "2000", price_max: null, currency: "KES", unit: "each" },
-    { section: "Spa", name: "Swedish massage 60 min", price: "4500", price_max: null, currency: "KES", unit: null },
-    { section: "Spa", name: "Hot stone massage", price: "5000", price_max: "6500", currency: "KES", unit: null },
-    { section: "Spa", name: "Kids under 5", price: "0", price_max: null, currency: "KES", unit: null },
-    { section: "Excursions", name: "Wasini island dhow trip", price: "85", price_max: null, currency: "USD", unit: "per person" },
-    { section: "Excursions", name: "Snorkelling gear hire", price: "500", price_max: null, currency: "KES", unit: "per day" },
+    { section: "TRANSFERS", name: "Airport transfer (Moi Airport)", description: null, price: "3500", price_max: null, currency: "KES", unit: "per car" },
+    { section: "TRANSFERS", name: "Ukunda airstrip pick-up", description: null, price: "2000", price_max: null, currency: "KES", unit: "each" },
+    { section: "Spa", name: "Swedish massage 60 min", description: null, price: "4500", price_max: null, currency: "KES", unit: null },
+    { section: "Spa", name: "Hot stone massage", description: null, price: "5000", price_max: "6500", currency: "KES", unit: null },
+    { section: "Spa", name: "Kids under 5", description: null, price: "0", price_max: null, currency: "KES", unit: null },
+    { section: "Excursions", name: "Wasini island dhow trip", description: null, price: "85", price_max: null, currency: "USD", unit: "per person" },
+    { section: "Excursions", name: "Snorkelling gear hire", description: null, price: "500", price_max: null, currency: "KES", unit: "per day" },
   ]);
   assert.deepEqual(parsed.problems, [{ line: 12, text: "We also arrange weddings and conferences on request.", reason: "No price found." }]);
   assert.equal(parsePriceList("Laundry 300", "USD").items[0].currency, "USD", "the business's currency when the line names none");
+});
+
+test("a pasted line can carry a description after a bar, and sizes in brackets stay part of the name", () => {
+  const parsed = parsePriceList([
+    "Bites",
+    "Beef Samosa: 575 | 4 pieces with spiced beef mince, garlic and cumin",
+    "Laundry | 200 | Washed, dried and folded",
+    "Vodka",
+    "Absolut Vodka (750ml Bottle): 5000",
+    "Absolut Vodka (1L Bottle): 6,500 | Ice and mixers included",
+    "Absolut Vodka (Shot): 300",
+  ].join("\n"));
+  assert.deepEqual(parsed.items.map(({ section, name, description, price, unit }) => ({ section, name, description, price, unit })), [
+    { section: "Bites", name: "Beef Samosa", description: "4 pieces with spiced beef mince, garlic and cumin", price: "575", unit: null },
+    { section: "Bites", name: "Laundry", description: "Washed, dried and folded", price: "200", unit: null },
+    { section: "Vodka", name: "Absolut Vodka (750ml Bottle)", description: null, price: "5000", unit: null },
+    { section: "Vodka", name: "Absolut Vodka (1L Bottle)", description: "Ice and mixers included", price: "6500", unit: null },
+    { section: "Vodka", name: "Absolut Vodka (Shot)", description: null, price: "300", unit: null },
+  ]);
+  assert.deepEqual(parsed.problems, []);
 });
 
 test("Zaina finds the items a question is about: the name counts most", () => {

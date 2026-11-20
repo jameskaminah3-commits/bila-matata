@@ -37,7 +37,9 @@ export type Door = {
   assistant: string;
   role: string;
   color: string;
+  on_color: string;
   logo_url: string | null;
+  browse: string | null;
   stats: { days: number; qr: { visits: number; chats: number }; link: { visits: number; chats: number }; card: { visits: number; chats: number } };
 };
 export type CardDetails = { design: "signature" | "minimal" | "bold"; personName: string | null; personTitle: string | null; phone: string | null; email: string | null; website: string | null; address: string | null };
@@ -255,32 +257,45 @@ const lettersOf = (name: string) => {
 /** What goes to the printer: one A4 page in the business's own colours. */
 const POWERED = "Powered by Bila Matata · bilamatata.com";
 
+/** What a printed code invites people to do, in the words of the page it opens. */
+export function callFor(browse: string | null): string {
+  if (browse === "Browse Menu") return "Scan to view our menu";
+  if (browse === "Rooms & Rates") return "Scan for rooms & rates";
+  if (browse === "Services & Prices") return "Scan for services & prices";
+  return browse ? "Scan to browse & connect" : "Scan to chat with us";
+}
+
 function PrintSheet(props: { door: Door; sheet: Sheet; numbered?: Array<{ spot: string; svg: string }> | null }) {
   const { door, sheet } = props;
   const qr = <img className="print-qr premium" src={svgUri(door.qr_svg)} alt="" />;
   const logo = <span className={`print-logo${door.logo_url ? "" : " letters"}`}>{door.logo_url ? <img src={door.logo_url} alt="" /> : lettersOf(door.name)}</span>;
   const address = door.url.replace(/^https?:\/\//, "");
+  const call = callFor(door.browse);
   const card = (key: number, numbered?: { spot: string; svg: string }) => (
-    <div className={numbered ? "print-card numbered" : "print-card"} key={key}>
-      <div className="print-card-text">
+    <div className="print-card" key={key}>
+      <div className="print-card-head">
         {logo}
-        <p className="print-name">{door.name}</p>
-        {numbered ? <p className="print-spot">{numbered.spot}</p> : null}
-        <p className="print-call">{numbered ? "Scan to see what we offer and order" : "Scan to chat with us"}</p>
-        <p className="print-small">{numbered ? `Order here and it comes to you. ${door.assistant} answers day and night.` : `Ask a question, check what's available or book. ${door.assistant} answers day and night.`}</p>
-        <p className="print-powered">{POWERED}</p>
+        <div><p className="print-name">{door.name}</p>{door.tagline ? <p className="print-tagline">{door.tagline}</p> : null}</div>
       </div>
-      {numbered ? <img className="print-qr premium" src={svgUri(numbered.svg)} alt="" /> : qr}
+      <div className="print-card-main">
+        <div className="print-card-copy">
+          {numbered ? <p className="print-spot">{numbered.spot}</p> : null}
+          <p className="print-call">{call}</p>
+          <ol className="print-steps-row"><li><b>1</b>Scan</li><li><b>2</b>{door.browse ?? `Ask ${door.assistant}`}</li><li><b>3</b>Enjoy</li></ol>
+        </div>
+        <div className="print-frame"><img className="print-qr premium" src={svgUri(numbered ? numbered.svg : door.qr_svg)} alt="" /><span>Scan me</span></div>
+      </div>
+      <p className="print-powered">{POWERED}</p>
     </div>
   );
   const numbered = props.numbered ?? null;
   const pages = numbered ? Array.from({ length: Math.ceil(numbered.length / 2) }, (_, index) => numbered.slice(index * 2, index * 2 + 2)) : null;
   return (
-    <div className={`print-root ${sheet}`} ref={(node) => node?.style.setProperty("--print-brand", door.color)}>
+    <div className={`print-root ${sheet}`} ref={(node) => { node?.style.setProperty("--print-brand", door.color); node?.style.setProperty("--print-on-brand", door.on_color); }}>
       {sheet === "poster" ? (
         <div className="print-poster">
           <div className="print-band">{logo}<div><p className="print-name">{door.name}</p>{door.tagline ? <p className="print-tagline">{door.tagline}</p> : null}</div></div>
-          <p className="print-headline">Scan to chat with us</p>
+          <p className="print-headline">{call}</p>
           <p className="print-sub">Ask a question, check what's available or book: {door.assistant}, our {door.role}, answers day and night.</p>
           {qr}
           <p className="print-steps">1. Open your phone's camera&nbsp;&nbsp;·&nbsp;&nbsp;2. Point it at the code&nbsp;&nbsp;·&nbsp;&nbsp;3. Tap the link</p>

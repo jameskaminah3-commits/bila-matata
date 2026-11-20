@@ -189,17 +189,32 @@ cancellation before going live.
   Zaina page is the usual choice). Download the poster and table cards.
 - **Their page shows what they offer.** Once the price list has visible
   items, or there are active rooms, services or tables, their page
-  (`/c/<id>`) opens on a catalogue tab next to *Ask Zaina*: section pills,
-  a search box, each item with its price, photo (uploaded ones only) and an
-  *Out of stock* badge. The tab is named for their industry: *Browse Menu*
-  (restaurant), *Rooms & Rates* (stays), *Services & Prices* (salon, clinic,
-  services), *Browse Catalogue* (anyone else). Tapping an item's button
-  opens the chat with "I'd like to order …" (or "book …"). With nothing to
-  show, the page stays the chat alone. Hide an item on the price list to
+  (`/c/<id>`) opens on a catalogue to browse quietly, next to an *Ask
+  Zaina* tab: section pills, a *Jump to* list once there are more than four
+  sections, a search box, and cards with price, photo (uploaded ones only;
+  otherwise the item's initials) and an *Out of stock* badge. Sizes of one
+  thing in a section ("Absolut Vodka (750ml Bottle)", "Absolut Vodka
+  (Shot)") show as one card with a price for each. The tab is named for
+  their industry: *Browse Menu* (restaurant, bar, club), *Rooms & Rates*
+  (stays), *Services & Prices* (salon, clinic, services), *Browse
+  Catalogue* (anyone else). Tapping a card opens its full description and
+  photo; inside are *Ask Zaina about this* and, only where they take orders
+  online (or for rooms and services, *Book via Zaina*), *Order via Zaina*.
+  Nobody is pushed into the chat: a guest can read the menu and tell their
+  waiter. A small *Need a recommendation?* pill can be closed. With nothing
+  to show, the page stays the chat alone. Hide an item on the price list to
   take it off the page.
+- **Pasting a long list** (Catalogue → *Paste your price list*): one item a
+  line, `Name: price`, a line without a price starts a section, and
+  `| description` after the price adds what it includes ("Beef samosa: 575
+  | 4 pieces, spiced beef"). Give each size its own line with the size in
+  brackets. 150 items in 20 sections go in at once.
 - **Numbered table cards** (Settings → QR code & link): for a restaurant,
   bar or guesthouse, print one card per table or room ("Table" 1–10, or
-  "Room", "Lounger", …). Each card's code carries its spot
+  "Room", "Station", …): their colour band with logo, name and welcome
+  line, the spot in large letters, "Scan to view our menu" (or what their
+  page offers), three steps, and the code in a frame, two to an A4 page
+  with a cut line. Each card's code carries its spot
   (`/q/<id>?spot=Table+5`), so Zaina knows where the customer is: an order
   is brought to them there, with no address and no delivery fee, even if
   the business only delivers otherwise; requests and call-backs show the

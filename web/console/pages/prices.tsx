@@ -21,7 +21,7 @@ type PriceItem = {
   available: boolean; stock: number | null; source: "manual" | "feed"; url: string | null; image_url: string | null; picture_url: string | null;
 };
 type Feed = { url: string; daily: boolean; last_read_at: string | null; last_items: number; last_skipped: number; last_error: string | null };
-type Parsed = { items: Array<{ section: string | null; name: string; price: string; price_max: string | null; currency: "KES" | "USD"; unit: string | null }>; problems: Array<{ line: number; text: string; reason: string }> };
+type Parsed = { items: Array<{ section: string | null; name: string; description: string | null; price: string; price_max: string | null; currency: "KES" | "USD"; unit: string | null }>; problems: Array<{ line: number; text: string; reason: string }> };
 
 export function PricesPage(props: { businessId: string; role: Role; businessType: string | null }) {
   const list = useLoad(() => api<{ items: PriceItem[] }>("GET", businessPath(props.businessId, "/price-list")), [props.businessId]);
@@ -271,7 +271,7 @@ function PasteList(props: { businessId: string; hasItems: boolean; photo?: boole
             await action.run(async () => setParsed(await api<Parsed>("POST", businessPath(props.businessId, "/price-list/parse"), { text, currency })));
           }}
         >
-          <p className="muted">One item per line with its price, as you have it: "Airport transfer — KSh 3,500 per car", "Laundry: 200 per item", "Massage 60 min ... 4,500", "Kids under 5: free". A line without a price starts a section.</p>
+          <p className="muted">One item per line with its price, as you have it: "Airport transfer — KSh 3,500 per car", "Laundry: 200 per item", "Massage 60 min ... 4,500", "Kids under 5: free". Add a description after a bar: "Beef samosa: 575 | 4 pieces, spiced beef". Sizes in brackets are separate items that show together: "Absolut Vodka (750ml Bottle): 5000", "Absolut Vodka (Shot): 300". A line without a price starts a section.</p>
           <Field label="Your price list" wide><textarea required rows={12} value={text} onChange={(event) => setText(event.target.value)} /></Field>
           <Field label="Prices with no currency are in">
             <select value={currency} onChange={(event) => setCurrency(event.target.value as "KES" | "USD")}>
@@ -292,7 +292,7 @@ function PasteList(props: { businessId: string; hasItems: boolean; photo?: boole
                 {parsed.items.map((item, index) => (
                   <tr key={index}>
                     <td className="muted">{item.section ?? "—"}</td>
-                    <td>{item.name}</td>
+                    <td>{item.name}{item.description ? <div className="muted small">{item.description}</div> : null}</td>
                     <td className="nowrap">{previewPrice(item)}</td>
                   </tr>
                 ))}

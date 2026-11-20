@@ -82,10 +82,11 @@ test("a lounge's page opens on its menu: sections, a search box, pictures, price
   const photo = await fetch(`${BASE}${thumb![1]}`);
   assert.equal(photo.status, 200);
   assert.equal(photo.headers.get("content-type"), "image/png");
-  assert.match(html, /<p class="cat-name">Masala chips<\/p><p class="cat-desc">Crispy, with our own pili pili<\/p><p class="cat-price">KSh 350<\/p>/);
-  assert.match(html, /<p class="cat-price">KSh 50 each<\/p>/);
-  assert.match(html, /data-ask="I'd like to order Masala chips"[^>]*>Order \/ Ask<\/button>/);
-  assert.match(html, /Tanqueray &amp; tonic<\/p><p class="cat-price">KSh 600<\/p><\/div><span class="cat-out">Out of stock<\/span>/);
+  assert.match(html, /<span class="cat-name">Masala chips<\/span><span class="cat-desc">Crispy, with our own pili pili<\/span><span class="cat-price">KSh 350<\/span>/);
+  assert.match(html, /<span class="cat-price">KSh 50 each<\/span>/);
+  // Asking or ordering through Zaina is inside the opened card, and optional.
+  assert.match(html, /data-ask="Tell me about Masala chips">Ask Zaina about this<\/button><button type="button" class="cat-zaina main" data-ask="I'd like to order Masala chips">Order via Zaina<\/button>/);
+  assert.match(html, /Tanqueray &amp; tonic<\/span><span class="cat-price">KSh 600<\/span><\/span><span class="cat-out">Out of stock<\/span>/);
   assert.doesNotMatch(html, /I'd like to order Tanqueray/, "nothing to tap on what's out");
   assert.match(html, /<footer class="door-foot"><a href="https:\/\/bilamatata\.com"[^>]*>Powered by Bila Matata<\/a><\/footer>/);
   assert.match(response.headers.get("content-security-policy") ?? "", /script-src 'self'/);
@@ -95,11 +96,20 @@ test("a lounge's page opens on its menu: sections, a search box, pictures, price
   assert.match(await script.text(), /zaina\.ask\(text\)/);
 });
 
+test("a pasted list with sizes and a description becomes one card with a price per size", async () => {
+  const parsed = await staff("kibanda", "POST", "/price-list/parse", { text: "Vodka\nAbsolut Vodka (750ml Bottle): 5000 | Swedish, smooth\nAbsolut Vodka (Shot): 300" });
+  assert.equal(parsed.status, 200);
+  const imported = await staff("kibanda", "POST", "/price-list/import", { items: parsed.body.items, replace: false });
+  assert.ok(imported.status < 300, JSON.stringify(imported.body));
+  const html = await (await page("/c/kibanda")).text();
+  assert.match(html, /<span class="cat-name">Absolut Vodka<\/span><span class="cat-desc">Swedish, smooth<\/span><span class="cat-variants"><span class="cat-variant">750ml Bottle <b>KSh 5,000<\/b><\/span><span class="cat-variant">Shot <b>KSh 300<\/b><\/span><\/span>/);
+});
+
 test("the words follow the business: a salon's services, and a page with nothing to show stays the chat", async () => {
   const salon = await (await page("/c/studio")).text();
   assert.match(salon, /data-tab="catalogue">Services &amp; Prices<\/button>/);
-  assert.match(salon, /<p class="cat-name">Haircut<\/p><p class="cat-desc">Wash, cut and style<\/p><p class="cat-price">KSh 1,500<\/p>/);
-  assert.match(salon, /data-ask="I'd like to book Haircut"[^>]*>Book \/ Ask<\/button>/);
+  assert.match(salon, /<span class="cat-name">Haircut<\/span><span class="cat-desc">Wash, cut and style<\/span><span class="cat-price">KSh 1,500<\/span>/);
+  assert.match(salon, /data-ask="I'd like to book Haircut">Book via Zaina<\/button>/);
   const stays = await (await page("/c/palm")).text();
   assert.doesNotMatch(stays, /door-tabs|door\.js/);
   assert.match(stays, /aria-label="Chat with Zaina"/);

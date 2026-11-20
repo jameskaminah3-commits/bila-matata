@@ -128,7 +128,7 @@ function unitOf(text: string): string | null {
 }
 
 export type ParsedPriceList = {
-  items: Array<{ section: string | null; name: string; price: string; price_max: string | null; currency: BookingCurrency; unit: string | null }>;
+  items: Array<{ section: string | null; name: string; description: string | null; price: string; price_max: string | null; currency: BookingCurrency; unit: string | null }>;
   /** Lines that looked like neither an item nor a heading. */
   problems: Array<{ line: number; text: string; reason: string }>;
 };
@@ -137,18 +137,32 @@ export type ParsedPriceList = {
  * Reads a price list as a business has it: an item per line with its price
  * ("Airport transfer — KSh 3,500 per car", "Laundry: 200 per item",
  * "Massage 60 min ..... 4,500", "Kids under 5: free"), and short lines with
- * no price as headings for the items after them.
+ * no price as headings for the items after them. After the price, "| ..."
+ * is the item's description ("Beef samosa: 575 | 4 pieces, spiced beef").
+ * A size in brackets stays part of the name, so each is its own item:
+ * "Absolut Vodka (750ml Bottle): 5000", "Absolut Vodka (Shot): 300".
  */
+// Groups: 1 currency, 2 amount, 3 a range's highest amount, 4 "/=", 5 "free". A bare
+// number under 10 ("5 people", "2 hours") isn't taken for a price.
+const pricesIn = (text: string) => [...text.matchAll(AMOUNT)].filter((match) => match[5] || match[1] || match[3] || match[4] || /,/.test(match[2] ?? "") || Number(match[2]) >= 10);
+
 export function parsePriceList(text: string, fallback: BookingCurrency = "KES"): ParsedPriceList {
   const result: ParsedPriceList = { items: [], problems: [] };
   let section: string | null = null;
   const lines = text.replace(/\r\n?/g, "\n").split("\n").slice(0, MAX_PRICE_ITEMS * 2);
   lines.forEach((raw, index) => {
-    const line = raw.replace(/^[\s*•·–—-]+/, "").replace(/\s+/g, " ").trim();
-    if (!line) return;
-    // Groups: 1 currency, 2 amount, 3 a range's highest amount, 4 "/=", 5 "free". A bare
-    // number under 10 ("5 people", "2 hours") isn't taken for a price.
-    const matches = [...line.matchAll(AMOUNT)].filter((match) => match[5] || match[1] || match[3] || match[4] || /,/.test(match[2] ?? "") || Number(match[2]) >= 10);
+    const whole = raw.replace(/^[\s*•·–—-]+/, "").replace(/\s+/g, " ").trim();
+    if (!whole) return;
+    // The description starts at the first "|" that comes after a price ("Laundry | 200 | Washed and folded").
+    let line = whole;
+    let description: string | null = null;
+    for (let at = whole.indexOf("|"); at !== -1; at = whole.indexOf("|", at + 1)) {
+      if (!pricesIn(whole.slice(0, at)).length) continue;
+      line = whole.slice(0, at).trim();
+      description = whole.slice(at + 1).trim().slice(0, 500) || null;
+      break;
+    }
+    const matches = pricesIn(line);
     const last = matches.at(-1);
     if (!last) {
       const heading = line.replace(/:$/, "").trim();
@@ -171,6 +185,7 @@ export function parsePriceList(text: string, fallback: BookingCurrency = "KES"):
     result.items.push({
       section,
       name: name.slice(0, 120),
+      description,
       price,
       price_max: priceMax,
       currency: currencyOf(last[1], fallback),

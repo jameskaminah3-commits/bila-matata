@@ -53,29 +53,50 @@ const ICONS = {
   shield: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3z"/><path d="M9 12l2 2 4-4"/></svg>',
 };
 
-/** The catalogue tab: section pills, a search box and one card per item. */
+/**
+ * The catalogue tab: what the business offers, to browse quietly. A card
+ * opens to its full description and photo; asking Zaina, or ordering
+ * through her where the business takes orders online, is inside it and
+ * never in the way.
+ */
 function renderCatalogue(catalogue: DoorCatalogue, view: DoorView): string {
+  const assistant = esc(view.assistant);
   const pills = catalogue.sections.length > 1
     ? `<div class="cat-pills" role="group" aria-label="Sections"><button type="button" class="cat-pill" data-section="" aria-pressed="true">All</button>${catalogue.sections.map((section) => `<button type="button" class="cat-pill" data-section="${esc(section)}" aria-pressed="false">${esc(section)}</button>`).join("")}</div>`
     : "";
+  // A long list of sections gets a one-tap jump as well as the pills.
+  const jump = catalogue.sections.length > 4
+    ? `<label class="cat-jump"><span class="visually-hidden">Jump to a section</span><select id="cat-jump"><option value="">All sections</option>${catalogue.sections.map((section) => `<option value="${esc(section)}">${esc(section)}</option>`).join("")}</select></label>`
+    : "";
+  const orders = catalogue.items.some((item) => item.order?.verb === "order");
   const cards = catalogue.items.map((item) => {
-    const search = `${item.name} ${item.description ?? ""} ${item.section ?? ""}`.toLowerCase();
-    const action = item.inStock
-      ? `<button type="button" class="cat-ask" data-ask="${esc(item.ask)}" aria-label="${esc(`${item.button}: ${item.name}`)}">${esc(item.button)}</button>`
-      : `<span class="cat-out">Out of stock</span>`;
-    return `<li class="cat-item${item.inStock ? "" : " out"}" data-section="${esc(item.section ?? "")}" data-search="${esc(search)}">
-${item.picture ? `<img class="cat-thumb" src="${esc(item.picture)}" alt="" width="76" height="76" loading="lazy" decoding="async">` : ""}<div class="cat-body"><p class="cat-name">${esc(item.name)}</p>${item.description ? `<p class="cat-desc">${esc(item.description)}</p>` : ""}${item.price ? `<p class="cat-price">${esc(item.price)}</p>` : ""}</div>${action}</li>`;
+    const search = [item.name, item.description, item.section, ...item.variants.map((variant) => variant.label)].filter(Boolean).join(" ").toLowerCase();
+    const visual = item.picture
+      ? `<img class="cat-thumb" src="${esc(item.picture)}" alt="" width="64" height="64" loading="lazy" decoding="async">`
+      : `<span class="cat-mono" aria-hidden="true">${esc(initials(item.name))}</span>`;
+    const prices = item.variants.length
+      ? `<span class="cat-variants">${item.variants.map((variant) => `<span class="cat-variant${variant.inStock ? "" : " out"}">${esc(variant.label)}${variant.price ? ` <b>${esc(variant.price)}</b>` : ""}${variant.inStock ? "" : " <em>Out of stock</em>"}</span>`).join("")}</span>`
+      : item.price ? `<span class="cat-price">${esc(item.price)}</span>` : "";
+    const order = item.order && item.inStock
+      ? `<button type="button" class="cat-zaina main" data-ask="${esc(item.order.text)}">${item.order.verb === "book" ? "Book" : "Order"} via ${assistant}</button>`
+      : "";
+    return `<li class="cat-item${item.inStock ? "" : " out"}" data-section="${esc(item.section ?? "")}" data-search="${esc(search)}"><details class="cat-card">
+<summary>${visual}<span class="cat-body"><span class="cat-name">${esc(item.name)}</span>${item.description ? `<span class="cat-desc">${esc(item.description)}</span>` : ""}${prices}</span>${item.inStock ? "" : '<span class="cat-out">Out of stock</span>'}</summary>
+<div class="cat-more">${item.picture ? `<img class="cat-photo" src="${esc(item.picture)}" alt="${esc(item.name)}" loading="lazy" decoding="async">` : ""}<div class="cat-actions"><button type="button" class="cat-zaina" data-ask="${esc(item.tell)}">Ask ${assistant} about this</button>${order}</div></div>
+</details></li>`;
   }).join("\n");
+  const spot = view.spot ? `<p class="door-spot">${ICONS.pin}<span>You're at <strong>${esc(view.spot)}</strong>.${orders ? " Anything you order here is brought to you." : ""}</span></p>` : "";
   return `<section class="door-catalogue" id="door-catalogue" role="tabpanel" aria-labelledby="door-tab-catalogue">
-    ${view.spot ? `<p class="door-spot">${ICONS.pin}<span>You're at <strong>${esc(view.spot)}</strong>. Order here and it comes to you.</span></p>` : ""}
+    ${spot}
     <div class="cat-tools">
-      <label class="cat-search">${ICONS.search}<span class="visually-hidden">${esc(catalogue.search)}</span><input type="search" id="cat-search" placeholder="${esc(catalogue.search)}" autocomplete="off" enterkeyhint="search"></label>
+      <div class="cat-row"><label class="cat-search">${ICONS.search}<span class="visually-hidden">${esc(catalogue.search)}</span><input type="search" id="cat-search" placeholder="${esc(catalogue.search)}" autocomplete="off" enterkeyhint="search"></label>${jump}</div>
       ${pills}
     </div>
     <ul class="cat-list">
 ${cards}
     </ul>
-    <p class="cat-none" id="cat-none" hidden>Nothing matches that. <button type="button" class="cat-link" data-tab-to="chat">Ask ${esc(view.assistant)}</button> instead.</p>
+    <p class="cat-none" id="cat-none" hidden>Nothing matches that. <button type="button" class="cat-link" data-tab-to="chat">Ask ${assistant}</button> instead.</p>
+    <div class="cat-nudge" id="cat-nudge"><button type="button" class="cat-nudge-go" data-tab-to="chat">Need a recommendation? Ask ${assistant}</button><button type="button" class="cat-nudge-x" id="cat-nudge-x" aria-label="Hide this">×</button></div>
   </section>`;
 }
 
@@ -164,10 +185,10 @@ export function brandCss(color: string): string {
 }
 
 export const DOOR_CSS = String.raw`
-:root { --brand: #0f766e; --on-brand: #ffffff; --bg: #f6f5f1; --surface: #ffffff; --ink: #111a17; --muted: #5b6763; --line: #e4e2da;
+:root { --brand: #0f766e; --on-brand: #ffffff; --bg: #f6f5f1; --surface: #ffffff; --ink: #111a17; --muted: #5b6763; --line: #e4e2da; --alert: #b42318;
   --tint: color-mix(in srgb, var(--brand) 9%, var(--bg)); color-scheme: light; }
 @media (prefers-color-scheme: dark) {
-  :root { --bg: #0e1412; --surface: #151d1a; --ink: #f1f4f2; --muted: #a3afab; --line: #26312d; color-scheme: dark; }
+  :root { --bg: #0e1412; --surface: #151d1a; --ink: #f1f4f2; --muted: #a3afab; --line: #26312d; --alert: #ff8f80; color-scheme: dark; }
 }
 * { box-sizing: border-box; }
 html, body { height: 100%; margin: 0; }
@@ -247,19 +268,44 @@ body { font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; 
 .cat-pill { flex: none; min-height: 40px; padding: 0 16px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: inherit; font-size: .9rem; font-weight: 600; cursor: pointer; white-space: nowrap; }
 .cat-pill[aria-pressed="true"] { background: var(--brand); border-color: var(--brand); color: var(--on-brand); }
 .cat-pill:focus-visible { outline: 3px solid var(--brand); outline-offset: 2px; }
-.cat-list { list-style: none; margin: 0; padding: 4px 16px 16px; }
-.cat-item { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 12px; align-items: center; padding: 14px 0; border-bottom: 1px solid var(--line); }
+.cat-row { display: flex; gap: 8px; }
+.cat-row .cat-search { flex: 1; min-width: 0; }
+.cat-jump { flex: none; max-width: 44%; display: flex; }
+.cat-jump select { width: 100%; min-height: 46px; padding: 0 12px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg); color: var(--ink); font: inherit; font-size: 16px; font-weight: 600; }
+.cat-jump select:focus-visible { outline: 3px solid var(--brand); outline-offset: 1px; }
+.cat-list { list-style: none; margin: 0; padding: 4px 16px 8px; }
+.cat-item { border-bottom: 1px solid var(--line); }
 .cat-item:last-child { border-bottom: 0; }
-.cat-item:not(:has(.cat-thumb)) { grid-template-columns: minmax(0, 1fr) auto; }
-.cat-thumb { width: 76px; height: 76px; border-radius: 14px; object-fit: cover; background: var(--tint); display: block; }
-.cat-body { min-width: 0; }
-.cat-name { margin: 0; font-weight: 650; line-height: 1.3; overflow-wrap: anywhere; }
-.cat-desc { margin: 3px 0 0; color: var(--muted); font-size: .88rem; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.cat-price { margin: 5px 0 0; font-weight: 700; font-size: .95rem; font-variant-numeric: tabular-nums; }
-.cat-ask { min-height: 44px; padding: 0 14px; border-radius: 999px; border: 0; background: var(--brand); color: var(--on-brand); font: inherit; font-size: .86rem; font-weight: 700; cursor: pointer; white-space: nowrap; }
-.cat-ask:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
-.cat-out { font-size: .78rem; font-weight: 700; color: var(--muted); border: 1px solid var(--line); border-radius: 999px; padding: 6px 10px; white-space: nowrap; }
+.cat-card summary { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-auto-flow: column; grid-auto-columns: auto; gap: 12px; align-items: start; padding: 14px 0; cursor: pointer; list-style: none; }
+.cat-card summary::-webkit-details-marker { display: none; }
+.cat-card summary::after { content: ""; width: 9px; height: 9px; margin: 7px 4px 0 0; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(45deg); transition: transform .15s ease; }
+.cat-card[open] summary::after { transform: rotate(225deg); margin-top: 12px; }
+.cat-card summary:focus-visible { outline: 3px solid var(--brand); outline-offset: 2px; border-radius: 12px; }
+.cat-thumb, .cat-mono { width: 64px; height: 64px; border-radius: 14px; }
+.cat-thumb { object-fit: cover; background: var(--tint); display: block; }
+.cat-mono { display: grid; place-items: center; background: color-mix(in srgb, var(--brand) 16%, var(--surface)); color: var(--ink); border: 1px solid var(--line); font-weight: 800; font-size: 1.15rem; letter-spacing: .03em; }
+.cat-body { min-width: 0; display: grid; gap: 4px; }
+.cat-name { font-size: 1.0625rem; font-weight: 700; line-height: 1.3; overflow-wrap: anywhere; }
+.cat-desc { color: var(--muted); font-size: .94rem; line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.cat-card[open] .cat-desc { display: block; overflow: visible; color: var(--ink); }
+.cat-price { font-size: 1rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+.cat-variants { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
+.cat-variant { display: inline-flex; gap: 6px; align-items: baseline; padding: 5px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); font-size: .9rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.cat-variant b { font-weight: 800; }
+.cat-variant.out { color: var(--muted); }
+.cat-variant em { font-style: normal; font-size: .78rem; font-weight: 800; color: var(--alert); }
+.cat-out { align-self: center; font-size: .8rem; font-weight: 800; color: var(--alert); border: 1.5px solid currentColor; border-radius: 999px; padding: 5px 10px; white-space: nowrap; }
 .cat-item.out .cat-name, .cat-item.out .cat-price { color: var(--muted); }
+.cat-more { display: grid; gap: 12px; padding: 0 0 16px; }
+.cat-photo { width: 100%; max-height: 320px; object-fit: cover; border-radius: 16px; background: var(--tint); display: block; }
+.cat-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.cat-zaina { min-height: 44px; padding: 0 16px; border-radius: 999px; border: 1.5px solid var(--brand); background: transparent; color: var(--ink); font: inherit; font-size: .92rem; font-weight: 700; cursor: pointer; }
+.cat-zaina.main { background: var(--brand); color: var(--on-brand); }
+.cat-zaina:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+.cat-nudge { position: sticky; bottom: 12px; display: flex; align-items: center; gap: 2px; width: max-content; max-width: calc(100% - 32px); margin: 8px auto 12px; padding: 2px 2px 2px 16px; border-radius: 999px; background: var(--ink); color: var(--bg); box-shadow: 0 10px 24px -12px rgba(0, 0, 0, .6); }
+.cat-nudge-go { border: 0; background: none; color: inherit; font: inherit; font-size: .9rem; font-weight: 650; min-height: 44px; text-align: left; cursor: pointer; }
+.cat-nudge-x { flex: none; border: 0; background: none; color: inherit; font: inherit; font-size: 1.25rem; line-height: 1; width: 44px; height: 44px; border-radius: 999px; cursor: pointer; }
+.cat-nudge button:focus-visible { outline: 3px solid var(--brand); outline-offset: -3px; }
 .cat-none { margin: 24px 16px; color: var(--muted); text-align: center; }
 .cat-link { border: 0; background: none; padding: 0; font: inherit; color: var(--brand); font-weight: 650; text-decoration: underline; cursor: pointer; min-height: 44px; }
 @media (max-width: 860px) {
@@ -267,9 +313,7 @@ body { font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; 
   .door-main { flex: 1; min-height: 0; height: auto; border: none; border-radius: 0; box-shadow: none; }
   .door-tabs { position: relative; }
   .door-foot { flex: none; padding: 6px 0 calc(6px + env(safe-area-inset-bottom, 0px)); background: var(--surface); border-top: 1px solid var(--line); }
-  .cat-item { gap: 10px; }
-  .cat-thumb { width: 64px; height: 64px; border-radius: 12px; }
-  .cat-ask { padding: 0 12px; }
+  .cat-card summary { gap: 10px; }
 }
 @media (prefers-reduced-motion: reduce) { .door-btn { transition: none; } .door-btn:hover { transform: none; } }
 `;
@@ -326,26 +370,42 @@ export const DOOR_JS = String.raw`(function () {
     });
     if (none) none.hidden = shown > 0;
   }
-  pills.forEach(function (pill) {
-    pill.addEventListener("click", function () {
-      section = pill.getAttribute("data-section") || "";
-      pills.forEach(function (other) { other.setAttribute("aria-pressed", other === pill ? "true" : "false"); });
-      apply();
+  var jump = document.getElementById("cat-jump");
+  function choose(value, from) {
+    section = value;
+    pills.forEach(function (pill) {
+      var on = (pill.getAttribute("data-section") || "") === value;
+      pill.setAttribute("aria-pressed", on ? "true" : "false");
+      if (on && from !== "pill" && pill.scrollIntoView) pill.scrollIntoView({ block: "nearest", inline: "center" });
     });
+    if (jump && from !== "jump") jump.value = value;
+    apply();
+    if (from === "jump") panels.catalogue.scrollTop = 0;
+  }
+  pills.forEach(function (pill) {
+    pill.addEventListener("click", function () { choose(pill.getAttribute("data-section") || "", "pill"); });
   });
+  if (jump) jump.addEventListener("change", function () { choose(jump.value, "jump"); });
   if (search) search.addEventListener("input", apply);
 
-  // Order / Ask: over to the chat, and the customer's words sent to Zaina.
+  // Asking Zaina is optional: a button inside an opened card, or the small pill at the bottom.
   function ask(text, tries) {
     var zaina = window.Zaina;
     if (zaina && typeof zaina.ask === "function") { zaina.ask(text); return; }
     if (tries > 0) setTimeout(function () { ask(text, tries - 1); }, 200);
   }
-  document.querySelectorAll(".cat-ask").forEach(function (button) {
+  document.querySelectorAll(".cat-zaina").forEach(function (button) {
     button.addEventListener("click", function () {
       show("chat", false);
       ask(button.getAttribute("data-ask") || "", 50);
     });
+  });
+  var nudge = document.getElementById("cat-nudge");
+  var hide = document.getElementById("cat-nudge-x");
+  try { if (nudge && sessionStorage.getItem("door-nudge") === "hidden") nudge.hidden = true; } catch (error) { /* no storage */ }
+  if (nudge && hide) hide.addEventListener("click", function () {
+    nudge.hidden = true;
+    try { sessionStorage.setItem("door-nudge", "hidden"); } catch (error) { /* no storage */ }
   });
 })();
 `;

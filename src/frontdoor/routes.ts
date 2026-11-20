@@ -29,7 +29,7 @@
 import { rateLimited } from "../gateway/rate-limit.ts";
 import express, { type Express, type NextFunction, type Request, type Response } from "express";
 import type { PlatformConfig } from "../config.ts";
-import { BRAND_MAX_BYTES, brandAssetUrl, brandAssetsOf, checkBrandImage, isBrandKind, readBrandAsset, removeBrandAsset, saveBrandAsset } from "../brand/assets.ts";
+import { BRAND_MAX_BYTES, brandAssetUrl, brandAssetsOf, checkBrandImage, isBrandKind, readableOn, readBrandAsset, removeBrandAsset, saveBrandAsset } from "../brand/assets.ts";
 import { anyBusinessById, businessById } from "../businesses/registry.ts";
 import { getBusinessSettings } from "../businesses/settings.ts";
 import { getNumber } from "../channels/whatsapp/numbers.ts";
@@ -306,7 +306,10 @@ export function registerFrontDoorRoutes(app: Express, config: PlatformConfig): v
         assistant: settings?.assistantName ?? "Zaina",
         role: personaRole(business, settings),
         color: settings?.widgetColor ?? "#0f766e",
+        on_color: readableOn(settings?.widgetColor ?? "#0f766e"),
         logo_url: brand.logo_url,
+        // The page's catalogue tab ("Browse Menu"), if it has one: the printed cards say the same.
+        browse: (await doorCatalogue(business, settings ?? null).catch(() => null))?.tab ?? null,
         stats,
       });
     } catch (error) {
