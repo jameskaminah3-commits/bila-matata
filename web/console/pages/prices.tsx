@@ -10,7 +10,7 @@
 
 import { useState } from "react";
 import { api, apiUpload, businessPath } from "../api.ts";
-import { shrinkPhoto } from "../photo.ts";
+import { shrinkPhoto, squarePhoto } from "../photo.ts";
 import { atLeast, type Role } from "../types.ts";
 import { Button, Empty, ErrorLine, Field, Icon, Message, Modal, useAction, useLoad } from "../ui.tsx";
 import { timeAgo } from "../format.ts";
@@ -163,7 +163,7 @@ function ItemEditor(props: { businessId: string; item: PriceItem | null; section
           await action.run(async () => {
             let saved = await api<{ item: PriceItem }>(props.item ? "PATCH" : "POST", businessPath(props.businessId, props.item ? `/price-list/${props.item.id}` : "/price-list"), body);
             // The photo is kept in the database once the item exists.
-            if (photo) saved = await apiUpload<{ item: PriceItem }>("PUT", businessPath(props.businessId, `/price-list/${saved.item.id}/picture`), await shrinkPhoto(photo, { keepTransparency: true }));
+            if (photo) saved = await apiUpload<{ item: PriceItem }>("PUT", businessPath(props.businessId, `/price-list/${saved.item.id}/picture`), photo);
             else if (removePhoto && props.item?.picture_url) saved = await api<{ item: PriceItem }>("DELETE", businessPath(props.businessId, `/price-list/${saved.item.id}/picture`));
             props.onSaved(`Saved "${saved.item.name}": ${saved.item.price_display}.`);
           });
@@ -177,9 +177,13 @@ function ItemEditor(props: { businessId: string; item: PriceItem | null; section
               <input className="visually-hidden" type="file" accept="image/*" onChange={(event) => {
                 const file = event.target.files?.[0];
                 if (!file) return;
-                setPhoto(file);
-                setRemovePhoto(false);
-                setPreview(URL.createObjectURL(file));
+                // Made square here (whole picture, no cropping or stretching), so the preview is exactly what's saved.
+                void action.run(async () => {
+                  const ready = await squarePhoto(file);
+                  setPhoto(ready);
+                  setRemovePhoto(false);
+                  setPreview(URL.createObjectURL(ready));
+                });
               }} />
             </label>
             {preview && !removePhoto ? <Button small kind="ghost" onClick={() => { setPhoto(null); setRemovePhoto(true); }}>Remove the photo</Button> : null}
