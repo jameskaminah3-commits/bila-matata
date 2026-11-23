@@ -113,6 +113,20 @@ test("\"We're fully booked tomorrow\" and \"Add Pilau at 350\"", async () => {
   assert.equal((await price("Pilau")).price, 350);
 });
 
+test("\"Karaoke tonight from 8pm\": posted to What's on only on YES, then on the page; taken down the same way", async () => {
+  const prepared = await whatsapp(OWNER, raw64("prepare_whats_on", { text: "Karaoke from 8pm" }));
+  assert.match(prepared, /Post to What's on, today:\n"Karaoke from 8pm"\nGuests see it on your page, and Zaina mentions it\./);
+  assert.equal((await staff("GET", "/whats-on")).body.entries.length, 0, "nothing before YES");
+  assert.equal(await whatsapp(OWNER, "YES"), "Done: it's on your page, and Zaina will mention it to guests.");
+  const entries = (await staff("GET", "/whats-on")).body.entries as Array<{ id: string; text: string }>;
+  assert.deepEqual(entries.map((entry) => entry.text), ["Karaoke from 8pm"]);
+  const page = await (await fetch(`${BASE}/c/kibanda`)).text();
+  assert.match(page, /<p class="whats-on-title">Today at Kibanda Kitchen<\/p><ul class="whats-on-today"><li>Karaoke from 8pm<\/li><\/ul>/);
+  assert.match(await whatsapp(OWNER, raw64("prepare_remove_whats_on", { id: entries[0].id })), /Take down from What's on \(today\):\n"Karaoke from 8pm"/);
+  assert.equal(await whatsapp(OWNER, "YES"), 'Done: "Karaoke from 8pm" is off What\'s on.');
+  assert.equal((await staff("GET", "/whats-on")).body.entries.length, 0);
+});
+
 test("a change applies only if nothing moved since, and only within 30 minutes", async () => {
   await whatsapp(OWNER, raw64("prepare_price_change", { item_id: ids.Chicken, price: 500 }));
   assert.equal((await staff("PATCH", `/price-list/${ids.Chicken}`, { price: "480" })).status, 200, "someone changes it in the dashboard meanwhile");
@@ -147,7 +161,8 @@ test("an agent can ask, but not change; a customer writing to the same number st
   assert.doesNotMatch(customer, /prepare_price_change/);
 
   const log = (await staff("GET", "/owner-changes")).body.changes as any[];
-  assert.deepEqual(log.map((change) => change.status).sort(), ["applied", "applied", "applied", "cancelled", "expired", "failed"]);
+  // Three catalogue changes and the What's on post and take-down applied; one cancelled, one expired, one refused.
+  assert.deepEqual(log.map((change) => change.status).sort(), ["applied", "applied", "applied", "applied", "applied", "cancelled", "expired", "failed"]);
   assert.ok(log.every((change) => change.by === "Mama Njeri"));
   assert.equal((await api("GET", "/v1/staff/businesses/kibanda/owner-changes", undefined, agent)).status, 403, "the log is for managers");
 });

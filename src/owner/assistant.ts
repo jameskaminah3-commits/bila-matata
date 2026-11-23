@@ -35,8 +35,10 @@ import { listPriceItems, priceText } from "../prices/price-list.ts";
 import { matchPriceItems } from "../prices/tool.ts";
 import { ROLE_RANK } from "../staff/auth.ts";
 import {
-  applyChange, CHANGE_MINUTES, decide, pendingChange, prepareClosedDays, prepareDeliveryArea, prepareNewItem, preparePrice, prepareStock, savePending, type Prepared,
+  applyChange, CHANGE_MINUTES, decide, pendingChange, prepareClosedDays, prepareDeliveryArea, prepareNewItem, preparePrice, prepareRemoveWhatsOn, prepareStock, prepareWhatsOn, savePending, type Prepared,
 } from "./changes.ts";
+import { refusedThinking, thinkingConfigFor } from "../engine/agent.ts";
+import { listWhatsOn, localDay, whenOf } from "../whats-on/whats-on.ts";
 
 type Staff = { userId: string; name: string; role: string };
 
@@ -179,6 +181,9 @@ const declarations: FunctionDeclaration[] = [
   { name: "prepare_stock_change", description: "Prepare an item going out of stock or back in, or how many are left. Applied only if they reply YES.", parameters: { type: Type.OBJECT, properties: { item_id: { type: Type.STRING }, in_stock: { type: Type.BOOLEAN }, left: { type: Type.INTEGER, description: "How many are left, if they said." } }, required: ["item_id"] } },
   { name: "prepare_new_item", description: "Prepare a new product or service in the catalogue. Applied only if they reply YES.", parameters: { type: Type.OBJECT, properties: { name: { type: Type.STRING }, price: { type: Type.NUMBER }, price_max: { type: Type.NUMBER, description: "Only for a range: the highest price." }, unit: { type: Type.STRING, description: "What the price is per: per plate, per kg, per person." }, section: { type: Type.STRING }, description: { type: Type.STRING } }, required: ["name", "price"] } },
   { name: "prepare_closed_days", description: "Prepare marking days as full (no bookings offered), like \"we're fully booked tomorrow\". Applied only if they reply YES.", parameters: { type: Type.OBJECT, properties: { from: { type: Type.STRING, description: "The first full day, YYYY-MM-DD." }, until: { type: Type.STRING, description: "The first day open again, YYYY-MM-DD (the next day, for one day)." }, reason: { type: Type.STRING } }, required: ["from"] } },
+  { name: "whats_on", description: "What's on: today's specials and events, what's coming up, and every week's, with their ids.", parameters: { type: Type.OBJECT, properties: {} } },
+  { name: "prepare_whats_on", description: "Prepare posting to What's on: today's special, an event (karaoke tonight, a live band on Friday), an offer. Guests see it on the business's page and Zaina tells them about it. Applied only if they reply YES.", parameters: { type: Type.OBJECT, properties: { text: { type: Type.STRING, description: "What's on, in their words, up to 200 characters" }, date: { type: Type.STRING, description: "The day, YYYY-MM-DD (today if not given)" }, until: { type: Type.STRING, description: "The last day, YYYY-MM-DD, for a run of days" }, weekday: { type: Type.INTEGER, description: "For every week: 0 Sunday to 6 Saturday (no date then)" } }, required: ["text"] } },
+  { name: "prepare_remove_whats_on", description: "Prepare taking something down from What's on (its id from whats_on). Applied only if they reply YES.", parameters: { type: Type.OBJECT, properties: { id: { type: Type.STRING } }, required: ["id"] } },
   { name: "prepare_delivery_area_change", description: "Prepare removing a delivery area, adding one, or changing its fee. Applied only if they reply YES.", parameters: { type: Type.OBJECT, properties: { action: { type: Type.STRING, enum: ["remove", "add", "change_fee"] }, area: { type: Type.STRING }, fee: { type: Type.NUMBER } }, required: ["action", "area"] } },
 ];
 
@@ -188,6 +193,8 @@ const PREPARERS: Record<string, (business: Business, args: any) => Promise<Prepa
   prepare_new_item: prepareNewItem,
   prepare_closed_days: prepareClosedDays,
   prepare_delivery_area_change: prepareDeliveryArea,
+  prepare_whats_on: prepareWhatsOn,
+  prepare_remove_whats_on: prepareRemoveWhatsOn,
 };
 
 /** A period in the business's time: [from, to). */
@@ -210,6 +217,10 @@ async function runTool(business: Business, staff: Staff, name: string, args: any
     await savePending(business.id, staff.userId, prepared);
     made.summary = prepared.summary;
     return { ok: true, prepared: prepared.summary, next_step: "Tell them in one short line what you've prepared. The summary and the YES/NO question are added to your message by the system: don't repeat them, and never say it's done." };
+  }
+  if (name === "whats_on") {
+    const today = localDay(business.timeZone);
+    return { ok: true, today, entries: (await listWhatsOn(business)).map((entry) => ({ id: entry.id, text: entry.text, when: whenOf(entry, today) })) };
   }
   if (name === "find_items") {
     const items = await listPriceItems(business.id, { activeOnly: true });
@@ -266,6 +277,7 @@ async function systemPrompt(business: Business, staff: Staff): Promise<string> {
     `It offers: ${enabled.join(", ") || "answers only"}.`,
     "Answer questions with the read tools: never guess a number. Payments that settled are verified; nothing else is revenue.",
     "When they ask to change something, find what it applies to (find_items for an item's id) and prepare it with the matching prepare_ tool. Nothing changes until they reply YES: never say a change is done. One change at a time.",
+    "Today's specials, events and offers (\"Karaoke tonight from 8pm\", \"Today's special: grilled tilapia 1200\", \"Live band every Friday\"): prepare_whats_on, with their words as the text (only tidied: capitals, spelling, KSh before a price). Tonight or today is today's date; a weekday is the next one, or every week when they say every. To take one down, find it with whats_on.",
     ROLE_RANK[staff.role as keyof typeof ROLE_RANK] < ROLE_RANK.manager ? "They can ask questions but can't make changes: changes need a manager or the owner." : "",
     "If something can't be done here (photos, rooms, staff, payments), say where in the dashboard it is. Reply briefly, in their language (English or Swahili).",
   ].filter(Boolean).join("\n");
@@ -280,7 +292,12 @@ async function runAssistant(ctx: WhatsappContext, business: Business, staff: Sta
   try {
     const config = { systemInstruction: await systemPrompt(business, staff), tools: [{ functionDeclarations: declarations }] };
     for (let round = 0; round < 4; round += 1) {
-      const response: any = await ctx.engine.ai.models.generateContent({ model: ctx.engine.model, contents, config: round < 3 ? config : { systemInstruction: config.systemInstruction } });
+      const thinking = thinkingConfigFor(ctx.engine.model, ctx.engine.thinking);
+      const request = { model: ctx.engine.model, contents, config: { ...(round < 3 ? config : { systemInstruction: config.systemInstruction }), ...thinking } };
+      const response: any = await ctx.engine.ai.models.generateContent(request).catch((error: unknown) => {
+        if (!refusedThinking(ctx.engine.model, error, Boolean(thinking))) throw error;
+        return ctx.engine.ai.models.generateContent({ ...request, config: round < 3 ? config : { systemInstruction: config.systemInstruction } });
+      });
       const content = response.candidates?.[0]?.content;
       const calls = (content?.parts ?? []).filter((part: any) => part.functionCall);
       if (!calls.length) {

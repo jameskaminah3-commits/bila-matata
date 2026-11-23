@@ -13,6 +13,7 @@
 //   new_item        a new item or service in the catalogue
 //   closed_days     "we're full": days Zaina stops offering
 //   delivery_area   stop delivering to an area, add one, change its fee
+//   whats_on        post today's special or an event to What's on, or take one down
 
 import { toMinor, formatMoney } from "../booking/money.ts";
 import { markFull } from "../booking/mark-full.ts";
@@ -22,9 +23,10 @@ import { businessCapabilities } from "../capabilities/of-business.ts";
 import type { Business, OrderSettings, PriceItem } from "../db/schema.ts";
 import { inBusiness } from "../db/tenant.ts";
 import { getOrderSettings, validateOrderSettings } from "../orders/settings.ts";
+import { addWhatsOn, checkWhatsOn, listWhatsOn, localDay, removeWhatsOn, whenOf } from "../whats-on/whats-on.ts";
 import { createPriceItem, getPriceItem, listPriceItems, priceText, updatePriceItem, validatePriceItem, type PriceItemValues } from "../prices/price-list.ts";
 
-export type ChangeKind = "price" | "stock" | "new_item" | "closed_days" | "delivery_area";
+export type ChangeKind = "price" | "stock" | "new_item" | "closed_days" | "delivery_area" | "whats_on";
 export const CHANGE_MINUTES = 30;
 const OPEN_ORDER = "('requested', 'awaiting_payment', 'confirmed', 'out_for_delivery', 'ready_for_collection')";
 
@@ -193,6 +195,25 @@ export async function savePending(businessId: string, userId: string, prepared: 
   }, businessId);
 }
 
+/** Posting to What's on: "Karaoke tonight from 8pm", "Today's special: grilled tilapia, 1,200", "Live band every Friday". */
+export async function prepareWhatsOn(business: Business, args: any): Promise<Prepared> {
+  const today = localDay(business.timeZone);
+  const checked = checkWhatsOn(args ?? {}, today);
+  if (!checked.ok) return refuse("invalid_whats_on", checked.error);
+  return {
+    ok: true, kind: "whats_on",
+    payload: { action: "add", value: checked.value },
+    summary: `Post to What's on, ${whenOf(checked.value, today)}:\n"${checked.value.text}"\nGuests see it on your page, and Zaina mentions it.`,
+  };
+}
+
+export async function prepareRemoveWhatsOn(business: Business, args: any): Promise<Prepared> {
+  const id = String(args?.id ?? "");
+  const entry = (await listWhatsOn(business)).find((item) => item.id === id);
+  if (!entry) return refuse("not_found", "That isn't on What's on (whats_on lists what is, with ids).");
+  return { ok: true, kind: "whats_on", payload: { action: "remove", id, text: entry.text }, summary: `Take down from What's on (${whenOf(entry, localDay(business.timeZone))}):\n"${entry.text}"` };
+}
+
 export type PendingChange = { id: string; kind: ChangeKind; payload: any; summary: string; expiresAt: Date };
 
 /** This person's change waiting for YES; one past its time is marked expired. */
@@ -237,6 +258,15 @@ export async function applyChange(business: Business, change: PendingChange, use
       const result = await markFull(business, { from: p.from, until: p.until, reason: p.reason, userId });
       if (!result.ok) return moved(result.message);
       return { ok: true, message: `Done: Zaina won't offer ${p.from}${addDays(parseDate(p.from)!, 1).getTime() === parseDate(p.until)!.getTime() ? "" : ` to the day before ${p.until}`}. Reopen it in the dashboard if plans change.` };
+    }
+    case "whats_on": {
+      if (p.action === "remove") {
+        const removed = await removeWhatsOn(business, p.id);
+        return removed ? { ok: true, message: `Done: "${p.text}" is off What's on.` } : moved("That was already taken down.");
+      }
+      const added = await addWhatsOn(business, p.value, userId);
+      if (added === "too_many") return moved("What's on is full: take down something that's over first.");
+      return { ok: true, message: `Done: it's on your page, and Zaina will mention it to guests.` };
     }
     case "delivery_area": {
       const settings = await getOrderSettings(business.id);

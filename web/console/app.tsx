@@ -20,6 +20,7 @@ import { KnowledgePage } from "./pages/knowledge.tsx";
 import { PlatformPage } from "./pages/platform.tsx";
 import { SupportPage } from "./pages/support.tsx";
 import { PricesPage } from "./pages/prices.tsx";
+import { WhatsOnPage } from "./pages/whats-on.tsx";
 import { ReportsPage } from "./pages/reports.tsx";
 import { RoomsPage } from "./pages/rooms.tsx";
 import { ServicesPage } from "./pages/services.tsx";
@@ -326,6 +327,8 @@ const PAGES: Array<{ id: string; label: string; icon: string; minimum: Role; onl
   { id: "services", label: "Services", icon: "scissors", minimum: "manager", needs: "times" },
   // What the business charges for things not booked here; Zaina quotes only these (and rooms and services).
   { id: "prices", label: "Catalogue", icon: "tag", minimum: "viewer", only: ["general", "guesthouse", "salon", "restaurant"] },
+  // Today's special, tonight's event: on the business's page and in Zaina's answers at once.
+  { id: "whats-on", label: "What's on", icon: "star", minimum: "viewer", only: ["general", "guesthouse", "salon", "restaurant"] },
   { id: "knowledge", label: "Knowledge", icon: "book", minimum: "viewer" },
   { id: "reports", label: "Reports", icon: "chart", minimum: "manager" },
   { id: "settings", label: "Settings", icon: "settings", minimum: "manager" },
@@ -449,6 +452,7 @@ function Console(props: { me: Me; route: Route; reloadMe: () => Promise<void> })
   else if (page === "customers" && businessType !== "custom" && atLeast(role, "agent")) content = <CustomersPage businessId={businessId} role={role} customerId={route.id ?? null} />;
   else if (page === "leads" && businessType !== "custom" && atLeast(role, "agent")) content = <LeadsPage businessId={businessId} role={role} onChanged={() => void refreshCounts()} />;
   else if (page === "prices" && businessType !== "custom") content = <PricesPage businessId={businessId} role={role} businessType={businessType} />;
+  else if (page === "whats-on" && businessType !== "custom") content = <WhatsOnPage businessId={businessId} role={role} />;
   else if (page === "knowledge") content = <KnowledgePage businessId={businessId} role={role} />;
   else if (page === "reports" && atLeast(role, "manager")) content = <ReportsPage key={route.id ?? "reports"} businessId={businessId} month={route.id ?? null} />;
   else if (page === "settings" && atLeast(role, "manager")) content = <SettingsPage key={route.id ?? "settings"} businessId={businessId} role={role} me={me} businessType={businessType} books={books} orders={takesOrders} tab={route.id} onBusinessChanged={() => void props.reloadMe()} onOfferChanged={() => void offer.reload()} />;

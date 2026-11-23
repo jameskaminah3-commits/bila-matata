@@ -41,6 +41,7 @@ import { brandCss, DOOR_ASSETS_VERSION, DOOR_CSS, DOOR_JS, initials, renderDoorC
 import { TITLE_FONTS, TITLE_FONT_KEYS, type TitleFont } from "./title-fonts.ts";
 import { cachedDoorCatalogue, doorCatalogue } from "./catalogue.ts";
 import { cleanSpot } from "./spot.ts";
+import { whatsOnView } from "../whats-on/whats-on.ts";
 import { businessOrigin, canBeSubdomain, subdomainsOn } from "./subdomains.ts";
 import { qrSvg } from "./qr.ts";
 import { isOriginAllowed } from "../gateway/origin.ts";
@@ -241,12 +242,14 @@ export function registerFrontDoorRoutes(app: Express, config: PlatformConfig): v
       const via = doorSource(req.query.s);
       if (looksLikePerson(req.header("user-agent"))) void recordDoorVisit(business.id, via);
       const catalogue = await cachedDoorCatalogue(business, settings).catch(() => null);
+      const whatsOn = catalogue ? await whatsOnView(business).catch(() => null) : null;
       res.type("html").send(renderFrontDoor({
         businessId: business.id,
         name: settings.displayName ?? business.name,
         tagline: settings.brandTagline,
         menuStyle: settings.menuStyle ?? "auto",
         logoHasName: Boolean(settings.logoHasName && assets.logo),
+        whatsOn,
         titleFont: settings.titleFont ?? "classic",
         assistant: settings.assistantName ?? "Zaina",
         role: personaRole(business, settings),

@@ -59,6 +59,11 @@ Do this together, on the owner's phone if that's what they'll use.
    colours (a plain light or dark page reads best; "over your photos" only
    with strong atmosphere photos), and "My logo already shows our name" when
    the logo spells it. A cover photo and section photos carry the rest.
+3. **What's on** (dashboard → What's on, or by WhatsApp from a linked
+   number: "Karaoke tonight from 8pm"): today's special, tonight's event,
+   what's on every week. It shows above the menu on their page, and Zaina
+   mentions it to guests. Show the team on day one: it's what keeps Zaina
+   sounding like she works there.
 3. **Setup interview** (Knowledge → Setup interview): choose the industry
    and answer the questions in their own words. This is what a website
    never says (deposits, cancellations, parking, children, what to bring).

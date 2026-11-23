@@ -85,7 +85,32 @@ export type EngineOptions = {
   saverAtShare?: number;
   turnBudgetMs: number;
   prices: ModelPrices | null;
+  /** How much the model thinks before answering (PlatformConfig.thinking); unset: the model's own default. */
+  thinking?: string | null;
 };
+
+/** Models that refused a thinking setting: they're called without one from then on. */
+const thinkingRefused = new Set<string>();
+
+/**
+ * The thinking setting for a model, where it takes one: a receptionist answers
+ * in seconds, so the model thinks briefly rather than at length (the families
+ * name it differently). Null: send nothing, the model's own default.
+ */
+export function thinkingConfigFor(model: string, level: string | null | undefined): Record<string, unknown> | null {
+  if (!level || level === "off" || thinkingRefused.has(model)) return null;
+  if (/gemini-[3-9]/.test(model)) return { thinkingConfig: { thinkingLevel: level } };
+  if (/gemini-2\.5-flash/.test(model)) return { thinkingConfig: { thinkingBudget: level === "minimal" ? 0 : level === "low" ? 512 : level === "medium" ? 2048 : 8192 } };
+  return null;
+}
+
+/** True when a model refused the thinking setting (it's then dropped for that model and the call made again). */
+export function refusedThinking(model: string, error: unknown, sent: boolean): boolean {
+  if (!sent || statusOf(error) !== 400 || !/thinking/i.test(String((error as Error)?.message ?? error))) return false;
+  console.warn(`[engine] ${model} doesn't take a thinking setting: calling it without one`);
+  thinkingRefused.add(model);
+  return true;
+}
 
 export type ChatReply =
   | { status: "ok"; reply: string; escalated?: boolean }
@@ -493,17 +518,22 @@ async function generate(
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt += 1) {
     if (!budget.hasAtLeast(MIN_MODEL_CALL_MS)) throw new TurnTimeoutError();
     const startedAt = Date.now();
+    const thinking = thinkingConfigFor(options.model, options.thinking);
     try {
       const response = await options.ai.models.generateContent({
         model: options.model,
         contents: request.contents,
-        config: { ...request.config, abortSignal: budget.signal() },
+        config: { ...request.config, ...thinking, abortSignal: budget.signal() },
       });
       recorder.addModelCall(Date.now() - startedAt, usageFromResponse(response));
       return response;
     } catch (error) {
       recorder.addModelCall(Date.now() - startedAt);
       if (isBudgetError(error) || budget.expired()) throw new TurnTimeoutError();
+      if (refusedThinking(options.model, error, Boolean(thinking))) {
+        attempt -= 1;
+        continue;
+      }
       const status = statusOf(error);
       const transient = status === 429 || status === 500 || status === 502 || status === 503 || status === 504;
       // Back off 1 s, then 2 s: long enough to ride out a spike, short enough

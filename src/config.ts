@@ -80,6 +80,8 @@ export type PlatformConfig = {
   saverAtPercent: number;
   /** The longest one chat turn may take, model calls and tools included (I4). */
   turnBudgetMs: number;
+  /** How much the model thinks before it answers: less is faster ("low" by default; "off" sends nothing). */
+  thinking: "off" | "minimal" | "low" | "medium" | "high";
   /** Proxy hops in front of the service, for the visitor's IP address. */
   trustProxy: number;
   migrateOnStart: boolean;
@@ -248,6 +250,12 @@ function billingPaymentInstructions(env: NodeJS.ProcessEnv): string | null {
 }
 
 /** ZAINA_SAVER_MODEL: a model id, "off", or unset (the lite model). */
+function thinkingLevel(env: NodeJS.ProcessEnv): PlatformConfig["thinking"] {
+  const level = env.ZAINA_THINKING?.trim().toLowerCase() || "low";
+  if (!["off", "minimal", "low", "medium", "high"].includes(level)) throw new Error("ZAINA_THINKING is off, minimal, low, medium or high");
+  return level as PlatformConfig["thinking"];
+}
+
 function saverModel(env: NodeJS.ProcessEnv): string | null {
   const raw = env.ZAINA_SAVER_MODEL?.trim();
   if (raw && raw.toLowerCase() === "off") return null;
@@ -298,6 +306,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): PlatformConfig
     saverModel: saverModel(env),
     saverAtPercent: percent(env, "ZAINA_SAVER_AT_PERCENT", 80),
     turnBudgetMs: positiveInt(env, "TURN_BUDGET_MS", 25_000),
+    thinking: thinkingLevel(env),
     trustProxy: Number(env.TRUST_PROXY ?? "1") || 0,
     migrateOnStart: env.MIGRATE_ON_START === "true",
     rateLimits: {

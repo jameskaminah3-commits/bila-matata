@@ -35,6 +35,8 @@ export function OwnerWhatsapp(props: { businessId: string; role: Role }) {
         <h2>Manage from WhatsApp</h2>
         <p>Run the business by writing to its WhatsApp number from your own phone, like a message to a trusted assistant:</p>
         <ul className="plain-list owner-examples">
+          <li>"Karaoke tonight from 8pm"</li>
+          <li>"Today's special: grilled tilapia, 1,200"</li>
           <li>"Change the price of chicken to 450"</li>
           <li>"We're fully booked tomorrow"</li>
           <li>"Add a new service: kids' haircut, 300"</li>

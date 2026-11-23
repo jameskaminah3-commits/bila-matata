@@ -85,6 +85,8 @@ import { registerCustomerExtras } from "./customers/tool.ts";
 import { linkCustomers } from "./customers/store.ts";
 import { registerPerformanceRoutes } from "./reports/performance-routes.ts";
 import { registerOwnerRoutes } from "./owner/routes.ts";
+import { registerWhatsOnRoutes } from "./whats-on/routes.ts";
+import { registerPlaceKnowledge } from "./whats-on/knowledge.ts";
 import { registerOutreachRoutes } from "./outreach/routes.ts";
 import { registerOutreachExtras } from "./outreach/tool.ts";
 import { registerSpotExtras } from "./frontdoor/spot.ts";
@@ -126,6 +128,8 @@ export function whatsappContextFor(config: PlatformConfig, engine: EngineOptions
 }
 
 export function createApp(config: PlatformConfig, engine: EngineOptions, whatsapp: WhatsappContext | null = whatsappContextFor(config, engine)): Express {
+  // Zaina knows the menu at a glance and what's on, in every chat.
+  registerPlaceKnowledge();
   configureTeamAlerts(config);
   configureHandoffs(config);
   configureBookingNotices({ publicBaseUrl: config.publicBaseUrl, alertEmail: config.alertEmail });
@@ -260,6 +264,7 @@ export function createApp(config: PlatformConfig, engine: EngineOptions, whatsap
   registerCustomerRoutes(app, config);
   registerPerformanceRoutes(app, config);
   registerOwnerRoutes(app, config);
+  registerWhatsOnRoutes(app, config);
   registerOutreachRoutes(app, config);
   registerCalendarRoutes(app, config);
   registerSignupRoutes(app, config);
@@ -372,6 +377,7 @@ export async function startServer(config: PlatformConfig): Promise<{ server: Ser
     saverAtShare: config.saverAtPercent / 100,
     turnBudgetMs: config.turnBudgetMs,
     prices: config.modelPriceUsdPerMillion,
+    thinking: config.thinking,
   };
   const whatsapp = whatsappContextFor(config, engine);
   const app = createApp(config, engine, whatsapp);

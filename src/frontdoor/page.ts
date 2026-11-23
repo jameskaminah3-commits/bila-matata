@@ -40,6 +40,8 @@ export type DoorView = {
   brandVersion: string;
   /** What the business offers, when it shows anything: a tab beside the chat. */
   catalogue?: DoorCatalogue | null;
+  /** What's on, as the team posted it: today's, and the coming days'. */
+  whatsOn?: { today: string[]; soon: Array<{ label: string; text: string }> } | null;
   /** Where the customer is, from the code they scanned ("Table 5"). */
   spot?: string | null;
 };
@@ -124,10 +126,15 @@ function renderCatalogue(catalogue: DoorCatalogue, view: DoorView): string {
 <div class="cat-more">${item.picture ? `<img class="cat-photo" src="${esc(item.picture)}" alt="${esc(item.name)}" loading="lazy" decoding="async">` : ""}<div class="cat-actions"><button type="button" class="cat-zaina" data-ask="${esc(item.tell)}">Ask ${assistant} about this</button>${order}</div></div>
 </details></li>`;
   }).join("\n");
+  const on = view.whatsOn;
+  const whatsOn = on && (on.today.length || on.soon.length)
+    ? `<aside class="whats-on" aria-label="What's on"><p class="whats-on-title">${on.today.length ? `Today at ${esc(view.name)}` : "Coming up"}</p>${on.today.length ? `<ul class="whats-on-today">${on.today.map((text) => `<li>${esc(text)}</li>`).join("")}</ul>` : ""}${on.soon.length ? `<ul class="whats-on-soon">${on.soon.map((entry) => `<li><b>${esc(entry.label)}</b> ${esc(entry.text)}</li>`).join("")}</ul>` : ""}</aside>`
+    : "";
   return `<section class="door-catalogue" id="door-catalogue" role="tabpanel" aria-labelledby="door-tab-catalogue">
     <div class="cat-tools">
       <label class="cat-search" title="${esc(catalogue.search)}">${ICONS.search}<span class="visually-hidden">${esc(catalogue.search)}</span><input type="search" id="cat-search" placeholder="${esc(catalogue.search)}" autocomplete="off" enterkeyhint="search"></label>${pills}${jump}
     </div>
+    ${whatsOn}
     <ul class="cat-list">
 ${cards}
     </ul>
@@ -379,6 +386,15 @@ body { font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; 
 .cat-nudge-x { flex: none; border: 0; background: none; color: inherit; font: inherit; font-size: 1.2rem; line-height: 1; width: 40px; height: 44px; border-radius: 999px; cursor: pointer; opacity: .65; }
 .cat-nudge button:focus-visible { outline: 3px solid var(--mark); outline-offset: -3px; }
 .cat-none { margin: 28px 16px; color: var(--muted); text-align: center; }
+/* What's on: today's special and tonight's event, posted by the team, above the menu (hidden while the guest filters). */
+.whats-on { margin: 20px 20px 0; padding: 16px 18px; border: 1px solid color-mix(in srgb, var(--brand) 35%, var(--line)); border-radius: 16px; background: color-mix(in srgb, var(--brand) 6%, var(--sheet)); text-align: center; }
+.whats-on-title { margin: 0 0 8px; font-size: .7rem; font-weight: 700; letter-spacing: .22em; text-transform: uppercase; color: var(--mark); }
+.whats-on ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
+.whats-on-today li { font-family: var(--display); font-weight: var(--title-weight); font-synthesis: none; font-size: calc(1.15rem * var(--title-scale)); letter-spacing: var(--title-track); line-height: 1.3; overflow-wrap: anywhere; }
+.whats-on-today + .whats-on-soon { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+.whats-on-soon li { font-size: .9rem; color: var(--muted); overflow-wrap: anywhere; }
+.whats-on-soon b { color: var(--ink); font-weight: 600; margin-right: 6px; }
+.door-catalogue.filtering .whats-on { display: none; }
 .cat-link { border: 0; background: none; padding: 0; font: inherit; color: var(--ink); font-weight: 650; text-decoration: underline; text-decoration-color: var(--mark); cursor: pointer; min-height: 44px; }
 
 /* "Dark, over your photos": the photo blurred once on a single layer and dimmed, glass cards over it.
@@ -396,6 +412,7 @@ body { font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; 
 [data-menu="backdrop"] .cat-tools { background: rgba(12, 11, 10, .6); border-bottom-color: rgba(255, 255, 255, .08); }
 [data-menu="backdrop"] .cat-search, [data-menu="backdrop"] .cat-jump { background: rgba(255, 255, 255, .06); border-color: rgba(255, 255, 255, .14); }
 [data-menu="backdrop"] .cat-heading h2 { color: #ffffff; text-shadow: 0 2px 18px rgba(0, 0, 0, .6); }
+[data-menu="backdrop"] .whats-on { background: rgba(20, 18, 16, .74); border-color: rgba(255, 255, 255, .12); }
 [data-menu="backdrop"] .cat-item, [data-menu="backdrop"] .cat-item + .cat-item { margin: 8px 0; padding: 0 16px; border: 1px solid rgba(255, 255, 255, .08); border-radius: 16px;
   background: rgba(20, 18, 16, .72); box-shadow: 0 10px 30px -18px rgba(0, 0, 0, .8); }
 @media (prefers-reduced-transparency: reduce) {
@@ -532,6 +549,7 @@ export const DOOR_JS = String.raw`(function () {
       if (ok) shown += 1;
     });
     if (none) none.hidden = shown > 0;
+    panels.catalogue.classList.toggle("filtering", Boolean(section) || words.length > 0);
     var group = null;
     items.forEach(function (item) {
       if (item.hidden) return;
