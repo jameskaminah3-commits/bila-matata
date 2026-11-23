@@ -182,3 +182,22 @@ test("a table's code takes its spot along: to the page, the website and WhatsApp
   assert.equal(websiteWithChat("https://kibanda.example/menu", ["https://kibanda.example"]), "https://kibanda.example/menu#zaina");
   assert.equal(scanDestination({ ...base, choice: "whatsapp", spot: "Table 5" }).url, `https://wa.me/254700000111?text=${encodeURIComponent("Hi Kibanda Lounge! I'm at Table 5.")}`);
 });
+
+test("a logo that spells the name is the heading: large, the name kept for screen readers", () => {
+  const logoUrl = "https://bilamatata.co.ke/brand/kibanda/logo?v=abc";
+  const plain = renderFrontDoor(view({ catalogue: menu, logoUrl }));
+  assert.match(plain, /<div class="door has-catalogue">/);
+  assert.match(plain, /<span class="door-logo"><img src="[^"]+" alt="" width="72" height="72"><\/span>\n      <div class="door-name">\n        <h1>Kibanda Lounge<\/h1>/);
+  const wordmark = renderFrontDoor(view({ catalogue: menu, logoUrl, logoHasName: true }));
+  assert.match(wordmark, /<div class="door has-catalogue has-wordmark">/);
+  assert.match(wordmark, /<span class="door-logo"><img src="[^"]+" alt="" width="240" height="240"><\/span>\n      <div class="door-name">\n        <h1 class="visually-hidden">Kibanda Lounge<\/h1>/);
+  // Without a logo there's nothing to stand in for the name.
+  assert.doesNotMatch(renderFrontDoor(view({ catalogue: menu, logoHasName: true })), /has-wordmark|visually-hidden">Kibanda/);
+  assert.match(DOOR_CSS, /\.has-catalogue\.has-wordmark \.door-logo \{ width: min\(176px, 48vw\)/);
+});
+
+test("the logo-as-heading setting takes only true or false", async () => {
+  const { validateSettingsPatch } = await import("../../src/businesses/settings.ts");
+  assert.deepEqual(validateSettingsPatch({ logoHasName: true }), { ok: true, patch: { logoHasName: true } });
+  assert.equal(validateSettingsPatch({ logoHasName: "yes" }).ok, false);
+});

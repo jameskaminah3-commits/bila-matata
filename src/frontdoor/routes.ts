@@ -244,6 +244,7 @@ export function registerFrontDoorRoutes(app: Express, config: PlatformConfig): v
         name: settings.displayName ?? business.name,
         tagline: settings.brandTagline,
         menuStyle: settings.menuStyle ?? "auto",
+        logoHasName: Boolean(settings.logoHasName && assets.logo),
         assistant: settings.assistantName ?? "Zaina",
         role: personaRole(business, settings),
         color: settings.widgetColor ?? "#0f766e",

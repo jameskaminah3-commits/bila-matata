@@ -122,6 +122,7 @@ export type Settings = {
   personaRole: string | null;
   brandTagline: string | null;
   menuStyle?: "auto" | "light" | "dark" | "backdrop";
+  logoHasName?: boolean;
   chatAvatar: "zaina" | "logo";
   frontDoor: boolean;
   qrDestination: "page" | "website" | "whatsapp";
