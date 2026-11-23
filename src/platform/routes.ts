@@ -42,6 +42,7 @@ import { addedEmail, canEmailLinks, inviteEmail, passwordLink, passwordLinkToken
 import { hashPassword, passwordProblem } from "../staff/passwords.ts";
 import { signals } from "./platform-state.ts";
 import { WEBHOOK_PATH } from "../channels/whatsapp/routes.ts";
+import { ownerPool } from "../db/platform-db.ts";
 
 export const DEFAULT_DAILY_TOKEN_CAP = 5_000_000;
 const ADMIN_AS_OWNER = "That's a Bila Matata admin's account. Use the business owner's own email: admins already reach every business from Bila Matata → Businesses.";
@@ -189,6 +190,16 @@ export function registerPlatformRoutes(app: Express, config: PlatformConfig): vo
         };
       }, business.id))));
       const seen = config.whatsapp ? await signals() : {};
+      // How quickly Zaina answered, across every business, in the last 24 hours (the time from message to reply).
+      const { rows: [speed] } = await ownerPool().query(
+        `select count(*)::int as replies,
+                coalesce(percentile_cont(0.5) within group (order by duration_ms), 0)::int as typical_ms,
+                coalesce(percentile_cont(0.95) within group (order by duration_ms), 0)::int as slowest_ms,
+                coalesce(sum(model_ms)::float / nullif(sum(duration_ms), 0), 0) as model_share,
+                coalesce(avg(model_calls), 0)::float as model_calls,
+                count(*) filter (where outcome = 'timeout')::int as timed_out,
+                count(*) filter (where outcome = 'model_error')::int as failed
+           from turn_metrics where started_at > now() - interval '24 hours'`);
       res.json({
         businesses: rows,
         platform: {
@@ -202,6 +213,11 @@ export function registerPlatformRoutes(app: Express, config: PlatformConfig): vo
             graph_version: config.whatsapp.graphVersion,
             numbers: rows.filter((row) => row.whatsapp).length,
           } : null,
+          replies_24h: {
+            replies: speed.replies, typical_ms: speed.typical_ms, slowest_ms: speed.slowest_ms,
+            model_share: Math.round(speed.model_share * 100) / 100, model_calls: Math.round(speed.model_calls * 10) / 10,
+            timed_out: speed.timed_out, failed: speed.failed, model: config.model, thinking: config.thinking,
+          },
           web_push: Boolean(config.webPush),
           alert_email: Boolean(config.alertEmail),
           public_base_url: config.publicBaseUrl,

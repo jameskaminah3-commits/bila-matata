@@ -7,10 +7,11 @@
 // in one step, quickly, with the place's real names and prices.
 
 import { getBusinessSettings } from "../businesses/settings.ts";
-import type { Business } from "../db/schema.ts";
+import { capabilitiesOf } from "../capabilities/catalog.ts";
+import type { Business, BusinessSettings } from "../db/schema.ts";
 import { addExtras } from "../engine/extras.ts";
 import { cachedDoorCatalogue, type DoorItem } from "../frontdoor/catalogue.ts";
-import { whatsOnPrompt } from "./whats-on.ts";
+import { whatsOnPrompt, whatsOnView } from "./whats-on.ts";
 
 /** The longest menu written out in full (about 8,000 tokens); a longer one is described by its sections. */
 const MAX_MENU_CHARS = 32_000;
@@ -69,4 +70,28 @@ export function registerPlaceKnowledge(): void {
     const [menu, whatsOn] = await Promise.all([menuPrompt(business), whatsOnPrompt(business, settings?.displayName ?? business.name)]);
     return { prompt: menu + whatsOn };
   });
+}
+
+/**
+ * What the chat offers to send in one tap, before the customer writes:
+ * what most people ask first, from what this business really offers (never
+ * something it doesn't). At most four.
+ */
+export async function chatSuggestions(business: Business, settings: BusinessSettings | null): Promise<string[]> {
+  if (business.businessType === "custom") return [];
+  const capabilities = capabilitiesOf(business, settings);
+  const [catalogue, whatsOn] = await Promise.all([
+    cachedDoorCatalogue(business, settings).catch(() => null),
+    whatsOnView(business).catch(() => null),
+  ]);
+  const sells = Boolean(catalogue?.items.some((item) => item.order?.verb !== "book"));
+  const suggestions: string[] = [];
+  if (whatsOn?.today.length) suggestions.push("What's on today?");
+  if (sells) suggestions.push("What do you recommend?");
+  if (capabilities.includes("tables")) suggestions.push("Book a table");
+  if (capabilities.includes("rooms")) suggestions.push("Rooms and rates");
+  if (capabilities.includes("appointments")) suggestions.push("Book an appointment");
+  if (capabilities.includes("orders") && sells) suggestions.push("I'd like to order");
+  if (suggestions.length < 2) suggestions.push("Opening hours and location");
+  return suggestions.slice(0, 4);
 }

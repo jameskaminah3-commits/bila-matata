@@ -130,6 +130,8 @@ test("with a catalogue, the page opens on it, set like a printed menu: lines ope
   assert.match(html, new RegExp(`<script src="/c-assets/door\\.js\\?v=${DOOR_ASSETS_VERSION}" defer></script>`));
   assert.match(html, new RegExp(`<link rel="stylesheet" href="/c-assets/door\\.css\\?v=${DOOR_ASSETS_VERSION}">`));
   assert.match(html, /<link rel="preload" href="\/c-assets\/title-classic\.woff2\?v=[0-9a-f]{12}" as="font" type="font\/woff2" crossorigin>/);
+  // The chat's script and settings start loading with the page.
+  assert.match(html, /<link rel="preload" href="\/zaina\.js" as="script">\n<link rel="preload" href="\/api\/zaina\/widget\/config\?business=kibanda" as="fetch" crossorigin="anonymous">/);
   for (const key of ["classic", "roman", "elegant", "modern"]) {
     assert.match(DOOR_CSS, new RegExp(`@font-face \\{ font-family: "Door ${key}"; src: url\\(/c-assets/title-${key}\\.woff2\\?v=[0-9a-f]{12}\\) format\\("woff2"\\);[^}]*font-display: swap`));
   }
@@ -225,7 +227,7 @@ test("the business chooses its lettering: the page says which, and loads only th
   const roman = renderFrontDoor(view({ catalogue: menu, titleFont: "roman", menuStyle: "light" }));
   assert.match(roman, /<html lang="en" data-menu="light" data-title="roman">/);
   assert.match(roman, new RegExp(`<link rel="preload" href="/c-assets/title-roman\\.woff2\\?v=${TITLE_FONTS.roman.version}" as="font"`));
-  assert.equal((roman.match(/rel="preload"/g) ?? []).length, 1, "one face, the chosen one");
+  assert.equal((roman.match(/as="font"/g) ?? []).length, 1, "one face, the chosen one");
   assert.match(DOOR_CSS, /:root\[data-title="roman"\] \{ --display: "Door roman"/);
   assert.match(DOOR_CSS, /\.cat-heading h2 \{[^}]*font-family: var\(--display\); font-weight: var\(--title-weight\); font-synthesis: none; font-size: calc\(1\.7rem \* var\(--title-scale\)\)/);
   for (const face of Object.values(TITLE_FONTS)) assert.equal(face.file.subarray(0, 4).toString("latin1"), "wOF2");

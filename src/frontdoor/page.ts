@@ -13,6 +13,7 @@ import { createHash } from "node:crypto";
 import { readableOn } from "../brand/assets.ts";
 import type { DoorCatalogue } from "./catalogue.ts";
 import { TITLE_FONTS, TITLE_FONT_KEYS, type TitleFont } from "./title-fonts.ts";
+import { widgetVersion } from "./widget-version.ts";
 
 const esc = (value: string) => value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
@@ -153,6 +154,8 @@ export function renderFrontDoor(view: DoorView): string {
   ].filter(Boolean).join("");
   const orders = view.catalogue?.items.some((item) => item.order?.verb === "order") ?? false;
   const wordmark = Boolean(view.logoHasName && view.logoUrl);
+  // The chat's script and its settings start loading with the page, not after it.
+  const widget = `/zaina.js${widgetVersion() ? `?v=${widgetVersion()}` : ""}`;
   const font: TitleFont = view.titleFont && TITLE_FONT_KEYS.includes(view.titleFont) ? view.titleFont : "classic";
   const spot = view.catalogue && view.spot ? `<p class="door-spot">${ICONS.pin}<span>You're at <strong>${esc(view.spot)}</strong>.${orders ? " Anything you order here is brought to you." : ""}</span></p>` : "";
   return `<!doctype html>
@@ -171,6 +174,8 @@ ${view.logoUrl ? `<meta property="og:image" content="${esc(view.logoUrl)}">\n<li
 <link rel="preload" href="/c-assets/title-${font}.woff2?v=${TITLE_FONTS[font].version}" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/c-assets/door.css?v=${DOOR_ASSETS_VERSION}">
 <link rel="stylesheet" href="/c/${id}/brand.css?v=${esc(view.brandVersion)}">
+<link rel="preload" href="${widget}" as="script">
+<link rel="preload" href="/api/zaina/widget/config?business=${id}" as="fetch" crossorigin="anonymous">
 </head>
 <body>
 <div class="door${view.coverUrl ? " has-cover" : ""}${view.catalogue ? " has-catalogue" : ""}${wordmark ? " has-wordmark" : ""}">
@@ -200,7 +205,7 @@ ${view.logoUrl ? `<meta property="og:image" content="${esc(view.logoUrl)}">\n<li
   </main>${view.catalogue ? "\n  </div>" : ""}
   <footer class="door-foot"><a href="${POWERED_BY.href}" target="_blank" rel="noopener">${POWERED_BY.text}</a></footer>
 </div>
-${view.catalogue ? `<script src="/c-assets/door.js?v=${DOOR_ASSETS_VERSION}" defer></script>\n` : ""}<script src="/zaina.js" data-business="${esc(view.businessId)}" data-mode="page" data-mount="#zaina-chat" data-via="${view.via}"${view.spot ? ` data-spot="${esc(view.spot)}"` : ""} async></script>
+${view.catalogue ? `<script src="/c-assets/door.js?v=${DOOR_ASSETS_VERSION}" defer></script>\n` : ""}<script src="${widget}" data-business="${esc(view.businessId)}" data-mode="page" data-mount="#zaina-chat" data-via="${view.via}"${view.spot ? ` data-spot="${esc(view.spot)}"` : ""} async></script>
 </body>
 </html>`;
 }

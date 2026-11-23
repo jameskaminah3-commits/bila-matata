@@ -56,6 +56,13 @@ test("the team posts what's on: today, tomorrow and every week; checked, and onl
   assert.deepEqual(list.entries.map((entry: any) => entry.text), ["Karaoke from 8pm", "Chef's special: goat ribs, KSh 1,500", "Live band"]);
 });
 
+test("the chat offers what guests ask first, from what the business really offers, in one tap", async () => {
+  const config = await (await fetch(`${BASE}/api/zaina/widget/config?business=tapas`, { headers: { origin: BASE } })).json() as { suggestions: string[] };
+  assert.deepEqual(config.suggestions, ["What's on today?", "What do you recommend?", "Book a table"], "what's on today, a menu to recommend from, and its tables");
+  const other = await (await fetch(`${BASE}/api/zaina/widget/config?business=other`, { headers: { origin: BASE } })).json() as { suggestions: string[] };
+  assert.deepEqual(other.suggestions, ["Book a table", "Opening hours and location"], "nothing posted and no menu: no menu suggestions, never one it can't answer");
+});
+
 test("guests see it above the menu: today's, then what's coming", async () => {
   const page = await (await fetch(`${BASE}/c/tapas`)).text();
   assert.match(page, /<aside class="whats-on" aria-label="What's on"><p class="whats-on-title">Today at Tapas Lounge<\/p><ul class="whats-on-today"><li>Karaoke from 8pm<\/li><\/ul><ul class="whats-on-soon"><li><b>Tomorrow<\/b> Chef's special: goat ribs, KSh 1,500<\/li><li><b>Tomorrow<\/b> Live band<\/li><\/ul><\/aside>/);

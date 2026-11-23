@@ -25,7 +25,7 @@
 
 import { ZAINA_FACE_DATA_URI } from "../../src/brand/zaina-face.ts";
 
-type Config = { name: string; assistant_name: string; assistant_role?: string; color: string; position: "right" | "left"; greeting: string | null; currency: "USD" | "KES"; whatsapp?: string | null; tagline?: string | null; logo?: string | null; avatar?: "zaina" | "logo" };
+type Config = { suggestions?: string[]; name: string; assistant_name: string; assistant_role?: string; color: string; position: "right" | "left"; greeting: string | null; currency: "USD" | "KES"; whatsapp?: string | null; tagline?: string | null; logo?: string | null; avatar?: "zaina" | "logo" };
 type Message = { id: number; from: "customer" | "zaina" | "team"; text: string; author?: string };
 type Stored = { token: string; sessionId: string };
 
@@ -175,7 +175,9 @@ const POLL_OPEN_MS = 30_000;
 .notice { align-self: center; font-size: 13px; color: var(--muted); text-align: center; padding: 2px 8px; }
 .notice.error { color: #b91c1c; }
 .typing { align-self: flex-start; display: none; gap: 4px; padding: 12px 14px; background: var(--bubble); border-radius: 14px; }
-.typing.on { display: flex; }
+.typing.on { display: flex; align-items: center; }
+.typing-note { display: none; font-style: normal; font-size: 12px; color: var(--muted); margin-left: 6px; }
+.typing.slow .typing-note { display: inline; }
 .typing span { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); animation: blink 1.2s infinite ease-in-out; }
 .typing span:nth-child(2) { animation-delay: .2s; } .typing span:nth-child(3) { animation-delay: .4s; }
 @keyframes blink { 0%, 80%, 100% { opacity: .25; } 40% { opacity: 1; } }
@@ -202,6 +204,23 @@ textarea { flex: 1; resize: none; border: 1px solid var(--line); border-radius: 
 .root.page { position: static; height: 100%; }
 .root.page .panel, .root.page .panel.open { position: static; display: flex; width: 100%; height: 100%; border: none; border-radius: 0; box-shadow: none; }
 .root.page .launcher, .root.page .close { display: none; }
+/* On the business's page the chat wears the page's own look: its paper and ink (light or dark, as the page is), its colour and its lettering. */
+.root.page { --surface: var(--bg, #faf8f4); --text: var(--ink, #1c1a17); --muted: color-mix(in srgb, var(--ink, #1c1a17) 58%, var(--bg, #faf8f4));
+  --line: color-mix(in srgb, var(--ink, #1c1a17) 12%, var(--bg, #faf8f4)); --bubble: color-mix(in srgb, var(--ink, #1c1a17) 5%, var(--bg, #faf8f4)); --team: color-mix(in srgb, var(--brand) 14%, var(--bg, #faf8f4)); }
+.root.page .panel { background: var(--surface); }
+.root.page .header { background: var(--surface); color: var(--text); border-bottom: 1px solid var(--line); padding: 14px 18px; }
+.root.page .header .face { border-color: color-mix(in srgb, var(--brand) 70%, var(--surface)); }
+.root.page .header .face::after { border-color: var(--surface); }
+.root.page .header .name { font-family: var(--display, Georgia, serif); font-weight: var(--title-weight, 700); font-synthesis: none; letter-spacing: var(--title-track, 0); font-size: calc(19px * var(--title-scale, 1)); }
+.root.page .header .sub { color: var(--muted); }
+.root.page .log { padding: 18px 16px; gap: 10px; }
+.root.page .zaina .bubble { background: var(--bubble); border: 1px solid var(--line); }
+.root.page textarea { background: var(--bubble); border-color: var(--line); color: var(--text); font-size: 16px; }
+.root.page .composer { background: var(--surface); padding: 10px 12px calc(10px + env(safe-area-inset-bottom, 0px)); }
+/* One tap instead of typing: what most guests ask first, from what the business really offers. */
+.chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 2px 0 4px; }
+.chip { min-height: 40px; padding: 0 14px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--brand) 50%, var(--line)); background: var(--surface); color: var(--text); font: inherit; font-size: 14px; cursor: pointer; }
+.chip:hover { background: color-mix(in srgb, var(--brand) 10%, var(--surface)); }
 `;
 
   const icons = {
@@ -307,7 +326,7 @@ textarea { flex: 1; resize: none; border: 1px solid var(--line); border-radius: 
     log.setAttribute("aria-live", "polite");
     typing = element("div", "typing");
     typing.setAttribute("aria-label", `${config.assistant_name} is typing`);
-    typing.append(element("span"), element("span"), element("span"));
+    typing.append(element("span"), element("span"), element("span"), element("em", "typing-note"));
 
     const composer = element("form", "composer");
     textarea = element("textarea");
@@ -395,6 +414,22 @@ textarea { flex: 1; resize: none; border: 1px solid var(--line); border-radius: 
   function greet() {
     if (log.querySelector(".row")) return;
     addRow("zaina", config.greeting ?? `Hi, I'm ${config.assistant_name}, the ${config.assistant_role ?? "customer care host"} at ${config.name}. How can I help you today?`);
+    // Suggestions, until the customer writes: each sends itself.
+    const suggestions = (config.suggestions ?? []).filter((text) => typeof text === "string" && text.trim()).slice(0, 4);
+    if (!suggestions.length) return;
+    const chips = element("div", "chips");
+    chips.setAttribute("role", "group");
+    chips.setAttribute("aria-label", "Suggestions");
+    for (const text of suggestions) {
+      const chip = element("button", "chip", text);
+      chip.type = "button";
+      chip.addEventListener("click", () => {
+        textarea.value = text;
+        void send();
+      });
+      chips.append(chip);
+    }
+    log.insertBefore(chips, typing.isConnected ? typing : null);
   }
 
   /** Adds messages not shown yet; quiet for history loaded on a new visit (no unread dot). */
@@ -449,6 +484,7 @@ textarea { flex: 1; resize: none; border: 1px solid var(--line); border-radius: 
   async function send() {
     const text = textarea.value.trim();
     if (!text || sending) return;
+    log.querySelector(".chips")?.remove();
     sending = true;
     sendButton.disabled = true;
     textarea.value = "";
@@ -456,6 +492,11 @@ textarea { flex: 1; resize: none; border: 1px solid var(--line); border-radius: 
     const pending = addRow("customer", text, { pending: true });
     typing.classList.add("on");
     log.append(typing);
+    // A word while she works: the wait never feels like nothing is happening.
+    const note = typing.querySelector(".typing-note")!;
+    const slow = window.setTimeout(() => { note.textContent = "Checking…"; typing.classList.add("slow"); }, 4000);
+    const slower = window.setTimeout(() => { note.textContent = "Still on it, one moment…"; }, 12000);
+    const settle = () => { window.clearTimeout(slow); window.clearTimeout(slower); typing.classList.remove("slow"); };
     scrollDown();
     try {
       if (!stored && !(await openSession())) throw new Error("no session");
@@ -481,6 +522,7 @@ textarea { flex: 1; resize: none; border: 1px solid var(--line); border-radius: 
       pending.classList.remove("pending");
       notice("Couldn't reach the chat. Check your connection and try again.", true);
     } finally {
+      settle();
       typing.classList.remove("on");
       sending = false;
       sendButton.disabled = false;
@@ -512,7 +554,8 @@ textarea { flex: 1; resize: none; border: 1px solid var(--line); border-radius: 
   async function boot() {
     let result: { status: number; body: any };
     try {
-      const response = await fetch(`${api}/api/zaina/widget/config?business=${encodeURIComponent(business!)}`, { credentials: "omit" });
+      // "same-origin": the same request the business's own page preloads (no cookies go to another website either way).
+      const response = await fetch(`${api}/api/zaina/widget/config?business=${encodeURIComponent(business!)}`, { credentials: "same-origin" });
       result = { status: response.status, body: await response.json().catch(() => null) };
     } catch {
       console.warn("[zaina] The chat couldn't load.");

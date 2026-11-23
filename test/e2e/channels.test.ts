@@ -483,6 +483,8 @@ test("the website widget's settings: look, greeting, and only the business's own
     greeting: "Karibu Acme! Ask me anything about your stay.", currency: "USD",
     // No brand set yet: Zaina's own face, no logo or welcome line.
     tagline: null, logo: null, avatar: "zaina",
+    // One tap for what guests ask first, from what it offers: its rooms.
+    suggestions: ["Rooms and rates", "Opening hours and location"],
     // WhatsApp is connected: the chat offers the number too.
     whatsapp: "https://wa.me/254700123456",
   };
@@ -564,7 +566,10 @@ test("the platform overview shows every business's day, and only to platform adm
   assert.ok(acme.tokens_today > 0);
   assert.equal(acme.daily_token_cap, 5_000_000);
   assert.ok(acme.chats_7d >= 8);
-  const { whatsapp_setup: setup, ...switched } = overview.body.platform;
+  const { whatsapp_setup: setup, replies_24h: speed, ...switched } = overview.body.platform;
+  // How quickly Zaina answered across the platform: the replies this file's chats made.
+  assert.ok(speed.replies > 0 && speed.typical_ms >= 0 && speed.slowest_ms >= speed.typical_ms, JSON.stringify(speed));
+  assert.equal(typeof speed.model, "string");
   assert.deepEqual(switched, { whatsapp: true, web_push: true, alert_email: true, public_base_url: `http://127.0.0.1:${PORT}` });
   // WhatsApp's set-up as the platform saw it: Meta verified the webhook and delivered (earlier in this file), one number connected.
   assert.equal(setup.webhook_url, `http://127.0.0.1:${PORT}/v1/whatsapp/webhook`);

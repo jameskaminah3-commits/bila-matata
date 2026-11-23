@@ -25,6 +25,7 @@ import { runForBusiness } from "../db/tenant.ts";
 import { allowedOriginsFor, anyBusinessById, businessById, businessByPublicKey } from "../businesses/registry.ts";
 import { getBusinessSettings } from "../businesses/settings.ts";
 import { getNumber } from "../channels/whatsapp/numbers.ts";
+import { chatSuggestions } from "../whats-on/knowledge.ts";
 import { createSession, customerVisibleEvents, getSession, setDisplayCurrency } from "../conversations/store.ts";
 import { handleChatTurn, type EngineOptions } from "../engine/agent.ts";
 import { recordTurn, TurnRecorder } from "../engine/telemetry.ts";
@@ -237,6 +238,7 @@ export function registerGatewayRoutes(app: Express, config: PlatformConfig, engi
         avatar: settings?.chatAvatar ?? "zaina",
         currency: settings?.defaultCurrency ?? "USD",
         whatsapp: number?.status === "active" ? whatsappLink(number.displayPhoneNumber) : null,
+        suggestions: await chatSuggestions(business, settings).catch(() => []),
       });
     } catch (error) {
       next(error);

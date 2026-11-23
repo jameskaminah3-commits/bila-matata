@@ -30,6 +30,9 @@ import { checkSignInCode, isTrustedDevice, maskEmail, resendSignInCode, sendSign
 import { clearConsoleCookie, requireStaff, setConsoleCookie, staffOf } from "../staff/auth.ts";
 import { signIn } from "../staff/routes.ts";
 import { issueStaffToken } from "../staff/tokens.ts";
+import { createHash } from "node:crypto";
+import { readFileSync } from "node:fs";
+import { setWidgetVersion } from "../frontdoor/widget-version.ts";
 
 /** The built widget and console: PLATFORM_PUBLIC_DIR, or dist/public (next to dist/server.js, or two up from src/console/). */
 export function publicDirectory(config: PlatformConfig): string | null {
@@ -87,9 +90,13 @@ export function registerConsoleRoutes(app: Express, config: PlatformConfig): voi
 
   // ── The widget script: any website may load it; it only works where the business allows. ──
   // /zaina.js (with data-business) is its name for every business; /widget.js (with data-key) stays for older snippets.
-  app.get(["/zaina.js", "/widget.js"], (_req: Request, res: Response) => {
+  // Its version, for the businesses' own pages (src/frontdoor/widget-version.ts).
+  const widgetFile = directory ? path.join(directory, "widget.js") : null;
+  const built = widgetFile && existsSync(widgetFile) ? createHash("sha256").update(readFileSync(widgetFile)).digest("hex").slice(0, 12) : null;
+  setWidgetVersion(built);
+  app.get(["/zaina.js", "/widget.js"], (req: Request, res: Response) => {
     if (!directory) return res.status(404).type("text/plain").send("// The widget isn't built on this server.");
-    res.setHeader("Cache-Control", "public, max-age=300");
+    res.setHeader("Cache-Control", built && req.query.v === built ? "public, max-age=31536000, immutable" : "public, max-age=300");
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
     res.setHeader("X-Content-Type-Options", "nosniff");

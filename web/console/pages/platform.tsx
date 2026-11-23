@@ -44,6 +44,7 @@ type Overview = {
   }>;
   platform: {
     whatsapp: boolean; web_push: boolean; alert_email: boolean; public_base_url: string | null;
+    replies_24h: { replies: number; typical_ms: number; slowest_ms: number; model_share: number; model_calls: number; timed_out: number; failed: number; model: string; thinking: string };
     whatsapp_setup: { webhook_url: string | null; verified_at: string | null; last_delivery_at: string | null; one_click: boolean; graph_version: string; numbers: number } | null;
   };
 };
@@ -141,8 +142,29 @@ function OverviewTab(props: { attention: Attention | null; error: string | null 
           </ul>
         </div>
       ) : null}
+      {platform?.replies_24h ? <ReplySpeed speed={platform.replies_24h} /> : null}
       {platform?.whatsapp_setup ? <WhatsappSetup setup={platform.whatsapp_setup} /> : null}
     </section>
+  );
+}
+
+/** How quickly Zaina answered in the last 24 hours, and where the time went: the first place to look when replies feel slow. */
+function ReplySpeed(props: { speed: NonNullable<Overview["platform"]["replies_24h"]> }) {
+  const { speed } = props;
+  const seconds = (ms: number) => `${(ms / 1000).toFixed(1)} s`;
+  const slow = speed.replies > 0 && speed.typical_ms > 8000;
+  return (
+    <div className="card">
+      <h3>Zaina's replies, last 24 hours</h3>
+      {speed.replies === 0 ? <p className="muted">No replies yet.</p> : (
+        <ul className="check-list">
+          <li><Switched on={!slow} /> Typical reply in <strong>{seconds(speed.typical_ms)}</strong>; the slowest 5% in {seconds(speed.slowest_ms)} ({speed.replies} replies)</li>
+          <li><Switched on={speed.timed_out + speed.failed === 0} /> {speed.timed_out} timed out, {speed.failed} failed</li>
+          <li className="muted">{Math.round(speed.model_share * 100)}% of the time is the AI model ({speed.model}, thinking {speed.thinking}), {speed.model_calls} model calls per reply</li>
+        </ul>
+      )}
+      {slow ? <p className="muted small">Slow replies are almost always the model: check ZAINA_MODEL in Railway (a "lite" model answers fastest) and ZAINA_THINKING (low or minimal).</p> : null}
+    </div>
   );
 }
 
