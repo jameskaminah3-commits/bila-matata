@@ -220,15 +220,23 @@ export const DOOR_CSS = String.raw`
 @font-face { font-family: "Door Display"; src: url(/c-assets/display.woff2?v=${DISPLAY_FONT_VERSION}) format("woff2"); font-weight: 700; font-style: normal; font-display: swap; }
 :root { --brand: #0f766e; --on-brand: #ffffff; --bg: #faf8f4; --surface: #ffffff; --ink: #1c1a17; --muted: #6b645a; --line: #e8e2d7; --alert: #b42318;
   --mark: color-mix(in srgb, var(--brand) 78%, var(--ink)); --tint: color-mix(in srgb, var(--brand) 8%, var(--bg)); --sheet: var(--surface);
-  --hero: color-mix(in srgb, var(--brand) 6%, #080808); --hero-glow: color-mix(in srgb, var(--brand) 24%, #080808);
+  --hero: color-mix(in srgb, var(--brand) 6%, var(--bg)); --hero-glow: color-mix(in srgb, var(--brand) 16%, var(--bg));
+  --hero-ink: var(--ink); --hero-soft: var(--muted); --hero-veil: color-mix(in srgb, var(--ink) 4%, transparent); --hero-edge: color-mix(in srgb, var(--ink) 14%, transparent);
+  --foil-top: var(--ink); --foil-bottom: color-mix(in srgb, var(--brand) 60%, var(--ink)); --hero-rule: var(--mark);
   --display: "Door Display", "Playfair Display", Georgia, "Times New Roman", serif; --tabs-h: 50px;
   --chip: var(--ink); --chip-ink: var(--sheet); --pill: var(--ink); --pill-ink: var(--sheet); --pill-line: transparent; color-scheme: light; }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-menu="light"]) { --bg: #100f0d; --surface: #1a1815; --ink: #f4f0e9; --muted: #aba297; --line: #2d2925; --alert: #ff8f80; --mark: color-mix(in srgb, var(--brand) 62%, #ffffff);
-    --chip: var(--mark); --chip-ink: #100f0d; --pill: #1d1a16; --pill-ink: #f4f0e9; --pill-line: color-mix(in srgb, var(--brand) 50%, transparent); color-scheme: dark; }
+  :root:not([data-menu="light"]) { --bg: #181613; --surface: #211e1a; --ink: #f4f0e9; --muted: #b0a79b; --line: #35302a; --alert: #ff8f80; --mark: color-mix(in srgb, var(--brand) 62%, #ffffff);
+    --hero: color-mix(in srgb, var(--brand) 10%, #15130f); --hero-glow: color-mix(in srgb, var(--brand) 30%, #15130f);
+    --hero-ink: #ffffff; --hero-soft: rgba(255, 255, 255, .78); --hero-veil: rgba(255, 255, 255, .1); --hero-edge: rgba(255, 255, 255, .18);
+    --foil-top: #ffffff; --foil-bottom: color-mix(in srgb, var(--brand) 42%, #ffffff); --hero-rule: color-mix(in srgb, var(--brand) 60%, #ffffff);
+    --chip: var(--mark); --chip-ink: #181613; --pill: #1d1a16; --pill-ink: #f4f0e9; --pill-line: color-mix(in srgb, var(--brand) 50%, transparent); color-scheme: dark; }
 }
-:root[data-menu="dark"], :root[data-menu="backdrop"] { --bg: #100f0d; --surface: #1a1815; --ink: #f4f0e9; --muted: #aba297; --line: #2d2925; --alert: #ff8f80; --mark: color-mix(in srgb, var(--brand) 62%, #ffffff);
-    --chip: var(--mark); --chip-ink: #100f0d; --pill: #1d1a16; --pill-ink: #f4f0e9; --pill-line: color-mix(in srgb, var(--brand) 50%, transparent); color-scheme: dark; }
+:root[data-menu="dark"], :root[data-menu="backdrop"] { --bg: #181613; --surface: #211e1a; --ink: #f4f0e9; --muted: #b0a79b; --line: #35302a; --alert: #ff8f80; --mark: color-mix(in srgb, var(--brand) 62%, #ffffff);
+    --hero: color-mix(in srgb, var(--brand) 10%, #15130f); --hero-glow: color-mix(in srgb, var(--brand) 30%, #15130f);
+    --hero-ink: #ffffff; --hero-soft: rgba(255, 255, 255, .78); --hero-veil: rgba(255, 255, 255, .1); --hero-edge: rgba(255, 255, 255, .18);
+    --foil-top: #ffffff; --foil-bottom: color-mix(in srgb, var(--brand) 42%, #ffffff); --hero-rule: color-mix(in srgb, var(--brand) 60%, #ffffff);
+    --chip: var(--mark); --chip-ink: #181613; --pill: #1d1a16; --pill-ink: #f4f0e9; --pill-line: color-mix(in srgb, var(--brand) 50%, transparent); color-scheme: dark; }
 * { box-sizing: border-box; }
 html, body { height: 100%; margin: 0; }
 body { font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: var(--ink); background: var(--tint); -webkit-font-smoothing: antialiased; -webkit-tap-highlight-color: transparent; }
@@ -411,23 +419,26 @@ body { font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; 
   /* With a catalogue the whole page scrolls, like a menu in the hand: the name and photo pass by, the bar stays on top. */
   body:has(.has-catalogue) { background: var(--bg); }
   .door.has-catalogue { display: block; height: auto; min-height: 100%; background: var(--bg); }
-  .has-catalogue .door-head { z-index: 3; align-items: center; text-align: center; padding: calc(40px + env(safe-area-inset-top, 0px)) 20px 30px; color: #ffffff; overflow: hidden; isolation: isolate;
-    background: radial-gradient(130% 95% at 50% 0%, var(--hero-glow), var(--hero) 72%); }
+  .has-catalogue .door-head { z-index: 3; align-items: center; text-align: center; padding: calc(40px + env(safe-area-inset-top, 0px)) 20px 30px; color: var(--hero-ink); overflow: hidden; isolation: isolate;
+    background: radial-gradient(130% 95% at 50% 0%, var(--hero-glow), var(--hero) 72%); border-bottom: 1px solid var(--line); }
+  /* Over the business's cover photo the header is always dark, so its name reads. */
+  .has-catalogue.has-cover .door-head { --hero-ink: #ffffff; --hero-soft: rgba(255, 255, 255, .8); --hero-veil: rgba(255, 255, 255, .12); --hero-edge: rgba(255, 255, 255, .2);
+    --foil-top: #ffffff; --foil-bottom: color-mix(in srgb, var(--brand) 42%, #ffffff); --hero-rule: color-mix(in srgb, var(--brand) 60%, #ffffff); }
   .has-catalogue .door-brand { flex-direction: column; gap: 16px; }
-  .has-catalogue .door-logo { width: 84px; height: 84px; border-radius: 24px; border: 0; box-shadow: 0 0 0 1px rgba(255, 255, 255, .16), 0 16px 32px -14px rgba(0, 0, 0, .8); }
+  .has-catalogue .door-logo { width: 84px; height: 84px; border-radius: 24px; border: 0; box-shadow: 0 0 0 1px var(--hero-edge), 0 16px 32px -16px rgba(0, 0, 0, .55); }
   .has-catalogue .door-logo.letters { background: var(--brand); color: var(--on-brand); font-size: 2rem; }
-  .has-catalogue .door-name h1 { color: #ffffff; font-size: clamp(2rem, 1.3rem + 3.4vw, 2.6rem);
-    background: linear-gradient(180deg, #ffffff 10%, color-mix(in srgb, var(--brand) 42%, #ffffff) 90%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+  .has-catalogue .door-name h1 { color: var(--hero-ink); font-size: clamp(2rem, 1.3rem + 3.4vw, 2.6rem);
+    background: linear-gradient(180deg, var(--foil-top) 10%, var(--foil-bottom) 90%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
   /* A fine line in the business's colour, inset like the edge of a menu's cover. */
   .has-catalogue .door-head::before { content: ""; position: absolute; inset: calc(10px + env(safe-area-inset-top, 0px)) 10px 10px; border: 1px solid color-mix(in srgb, var(--brand) 42%, transparent); border-radius: 18px; pointer-events: none; }
   .has-catalogue.has-wordmark .door-brand { flex-direction: column; }
-  .has-catalogue.has-wordmark .door-logo { width: min(176px, 48vw); height: auto; aspect-ratio: 1 / 1; border-radius: 28px; box-shadow: 0 24px 48px -24px rgba(0, 0, 0, .9); }
-  .has-catalogue .door-name p { color: rgba(255, 255, 255, .78); white-space: normal; font-size: .74rem; font-weight: 600; letter-spacing: .22em; text-transform: uppercase; margin-top: 12px; }
-  .has-catalogue .door-name::after { content: ""; display: block; width: 36px; height: 2px; margin: 18px auto 0; border-radius: 2px; background: color-mix(in srgb, var(--brand) 60%, #ffffff); }
-  .has-catalogue .door-spot { align-self: center; margin-top: 20px; padding: 8px 16px; border-radius: 999px; background: rgba(255, 255, 255, .1); border: 1px solid rgba(255, 255, 255, .16); color: #ffffff; text-align: left; font-size: .9rem; }
+  .has-catalogue.has-wordmark .door-logo { width: min(176px, 48vw); height: auto; aspect-ratio: 1 / 1; border-radius: 28px; box-shadow: 0 22px 44px -24px rgba(0, 0, 0, .6); }
+  .has-catalogue .door-name p { color: var(--hero-soft); white-space: normal; font-size: .74rem; font-weight: 600; letter-spacing: .22em; text-transform: uppercase; margin-top: 12px; }
+  .has-catalogue .door-name::after { content: ""; display: block; width: 36px; height: 2px; margin: 18px auto 0; border-radius: 2px; background: var(--hero-rule); }
+  .has-catalogue .door-spot { align-self: center; margin-top: 20px; padding: 8px 16px; border-radius: 999px; background: var(--hero-veil); border: 1px solid var(--hero-edge); color: var(--hero-ink); text-align: left; font-size: .9rem; }
   .has-catalogue .door-spot svg { color: currentColor; }
   .has-catalogue .door-actions { justify-content: center; margin-top: 18px; }
-  .has-catalogue .door-btn { flex: none; background: rgba(255, 255, 255, .1); color: #ffffff; border-color: rgba(255, 255, 255, .2); }
+  .has-catalogue .door-btn { flex: none; background: var(--hero-veil); color: var(--hero-ink); border-color: var(--hero-edge); }
   .has-catalogue.has-cover .door-cover { z-index: -1; opacity: 1; }
   .has-catalogue.has-cover .door-head::after { content: ""; position: absolute; inset: 0; z-index: -1; background: linear-gradient(180deg, rgba(0, 0, 0, .42), rgba(0, 0, 0, .74)); }
   .has-catalogue .door-main { --sheet: var(--bg); display: block; height: auto; min-height: 0; overflow: visible; border: 0; border-radius: 0; box-shadow: none; }

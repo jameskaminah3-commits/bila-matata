@@ -91,7 +91,7 @@ test("with a catalogue, the page opens on it, set like a printed menu: lines ope
   assert.ok(html.indexOf("Masala chips") < html.indexOf("Sly&quot;") && html.indexOf("Sly&quot;") < html.indexOf("Tanqueray"), "a section's items stay together");
   assert.match(html, /<html lang="en">/, "the guest's phone decides light or dark by default");
   assert.match(renderFrontDoor(view({ catalogue: menu, menuStyle: "dark" })), /<html lang="en" data-menu="dark">/);
-  assert.match(DOOR_CSS, /:root\[data-menu="dark"\], :root\[data-menu="backdrop"\] \{ --bg: #100f0d/);
+  assert.match(DOOR_CSS, /:root\[data-menu="dark"\], :root\[data-menu="backdrop"\] \{ --bg: #181613/);
   assert.match(DOOR_CSS, /:root:not\(\[data-menu="light"\]\)/);
   // "Dark, over your photos": one blurred, dimmed layer behind glass cards; the section's photo travels with it.
   const backdrop = renderFrontDoor(view({ catalogue: { ...menu, banners: { Gins: "/catalogue/kibanda/sections/gins?v=0123456789ab" } }, menuStyle: "backdrop" }));
