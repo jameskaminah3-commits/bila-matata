@@ -42,46 +42,78 @@ export const ITEM_PHOTO_SIDE = 1000;
  */
 export async function squarePhoto(file: File): Promise<File> {
   const side = ITEM_PHOTO_SIDE;
+  const { canvas, context } = whiteCanvas(side, side);
+  const picture = await openPicture(file);
+  const inner = side * 0.92;
+  const scale = Math.min(inner / picture.width, inner / picture.height);
+  const w = Math.round(picture.width * scale);
+  const h = Math.round(picture.height * scale);
+  context.drawImage(picture.source, Math.round((side - w) / 2), Math.round((side - h) / 2), w, h);
+  picture.release();
+  return jpeg(canvas, file.name);
+}
+
+/** A section's banner is this size, in pixels. */
+export const BANNER_WIDTH = 1200;
+export const BANNER_HEIGHT = 480;
+
+/**
+ * A section's banner from any image the browser can open: the whole
+ * picture, never cropped or stretched, centred in a 1200 × 480 strip whose
+ * edges are a soft, darkened, blurred copy of the same picture, so it fills
+ * the banner without bars. Saved as a JPG under 900 KB.
+ */
+export async function bannerPhoto(file: File): Promise<File> {
+  const { canvas, context } = whiteCanvas(BANNER_WIDTH, BANNER_HEIGHT);
+  const picture = await openPicture(file);
+  const cover = Math.max(BANNER_WIDTH / picture.width, BANNER_HEIGHT / picture.height) * 1.15;
+  context.filter = "blur(28px) brightness(0.75)";
+  context.drawImage(picture.source, (BANNER_WIDTH - picture.width * cover) / 2, (BANNER_HEIGHT - picture.height * cover) / 2, picture.width * cover, picture.height * cover);
+  context.filter = "none";
+  const fit = Math.min(BANNER_WIDTH / picture.width, BANNER_HEIGHT / picture.height);
+  const w = Math.round(picture.width * fit);
+  const h = Math.round(picture.height * fit);
+  context.drawImage(picture.source, Math.round((BANNER_WIDTH - w) / 2), Math.round((BANNER_HEIGHT - h) / 2), w, h);
+  picture.release();
+  return jpeg(canvas, file.name);
+}
+
+function whiteCanvas(width: number, height: number) {
   const canvas = document.createElement("canvas");
-  canvas.width = side;
-  canvas.height = side;
+  canvas.width = width;
+  canvas.height = height;
   const context = canvas.getContext("2d")!;
   context.fillStyle = "#ffffff";
-  context.fillRect(0, 0, side, side);
+  context.fillRect(0, 0, width, height);
   context.imageSmoothingEnabled = true;
   context.imageSmoothingQuality = "high";
-  const draw = (source: CanvasImageSource, width: number, height: number) => {
-    const inner = side * 0.92;
-    const scale = Math.min(inner / width, inner / height);
-    const w = Math.round(width * scale);
-    const h = Math.round(height * scale);
-    context.drawImage(source, Math.round((side - w) / 2), Math.round((side - h) / 2), w, h);
-  };
-  let drawn = false;
+  return { canvas, context };
+}
+
+/** Any image the browser can open (JPG, PNG, WebP, GIF, BMP, AVIF, SVG; HEIC where the browser reads it), ready to draw. */
+async function openPicture(file: File): Promise<{ source: CanvasImageSource; width: number; height: number; release: () => void }> {
   try {
     const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
-    draw(bitmap, bitmap.width, bitmap.height);
-    bitmap.close();
-    drawn = true;
+    return { source: bitmap, width: bitmap.width, height: bitmap.height, release: () => bitmap.close() };
   } catch {
     // SVG and other kinds createImageBitmap doesn't take: through an <img>.
   }
-  if (!drawn) {
-    const url = URL.createObjectURL(file);
-    try {
-      const image = new Image();
-      image.src = url;
-      await image.decode();
-      draw(image, image.naturalWidth || side, image.naturalHeight || side);
-    } catch {
-      throw new Error("This picture can't be opened here. Save it as a JPG or PNG and choose it again.");
-    } finally {
-      URL.revokeObjectURL(url);
-    }
+  const url = URL.createObjectURL(file);
+  try {
+    const image = new Image();
+    image.src = url;
+    await image.decode();
+    return { source: image, width: image.naturalWidth || 1000, height: image.naturalHeight || 1000, release: () => URL.revokeObjectURL(url) };
+  } catch {
+    URL.revokeObjectURL(url);
+    throw new Error("This picture can't be opened here. Save it as a JPG or PNG and choose it again.");
   }
+}
+
+async function jpeg(canvas: HTMLCanvasElement, name: string): Promise<File> {
   for (const quality of [0.9, 0.85, 0.8, 0.7]) {
     const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", quality));
-    if (blob && (blob.size <= 900 * 1024 || quality === 0.7)) return new File([blob], `${file.name.replace(/\.[^.]+$/, "") || "photo"}.jpg`, { type: "image/jpeg" });
+    if (blob && (blob.size <= 900 * 1024 || quality === 0.7)) return new File([blob], `${name.replace(/\.[^.]+$/, "") || "photo"}.jpg`, { type: "image/jpeg" });
   }
   throw new Error("This picture can't be prepared here. Try another, or save it as a JPG.");
 }

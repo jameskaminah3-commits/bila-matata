@@ -105,6 +105,26 @@ test("a pasted list with sizes and a description becomes one card with a price p
   assert.match(html, /<span class="cat-name">Absolut Vodka<\/span><span class="cat-desc">Swedish, smooth<\/span><span class="cat-variants"><span class="cat-variant">750ml Bottle <b>KSh 5,000<\/b><\/span><span class="cat-variant">Shot <b>KSh 300<\/b><\/span><\/span>/);
 });
 
+test("a section opens with a banner: the business's own photo once it adds one, its colour until then", async () => {
+  const before = await (await page("/c/kibanda")).text();
+  assert.match(before, /<li class="cat-heading cat-banner" data-heading="Food"><div class="cat-banner-text"><span class="cat-banner-brand">Kibanda Lounge<\/span><h2>Food<\/h2>/);
+  const added = await fetch(`${BASE}/v1/staff/businesses/kibanda/catalogue-sections/picture?section=Food`, { method: "PUT", headers: { authorization: `Bearer ${tokens.kibanda}`, "content-type": "image/png" }, body: PNG });
+  assert.equal(added.status, 200, await added.clone().text());
+  const url = ((await added.json()) as { pictures: Record<string, string> }).pictures.food;
+  assert.match(url, /^\/catalogue\/kibanda\/sections\/food\?v=[0-9a-f]{12}$/);
+  const after = await (await page("/c/kibanda")).text();
+  assert.ok(after.includes(`<li class="cat-heading cat-banner has-picture" data-heading="Food"><img class="cat-banner-img" src="${url}" alt="" width="1200" height="480" loading="lazy" decoding="async">`), "shown at once, and only as it nears the screen");
+  const picture = await fetch(`${BASE}${url}`);
+  assert.equal(picture.status, 200);
+  assert.equal(picture.headers.get("content-type"), "image/png");
+  assert.match(picture.headers.get("cache-control") ?? "", /immutable/, "a phone downloads it once");
+  // Another business's team can't change it.
+  const other = await fetch(`${BASE}/v1/staff/businesses/kibanda/catalogue-sections/picture?section=Food`, { method: "DELETE", headers: { authorization: `Bearer ${tokens.studio}` } });
+  assert.ok(other.status === 403 || other.status === 404, String(other.status));
+  assert.equal((await staff("kibanda", "DELETE", "/catalogue-sections/picture?section=Food")).status, 200);
+  assert.doesNotMatch(await (await page("/c/kibanda")).text(), /has-picture/);
+});
+
 test("the words follow the business: a salon's services, and a page with nothing to show stays the chat", async () => {
   const salon = await (await page("/c/studio")).text();
   assert.match(salon, /data-tab="catalogue">Services &amp; Prices<\/button>/);

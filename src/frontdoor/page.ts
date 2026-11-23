@@ -79,7 +79,11 @@ function renderCatalogue(catalogue: DoorCatalogue, view: DoorView): string {
   let previous: string | null = null;
   const cards = ordered.map((item) => {
     // A heading where each section starts, in the full list ("SNACKS", "VODKA").
-    const heading = headed && item.section && item.section !== previous ? `<li class="cat-heading" data-heading="${esc(item.section)}"><h2>${esc(item.section)}</h2></li>\n` : "";
+    // Each section opens with a banner: the business's own picture for it, or one drawn in its colour; its name, and the business's.
+    const banner = item.section ? catalogue.banners?.[item.section] : undefined;
+    const heading = headed && item.section && item.section !== previous
+      ? `<li class="cat-heading cat-banner${banner ? " has-picture" : ""}" data-heading="${esc(item.section)}">${banner ? `<img class="cat-banner-img" src="${esc(banner)}" alt="" width="1200" height="480" loading="lazy" decoding="async">` : ""}<div class="cat-banner-text"><span class="cat-banner-brand">${esc(view.name)}</span><h2>${esc(item.section)}</h2></div></li>\n`
+      : "";
     previous = item.section;
     const search = [item.name, item.description, item.section, ...item.variants.map((variant) => variant.label)].filter(Boolean).join(" ").toLowerCase();
     const visual = item.picture
@@ -292,10 +296,16 @@ body { font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; 
 .cat-jump select { width: 100%; min-width: 0; text-overflow: ellipsis; min-height: 46px; padding: 0 12px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg); color: var(--ink); font: inherit; font-size: 16px; font-weight: 600; }
 .cat-jump select:focus-visible { outline: 3px solid var(--brand); outline-offset: 1px; }
 .cat-list { list-style: none; margin: 0; padding: 4px 16px 8px; }
-.cat-heading { padding: 22px 0 8px; border-bottom: 1px solid var(--line); }
-.cat-list > .cat-heading:first-child { padding-top: 10px; }
-.cat-heading h2 { display: flex; align-items: center; gap: 10px; margin: 0; font-size: .8rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: var(--ink); }
-.cat-heading h2::before { content: ""; width: 18px; height: 3px; border-radius: 2px; background: var(--brand); flex: none; }
+/* Each section opens with a banner: the business's picture for it (loaded only as it nears the screen), or its colour with a fine pattern. */
+.cat-banner { position: relative; height: 112px; margin: 18px 0 4px; border-radius: 18px; overflow: hidden; isolation: isolate;
+  background: repeating-linear-gradient(135deg, rgba(255, 255, 255, .07) 0 2px, transparent 2px 14px),
+    radial-gradient(130% 150% at 0% 0%, color-mix(in srgb, var(--brand) 85%, #ffffff), var(--brand) 45%, color-mix(in srgb, var(--brand) 55%, #000000)); }
+.cat-list > .cat-banner:first-child { margin-top: 8px; }
+.cat-banner-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: -1; }
+.cat-banner::after { content: ""; position: absolute; inset: 0; z-index: -1; background: linear-gradient(90deg, rgba(0, 0, 0, .55), rgba(0, 0, 0, .12) 75%); }
+.cat-banner-text { height: 100%; display: flex; flex-direction: column; justify-content: space-between; padding: 12px 16px 14px; color: #ffffff; }
+.cat-banner-brand { font-size: .68rem; font-weight: 700; letter-spacing: .22em; text-transform: uppercase; opacity: .88; }
+.cat-banner h2 { margin: 0; font-size: 1.4rem; font-weight: 800; line-height: 1.15; color: #ffffff; text-shadow: 0 1px 3px rgba(0, 0, 0, .45); overflow-wrap: anywhere; }
 .cat-item { border-bottom: 1px solid var(--line); }
 .cat-item:last-child { border-bottom: 0; }
 .cat-card summary { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-auto-flow: column; grid-auto-columns: auto; gap: 12px; align-items: start; padding: 14px 0; cursor: pointer; list-style: none; }
@@ -396,7 +406,7 @@ export const DOOR_JS = String.raw`(function () {
     if (none) none.hidden = shown > 0;
     headings.forEach(function (heading) {
       var name = heading.getAttribute("data-heading");
-      heading.hidden = Boolean(section) || !items.some(function (item) { return !item.hidden && item.getAttribute("data-section") === name; });
+      heading.hidden = (Boolean(section) && name !== section) || !items.some(function (item) { return !item.hidden && item.getAttribute("data-section") === name; });
     });
   }
   var jump = document.getElementById("cat-jump");

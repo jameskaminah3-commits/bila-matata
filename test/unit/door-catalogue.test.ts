@@ -83,7 +83,11 @@ test("with a catalogue, the page opens on it: cards open in place, and Zaina is 
   const html = renderFrontDoor(view({ catalogue: menu, spot: "Table 5" }));
   assert.match(html, /<div class="door has-catalogue">/);
   // Each section under one heading, its items together, in the menu's order (Food's two items, then Gins' two).
-  assert.deepEqual([...html.matchAll(/<li class="cat-heading" data-heading="([^"]+)"><h2>([^<]+)<\/h2><\/li>/g)].map((match) => match[1]), ["Food", "Gins"]);
+  assert.deepEqual([...html.matchAll(/<li class="cat-heading cat-banner[^"]*" data-heading="([^"]+)">/g)].map((match) => match[1]), ["Food", "Gins"]);
+  // Each section opens with a banner: drawn in the business's colour, with its name, until it adds a picture.
+  assert.match(html, /<li class="cat-heading cat-banner" data-heading="Food"><div class="cat-banner-text"><span class="cat-banner-brand">Kibanda Lounge<\/span><h2>Food<\/h2><\/div><\/li>/);
+  const pictured = renderFrontDoor(view({ catalogue: { ...menu, banners: { Gins: "/catalogue/kibanda/sections/gins?v=0123456789ab" } } }));
+  assert.match(pictured, /<li class="cat-heading cat-banner has-picture" data-heading="Gins"><img class="cat-banner-img" src="\/catalogue\/kibanda\/sections\/gins\?v=0123456789ab" alt="" width="1200" height="480" loading="lazy" decoding="async">/);
   assert.ok(html.indexOf("Masala chips") < html.indexOf("Sly&quot;") && html.indexOf("Sly&quot;") < html.indexOf("Tanqueray"), "a section's items stay together");
   assert.match(html, /<html lang="en">/, "the guest's phone decides light or dark by default");
   assert.match(renderFrontDoor(view({ catalogue: menu, menuStyle: "dark" })), /<html lang="en" data-menu="dark">/);

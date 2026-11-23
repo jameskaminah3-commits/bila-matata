@@ -34,6 +34,7 @@ import type { CatalogueFeed } from "../db/schema.ts";
 import { consumeLimits } from "../gateway/rate-limit.ts";
 import { refreshFeed } from "./feed.ts";
 import { checkItemPicture, ITEM_PICTURE_MAX_BYTES, readItemPicture, removeItemPicture, saveItemPicture } from "./images.ts";
+import { readSectionPicture, removeSectionPicture, saveSectionPicture, sectionPictureUrls } from "./section-images.ts";
 import { sniffImage } from "../brand/assets.ts";
 import type { EngineOptions } from "../engine/agent.ts";
 import {
@@ -122,6 +123,46 @@ export function registerPriceListRoutes(app: Express, secret: string, engine?: E
     const item = await getPriceItem(businessId, String(req.params.itemId));
     res.json({ item: item && publicPriceItem(item) });
   }));
+
+  // A section's banner picture (src/prices/section-images.ts), by the section's name: ?section=Whisky.
+  const sections = "/v1/staff/businesses/:businessId/catalogue-sections";
+  const sectionOf = (req: Request) => (typeof req.query.section === "string" ? req.query.section.trim().replace(/\s+/g, " ") : "");
+  app.get(sections, staff, requireBusinessRole("viewer"), handle(async (_req, res, businessId) => {
+    res.json({ pictures: Object.fromEntries(await sectionPictureUrls(businessId)) });
+  }));
+  app.put(`${sections}/picture`, staff, requireBusinessRole("manager"), picture, handle(async (req, res, businessId, userId) => {
+    const section = sectionOf(req);
+    if (!section || section.length > 80) return res.status(400).json({ error: "section_required", message: "Say which section the picture is for." });
+    const checked = checkItemPicture(req.body);
+    if (!checked.ok) return res.status(400).json({ error: "invalid_picture", message: checked.message });
+    await saveSectionPicture(businessId, section, checked, userId);
+    res.json({ pictures: Object.fromEntries(await sectionPictureUrls(businessId)) });
+  }));
+  app.delete(`${sections}/picture`, staff, requireBusinessRole("manager"), handle(async (req, res, businessId) => {
+    const section = sectionOf(req);
+    if (!section) return res.status(400).json({ error: "section_required", message: "Say which section." });
+    await removeSectionPicture(businessId, section);
+    res.json({ pictures: Object.fromEntries(await sectionPictureUrls(businessId)) });
+  }));
+  // The banner itself, public like the items' pictures, cached for good once its fingerprint is in the address.
+  app.get("/catalogue/:business/sections/:key", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const business = String(req.params.business);
+      if (!/^[a-z][a-z0-9-]{1,39}$/.test(business)) return res.status(404).type("text/plain").send("Not found");
+      const banner = await readSectionPicture(business, String(req.params.key));
+      if (!banner) return res.status(404).type("text/plain").send("Not found");
+      const tag = `"${banner.sha256.slice(0, 32)}"`;
+      const pinned = typeof req.query.v === "string" && req.query.v.length >= 8 && banner.sha256.startsWith(req.query.v);
+      res.setHeader("Cache-Control", pinned ? "public, max-age=31536000, immutable" : "public, max-age=300");
+      res.setHeader("ETag", tag);
+      res.setHeader("X-Content-Type-Options", "nosniff");
+      res.setHeader("Content-Security-Policy", "default-src 'none'; sandbox");
+      if (req.header("if-none-match") === tag) return res.status(304).end();
+      res.type(banner.contentType).send(banner.bytes);
+    } catch (error) {
+      next(error);
+    }
+  });
 
   app.delete(`${base}/:itemId/picture`, staff, requireBusinessRole("manager"), handle(async (req, res, businessId) => {
     await removeItemPicture(businessId, String(req.params.itemId));

@@ -19,6 +19,7 @@ import { formatMoney } from "../booking/money.ts";
 import { capabilitiesOf } from "../capabilities/catalog.ts";
 import type { Business, BusinessSettings } from "../db/schema.ts";
 import { listPriceItems, priceText } from "../prices/price-list.ts";
+import { sectionKey, sectionPictureUrls } from "../prices/section-images.ts";
 
 export type DoorVariant = { label: string; price: string | null; inStock: boolean };
 
@@ -40,7 +41,11 @@ export type DoorItem = {
   order: { verb: "order" | "book"; text: string } | null;
 };
 
-export type DoorCatalogue = { tab: string; search: string; items: DoorItem[]; sections: string[] };
+export type DoorCatalogue = {
+  tab: string; search: string; items: DoorItem[]; sections: string[];
+  /** Each section's banner picture (same origin), where the business added one. */
+  banners?: Record<string, string>;
+};
 
 type Kind = "menu" | "stays" | "services" | "catalogue";
 
@@ -139,10 +144,11 @@ export async function doorCatalogue(business: Business, settings: BusinessSettin
   if (business.businessType === "custom") return null;
   const kind = catalogueKind(business.businessType, settings?.industry);
   const takesOrders = capabilitiesOf(business, settings).includes("orders");
-  const [priceItems, offerings, booking] = await Promise.all([
+  const [priceItems, offerings, booking, pictures] = await Promise.all([
     listPriceItems(business.id, { activeOnly: true }),
     listOfferings(business.id, { activeOnly: true }),
     getBookingSettings(business.id),
+    sectionPictureUrls(business.id),
   ]);
 
   const fromList: DoorItem[] = priceItems.map((item) => ({
@@ -184,5 +190,6 @@ export async function doorCatalogue(business: Business, settings: BusinessSettin
   if (!items.length) return null;
   const sections: string[] = [];
   for (const item of items) if (item.section && !sections.includes(item.section)) sections.push(item.section);
-  return { ...CATALOGUE_WORDS[kind], items, sections };
+  const banners = Object.fromEntries(sections.flatMap((name) => (pictures.has(sectionKey(name)) ? [[name, pictures.get(sectionKey(name))!]] : [])));
+  return { ...CATALOGUE_WORDS[kind], items, sections, banners };
 }

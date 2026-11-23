@@ -10,7 +10,7 @@
 
 import { useState } from "react";
 import { api, apiUpload, businessPath } from "../api.ts";
-import { shrinkPhoto, squarePhoto } from "../photo.ts";
+import { bannerPhoto, shrinkPhoto, squarePhoto } from "../photo.ts";
 import { atLeast, type Role } from "../types.ts";
 import { Button, Empty, ErrorLine, Field, Icon, Message, Modal, useAction, useLoad } from "../ui.tsx";
 import { timeAgo } from "../format.ts";
@@ -25,6 +25,8 @@ type Parsed = { items: Array<{ section: string | null; name: string; description
 
 export function PricesPage(props: { businessId: string; role: Role; businessType: string | null }) {
   const list = useLoad(() => api<{ items: PriceItem[] }>("GET", businessPath(props.businessId, "/price-list")), [props.businessId]);
+  // Each section's banner picture on the business's page (src/prices/section-images.ts).
+  const banners = useLoad(() => api<{ pictures: Record<string, string> }>("GET", businessPath(props.businessId, "/catalogue-sections")), [props.businessId]);
   const [editing, setEditing] = useState<PriceItem | "new" | null>(null);
   const [pasting, setPasting] = useState<"text" | "photo" | null>(null);
   const action = useAction();
@@ -58,7 +60,30 @@ export function PricesPage(props: { businessId: string; role: Role; businessType
       ) : null}
       {sections.map((section) => (
         <section key={section || "none"} className="stack-tight">
-          {section ? <h2 className="section-title">{section}</h2> : null}
+          {section ? (
+            <div className="section-head">
+              <h2 className="section-title">{section}</h2>
+              {manager ? (() => {
+                const banner = banners.data?.pictures[section.trim().replace(/\s+/g, " ").toLowerCase()];
+                const path = businessPath(props.businessId, `/catalogue-sections/picture?section=${encodeURIComponent(section)}`);
+                return (
+                  <div className="section-banner">
+                    {banner ? <img className="section-banner-thumb" src={banner} alt="" loading="lazy" /> : null}
+                    <label className="button small secondary">
+                      {banner ? "Change section photo" : "Add section photo"}
+                      <input className="visually-hidden" type="file" accept="image/*" onChange={(event) => {
+                        const file = event.target.files?.[0];
+                        event.target.value = "";
+                        if (!file) return;
+                        void action.run(async () => { await apiUpload("PUT", path, await bannerPhoto(file)); await banners.reload(); }, `"${section}" has its photo on your page.`);
+                      }} />
+                    </label>
+                    {banner ? <Button small kind="ghost" onClick={() => void action.run(async () => { await api("DELETE", path); await banners.reload(); }, `"${section}" shows your colour again.`)}>Remove</Button> : null}
+                  </div>
+                );
+              })() : null}
+            </div>
+          ) : null}
           <table className="table price-table">
             <thead><tr><th>Item</th><th>Price</th>{manager ? <th><span className="visually-hidden">Actions</span></th> : null}</tr></thead>
             <tbody>
