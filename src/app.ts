@@ -4,6 +4,7 @@
 // routes and the background jobs (unclaimed handoffs, retention, rate-limit
 // counters, bookings and payments, calendars, billing).
 
+import compression from "compression";
 import { isIP } from "node:net";
 import express, { type Express, type NextFunction, type Request, type Response } from "express";
 import type { Server } from "node:http";
@@ -153,6 +154,9 @@ export function createApp(config: PlatformConfig, engine: EngineOptions, whatsap
   const app = express();
   app.disable("x-powered-by");
   app.set("trust proxy", config.trustProxy);
+  // Text goes out compressed (pages, the chat widget on every client's website, the dashboard, the API):
+  // a guest on a bar's Wi-Fi or a phone's data gets a menu a fraction of the size. Pictures and fonts are already compressed.
+  app.use(compression());
   // Behind Cloudflare, the visitor's own address is in the header Cloudflare sets (CLIENT_IP_HEADER=cf-connecting-ip).
   // Without it every visitor would look like one of Cloudflare's addresses and share one visitor's limits.
   // Only trustworthy when every request comes through Cloudflare (DEPLOY.md, section 5).

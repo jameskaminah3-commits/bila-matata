@@ -517,8 +517,9 @@ export const DOOR_JS = String.raw`(function () {
   var none = document.getElementById("cat-none");
   var headings = Array.prototype.slice.call(document.querySelectorAll(".cat-heading"));
   var section = "";
+  // What the guest chose comes into view: the bar at the top of the screen, what it shows right under it.
   function toListTop() {
-    if (pageScrolls()) scrollUp(panels.catalogue, false);
+    if (pageScrolls()) scrollUp(panels.catalogue, true);
     else panels.catalogue.scrollTop = 0;
   }
   function apply() {

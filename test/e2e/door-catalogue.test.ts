@@ -91,6 +91,7 @@ test("a lounge's page opens on its menu: sections, a search box, pictures, price
   assert.match(html, /<footer class="door-foot"><a href="https:\/\/bilamatata\.com"[^>]*>Powered by Bila Matata<\/a><\/footer>/);
   assert.match(response.headers.get("content-security-policy") ?? "", /script-src 'self'/);
   assert.match(response.headers.get("content-security-policy") ?? "", /font-src 'self'/);
+  assert.match(response.headers.get("content-encoding") ?? "", /^(br|gzip)$/, "the page goes out compressed");
   const version = html.match(/door\.js\?v=([0-9a-f]{12})/)![1];
   const script = await fetch(`${BASE}/c-assets/door.js?v=${version}`);
   assert.match(script.headers.get("cache-control") ?? "", /immutable/, "kept until the next change");

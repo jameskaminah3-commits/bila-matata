@@ -267,7 +267,8 @@ test("business cards come with an active plan: drawn for the team, with the save
   assert.equal((await staff("GET", "/front-door")).body.card.personName, "Grace Wambui", "nothing was saved");
   assert.equal((await draw({ details: { design: "neon" } })).status, 400);
 
-  // Paused, or a plan that has ended: no cards, and the team is told why.
+  // Paused, or a plan that has ended: no cards, and the team is told why. (Here a business still setting up, as one that signed itself up is.)
+  await platform.db.query(`update businesses set status = 'onboarding', went_live_at = null where id = 'other'`);
   assert.equal((await api("PATCH", "/v1/platform/businesses/other", { status: "paused" }, ops)).status, 200);
   const paused = await draw({}, "other", "other");
   assert.equal(paused.status, 402);

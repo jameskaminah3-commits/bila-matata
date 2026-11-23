@@ -110,7 +110,8 @@ export async function createBusinessWithOwner(input: {
   owner: { email: string; name: string; passwordHash: string | null };
 }): Promise<StaffUser> {
   return ownerDb().transaction(async (tx) => {
-    await tx.insert(businesses).values(input.business);
+    // The platform team's businesses are live from the start, and that start is remembered (pausing and resuming one keeps it live).
+    await tx.insert(businesses).values({ ...input.business, wentLiveAt: new Date() });
     await tx.insert(businessSettings).values({ businessId: input.business.id, displayName: input.business.name });
     const email = input.owner.email.trim().toLowerCase();
     let [owner] = await tx.select().from(staffUsers).where(eq(staffUsers.email, email)).limit(1);

@@ -104,6 +104,12 @@ test("a paused business, an unknown name and a kept name show the neutral closed
     assert.match(page.text, /This page isn't available/, host);
     assert.equal((await get(host, "/q")).status, 404, host);
   }
+  // Resumed, it's live again at once: the platform team's businesses went live when they were created.
+  const resumed = await api("PATCH", "/v1/platform/businesses/gone", { status: "active" }, ops);
+  assert.deepEqual(resumed.body, { id: "gone", status: "active" });
+  const back = await get("gone.localhost", "/");
+  assert.equal(back.status, 200);
+  assert.match(back.text, /Gone Lounge/);
   // A new business can't take a name the service keeps.
   const kept = await api("POST", "/v1/platform/businesses", { id: "www", name: "WWW", tier: "full", business_type: "general", allowed_origins: [], owner: { email: "www@example.com", name: "Owner", password: PASSWORD } }, ops);
   assert.equal(kept.status, 400);
