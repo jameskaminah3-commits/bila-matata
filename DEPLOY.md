@@ -412,27 +412,33 @@ the studio's Google account:
 ## 11. WhatsApp: Zaina on a client's WhatsApp number
 
 The platform answers WhatsApp through each client's own WhatsApp Business
-number, on the official WhatsApp Business Platform (run by Meta). At
-**developers.facebook.com**, signed in with the studio's Facebook account
+number, on the official WhatsApp Business Platform (run by Meta). Follow the
+**WhatsApp set-up** card on the console's Platform page as you go: each step
+turns green when the platform sees Meta do its part.
+
+At **developers.facebook.com**, signed in with the studio's Facebook account
 linked to its Meta Business portfolio:
 
-1. **Create an app**: *My Apps → Create app*, type **Business**, name `Bila
-   Matata`, and connect the studio's business portfolio.
-2. **Add WhatsApp**: on the app's dashboard, *Add product → WhatsApp → Set
-   up*. Meta gives you a free **test number** to try it with.
-3. **App settings → Basic**: copy the **App ID** and the **App secret**
-   (*Show*). Set *Privacy policy URL* and *Terms of service URL* to
-   `https://bilamatata.com/terms`, *App domains* `bilamatata.com`. Save.
-4. **Railway → Variables**, then deploy:
+1. **Create an app**: *My Apps → Create app*, use case **Connect with
+   customers through WhatsApp** (type *Business*), name `Bila Matata`, and
+   connect the studio's business portfolio.
+2. **App settings → Basic**: copy the **App ID** and the **App secret**
+   (*Show*). Set *Privacy policy URL* `https://bilamatata.com/privacy`,
+   *Terms of service URL* `https://bilamatata.com/terms`, *User data deletion*
+   `https://bilamatata.com/data-deletion`, *App domains* `bilamatata.com`,
+   an app icon and the category. Save.
+3. **Railway → Variables**, then let it deploy:
    ```
    WHATSAPP_APP_SECRET=<the app secret>
    WHATSAPP_VERIFY_TOKEN=<a long random phrase you make up, 16+ characters>
    ```
-5. **The webhook**: *WhatsApp → Configuration → Webhook → Edit*: callback URL
-   `https://bilamatata.com/v1/whatsapp/webhook`, verify token: the same
-   phrase → *Verify and save* (the service must be deployed with it first).
-   Then under *Webhook fields*, **subscribe to `messages`**.
-6. **Connect a client's number** (Settings → WhatsApp in their dashboard):
+   The Platform page now shows WhatsApp **On** and the set-up card.
+4. **The webhook**: *WhatsApp → Configuration → Webhook → Edit*: callback URL
+   `https://bilamatata.com/v1/whatsapp/webhook` (shown on the card), verify
+   token: the same phrase → *Verify and save*. The card's second step turns
+   green. Then under *Webhook fields*, **subscribe to `messages`** and press
+   *Test* beside it: the third step turns green.
+5. **Connect a client's number** (Settings → WhatsApp in their dashboard):
    - **By hand** (works now): in their WhatsApp Business account the client
      (or you, with them) creates a *System user* with the
      `whatsapp_business_messaging` and `whatsapp_business_management`
@@ -447,15 +453,15 @@ linked to its Meta Business portfolio:
      (type *WhatsApp Embedded Signup*), and set
      `WHATSAPP_APP_ID=<app id>` and `WHATSAPP_CONFIG_ID=<configuration id>`.
      The button then appears in Settings → WhatsApp.
-7. **Go live**: switch the app from *Development* to **Live** (top bar) once
-   the privacy URL is set. Send a WhatsApp message to the connected number
-   and watch it arrive in that business's Inbox.
+6. **Go live**: switch the app from *Development* to **Live** (top bar). Send
+   a WhatsApp message to the connected number and watch it arrive in that
+   business's Inbox, with Zaina's answer.
 
 ## Optional, later
 
 | What | Variables |
 |---|---|
-| Alerts on staff phones | `WEB_PUSH_PUBLIC_KEY`, `WEB_PUSH_PRIVATE_KEY`, `WEB_PUSH_SUBJECT` (`npx web-push generate-vapid-keys`) |
+| Alerts on staff phones | Nothing to set: the platform makes its own key pair the first time it starts and keeps it sealed in the database. To use your own instead: `WEB_PUSH_PUBLIC_KEY`, `WEB_PUSH_PRIVATE_KEY` (`npx web-push generate-vapid-keys`); `WEB_PUSH=off` turns alerts off |
 | Businesses signing up by themselves | `PLATFORM_SIGNUP=open` (needs email), `PLATFORM_TERMS_URL=https://bilamatata.com/terms` |
 | A stronger AI model for Zaina | `ZAINA_MODEL=<model id>`. The default is the fast, low-cost "lite" model. A larger model in the same family reasons better (smarter recommendations, fewer missed details) and costs more per conversation: try one on staging and compare real chats before changing it for everyone |
 | A cheaper model near the daily budget | On by default: once a business has used 80% of its daily AI budget, Zaina answers with `gemini-3.5-flash-lite` for the rest of the day instead of stopping at the cap. Change the model with `ZAINA_SAVER_MODEL=<model id>` (or `off`), and the point with `ZAINA_SAVER_AT_PERCENT=<1-100>`. Cost reports price every turn at `MODEL_PRICE_*`, so they overstate days that switched |

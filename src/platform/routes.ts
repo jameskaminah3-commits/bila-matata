@@ -40,6 +40,8 @@ import { sendEmail } from "./mailer.ts";
 import { requirePlatformAdmin, requireStaff } from "../staff/auth.ts";
 import { addedEmail, canEmailLinks, inviteEmail, passwordLink, passwordLinkToken, unknownPassword } from "../staff/password-links.ts";
 import { hashPassword, passwordProblem } from "../staff/passwords.ts";
+import { signals } from "./platform-state.ts";
+import { WEBHOOK_PATH } from "../channels/whatsapp/routes.ts";
 
 export const DEFAULT_DAILY_TOKEN_CAP = 5_000_000;
 const ADMIN_AS_OWNER = "That's a Bila Matata admin's account. Use the business owner's own email: admins already reach every business from Bila Matata → Businesses.";
@@ -186,10 +188,20 @@ export function registerPlatformRoutes(app: Express, config: PlatformConfig): vo
           } : null,
         };
       }, business.id))));
+      const seen = config.whatsapp ? await signals() : {};
       res.json({
         businesses: rows,
         platform: {
           whatsapp: Boolean(config.whatsapp),
+          // Each step of WhatsApp's set-up, as far as the platform can see it.
+          whatsapp_setup: config.whatsapp ? {
+            webhook_url: config.publicBaseUrl ? `${config.publicBaseUrl}${WEBHOOK_PATH}` : null,
+            verified_at: seen.whatsapp_verified ?? null,
+            last_delivery_at: seen.whatsapp_delivery ?? null,
+            one_click: Boolean(config.whatsapp.embeddedSignup),
+            graph_version: config.whatsapp.graphVersion,
+            numbers: rows.filter((row) => row.whatsapp).length,
+          } : null,
           web_push: Boolean(config.webPush),
           alert_email: Boolean(config.alertEmail),
           public_base_url: config.publicBaseUrl,

@@ -163,7 +163,9 @@ function webPushConfig(env: NodeJS.ProcessEnv): WebPushConfig | null {
   const privateKey = env.WEB_PUSH_PRIVATE_KEY?.trim();
   if (!publicKey && !privateKey) return null;
   if (!publicKey || !privateKey) throw new Error("Set both WEB_PUSH_PUBLIC_KEY and WEB_PUSH_PRIVATE_KEY, or neither");
-  const subject = env.WEB_PUSH_SUBJECT?.trim() || "mailto:alerts@example.com";
+  // Push services (Apple's among them) may refuse a placeholder: the platform's own https:// address by default.
+  const site = env.PUBLIC_BASE_URL?.trim();
+  const subject = env.WEB_PUSH_SUBJECT?.trim() || (site?.startsWith("https://") ? new URL(site).origin : "mailto:alerts@example.com");
   if (!/^(mailto:|https:\/\/)/.test(subject)) throw new Error("WEB_PUSH_SUBJECT is a mailto: or https:// address");
   return { publicKey, privateKey, subject };
 }

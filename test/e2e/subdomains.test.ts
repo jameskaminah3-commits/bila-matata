@@ -115,3 +115,15 @@ test("a paused business, an unknown name and a kept name show the neutral closed
   assert.equal(kept.status, 400);
   assert.equal(kept.body.error, "reserved_id");
 });
+
+test("alerts on phones work with nothing to set: the platform makes its own push keys once, kept sealed", async () => {
+  // This platform started without WEB_PUSH_*: it made a key pair, its private half sealed, and hands phones the public one.
+  const token = (await api("POST", "/v1/staff/login", { email: "clubxo@example.com", password: PASSWORD })).body.token;
+  const me = await api("GET", "/v1/console/me", undefined, token);
+  assert.match(me.body.push.public_key, /^[A-Za-z0-9_-]{80,90}$/);
+  const row = (await platform.db.query("select public_value, ciphertext from platform_keys where name = 'web_push'")).rows[0];
+  assert.equal(row.public_value, me.body.push.public_key);
+  assert.ok(!row.ciphertext.toString("latin1").includes(row.public_value), "the private half is sealed");
+  const overview = await api("GET", "/v1/platform/overview", undefined, ops);
+  assert.equal(overview.body.platform.web_push, true);
+});

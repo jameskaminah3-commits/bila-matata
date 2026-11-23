@@ -42,7 +42,10 @@ type Overview = {
     last_activity_at: string | null;
     whatsapp: boolean;
   }>;
-  platform: { whatsapp: boolean; web_push: boolean; alert_email: boolean; public_base_url: string | null };
+  platform: {
+    whatsapp: boolean; web_push: boolean; alert_email: boolean; public_base_url: string | null;
+    whatsapp_setup: { webhook_url: string | null; verified_at: string | null; last_delivery_at: string | null; one_click: boolean; graph_version: string; numbers: number } | null;
+  };
 };
 type Attention = { support_open: number; studio_invoices_open: number; project_requests_new: number; site_chats_waiting: number; studio_business_id: string };
 type Subscriptions = { subscriptions: Array<{ business_id: string; plan_id: string; plan_name: string; status: string }> };
@@ -133,16 +136,45 @@ function OverviewTab(props: { attention: Attention | null; error: string | null 
           <ul className="check-list">
             <li><Switched on={Boolean(platform.public_base_url)} /> Site address {platform.public_base_url ? <span className="muted">({platform.public_base_url})</span> : <span className="muted">(set PUBLIC_BASE_URL)</span>}</li>
             <li><Switched on={platform.alert_email} /> Email: receipts, invitations, alerts and support replies {platform.alert_email ? null : <span className="muted">(set RESEND_API_KEY and ALERT_FROM_EMAIL)</span>}</li>
-            <li><Switched on={platform.web_push} /> Alerts on phones {platform.web_push ? null : <span className="muted">(set the WEB_PUSH keys)</span>}</li>
-            <li><Switched on={platform.whatsapp} /> WhatsApp {platform.whatsapp ? null : <span className="muted">(set the WHATSAPP keys)</span>}</li>
+            <li><Switched on={platform.web_push} /> Alerts on phones {platform.web_push ? null : <span className="muted">(off: WEB_PUSH=off is set)</span>}</li>
+            <li><Switched on={platform.whatsapp} /> WhatsApp {platform.whatsapp ? null : <span className="muted">(set WHATSAPP_APP_SECRET and WHATSAPP_VERIFY_TOKEN)</span>}</li>
           </ul>
         </div>
       ) : null}
+      {platform?.whatsapp_setup ? <WhatsappSetup setup={platform.whatsapp_setup} /> : null}
     </section>
   );
 }
 
-const Switched = (props: { on: boolean }) => (props.on
+/** WhatsApp's set-up, step by step, as far as the platform can see it: each step turns green when Meta has done its part. */
+function WhatsappSetup(props: { setup: NonNullable<Overview["platform"]["whatsapp_setup"]> }) {
+  const { setup } = props;
+  const when = (at: string | null) => (at ? new Date(at).toLocaleString() : null);
+  return (
+    <div className="card">
+      <h3>WhatsApp set-up</h3>
+      <ol className="check-list">
+        <li><Switched on /> The Meta app's secret and the verify token are set</li>
+        <li>
+          <Switched on={Boolean(setup.verified_at)} /> Meta verified the webhook{" "}
+          {setup.verified_at ? <span className="muted">({when(setup.verified_at)})</span> : (
+            <span className="muted">: in the Meta app, WhatsApp → Configuration → Webhook, callback URL <code>{setup.webhook_url ?? "(set PUBLIC_BASE_URL)"}</code> and your verify token, then Verify and save</span>
+          )}
+        </li>
+        <li>
+          <Switched on={Boolean(setup.last_delivery_at)} /> Meta delivers messages{" "}
+          {setup.last_delivery_at ? <span className="muted">(last {when(setup.last_delivery_at)})</span> : (
+            <span className="muted">: subscribe the webhook to <code>messages</code>, then press Test beside it, or message a connected number</span>
+          )}
+        </li>
+        <li><Switched on={setup.numbers > 0} /> Numbers connected: {setup.numbers} {setup.numbers ? null : <span className="muted">(each business connects its own under Settings → WhatsApp)</span>}</li>
+        <li><Switched on={setup.one_click} /> "Connect with Facebook" in one click {setup.one_click ? null : <span className="muted">(later: after Meta approves the app as a Tech Provider, set WHATSAPP_APP_ID and WHATSAPP_CONFIG_ID)</span>}</li>
+      </ol>
+    </div>
+  );
+}
+
+const Switched = (props: { on?: boolean }) => (props.on
   ? <span className="status good"><Icon name="check" size={13} />On</span>
   : <span className="status warning"><Icon name="alert" size={13} />Off</span>);
 

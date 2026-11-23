@@ -31,6 +31,7 @@ import { acceptDelivery, scheduleAnswer } from "./inbound.ts";
 import { connectionFor, disconnect, getNumber, PIN_SECRET, saveConnection } from "./numbers.ts";
 import { requestDelivery } from "./runtime.ts";
 import { validSignature, verificationChallenge } from "./webhook.ts";
+import { signal } from "../../platform/platform-state.ts";
 
 export const WEBHOOK_PATH = "/v1/whatsapp/webhook";
 
@@ -41,6 +42,7 @@ export function registerWhatsappRoutes(app: Express, config: PlatformConfig, ctx
     if (!ctx) return res.status(404).json({ error: "not_found" });
     const challenge = verificationChallenge(req.query as Record<string, unknown>, ctx.whatsapp.verifyToken);
     if (!challenge) return res.status(403).json({ error: "verification_failed" });
+    signal("whatsapp_verified");
     res.type("text/plain").send(challenge);
   });
 
@@ -52,6 +54,7 @@ export function registerWhatsappRoutes(app: Express, config: PlatformConfig, ctx
         console.warn("[whatsapp] refused a webhook delivery without a valid signature");
         return res.status(401).json({ error: "invalid_signature" });
       }
+      signal("whatsapp_delivery");
       let payload: unknown;
       try {
         payload = JSON.parse(raw.toString("utf8"));

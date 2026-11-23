@@ -4,6 +4,7 @@
 //
 //   GET  /                         the home page (with the studio's own Zaina)
 //   GET  /terms                    terms of service and privacy
+//   GET  /privacy, /data-deletion  the privacy section of /terms (the addresses Meta's app settings ask for)
 //   GET  /site/site.css, /site/site.js, /site/favicon.svg, /site/og.png, /site/og-zaina.png
 //   GET  /robots.txt, /sitemap.xml
 //
@@ -138,6 +139,7 @@ export function registerStudioRoutes(app: Express, config: PlatformConfig): void
     pageHeaders(res, { cache: true, index: true });
     res.type("html").send(renderHome(pageOf(req)));
   });
+  app.get(["/privacy", "/data-deletion"], (_req: Request, res: Response) => res.redirect(301, "/terms#privacy"));
   app.get("/terms", (req: Request, res: Response) => {
     pageHeaders(res, { cache: true, index: true });
     res.type("html").send(renderTerms(pageOf(req)));

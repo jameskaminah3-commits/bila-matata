@@ -215,7 +215,8 @@ test("WhatsApp, phone alerts and alert emails are each on only when fully config
   assert.deepEqual(loadConfig({ ...whatsapp, WHATSAPP_APP_ID: "1234567890123", WHATSAPP_CONFIG_ID: "9876543210987" }).whatsapp?.embeddedSignup, { appId: "1234567890123", configId: "9876543210987" });
   assert.throws(() => loadConfig({ ...whatsapp, WHATSAPP_APP_ID: "1234567890123" }), /WHATSAPP_CONFIG_ID/);
   assert.throws(() => loadConfig({ ...whatsapp, WHATSAPP_APP_ID: "my-app", WHATSAPP_CONFIG_ID: "9876543210987" }), /long numbers/);
-  assert.equal(on.webPush?.subject, "mailto:alerts@example.com");
+  // Push services may refuse a placeholder sender: the site's own address when it has one.
+  assert.equal(on.webPush?.subject, "https://zaina.example.com");
   assert.deepEqual(on.alertEmail, { resendApiKey: "re_x", from: "alerts@example.com" });
   assert.equal(on.publicBaseUrl, "https://zaina.example.com");
   assert.throws(() => loadConfig({ ...base, WHATSAPP_APP_SECRET: "secret" }), /both/);

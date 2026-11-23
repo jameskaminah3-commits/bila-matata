@@ -564,7 +564,12 @@ test("the platform overview shows every business's day, and only to platform adm
   assert.ok(acme.tokens_today > 0);
   assert.equal(acme.daily_token_cap, 5_000_000);
   assert.ok(acme.chats_7d >= 8);
-  assert.deepEqual(overview.body.platform, { whatsapp: true, web_push: true, alert_email: true, public_base_url: `http://127.0.0.1:${PORT}` });
+  const { whatsapp_setup: setup, ...switched } = overview.body.platform;
+  assert.deepEqual(switched, { whatsapp: true, web_push: true, alert_email: true, public_base_url: `http://127.0.0.1:${PORT}` });
+  // WhatsApp's set-up as the platform saw it: Meta verified the webhook and delivered (earlier in this file), one number connected.
+  assert.equal(setup.webhook_url, `http://127.0.0.1:${PORT}/v1/whatsapp/webhook`);
+  assert.ok(setup.verified_at && setup.last_delivery_at, JSON.stringify(setup));
+  assert.deepEqual([setup.numbers, setup.one_click, setup.graph_version], [1, false, "v23.0"]);
   const beta = overview.body.businesses.find((business: any) => business.id === "beta");
   assert.equal(beta.whatsapp, false);
   assert.equal(beta.chats_7d, 0, "nothing of Acme's counted for Beta");

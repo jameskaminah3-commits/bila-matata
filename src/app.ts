@@ -5,6 +5,7 @@
 // counters, bookings and payments, calendars, billing).
 
 import compression from "compression";
+import { ensureWebPushKeys } from "./platform/platform-state.ts";
 import { isIP } from "node:net";
 import express, { type Express, type NextFunction, type Request, type Response } from "express";
 import type { Server } from "node:http";
@@ -361,6 +362,7 @@ export async function startServer(config: PlatformConfig): Promise<{ server: Ser
     throw explainConnectionError(error);
   }
   setSecretKeys(loadSecretKeys());
+  await ensureWebPushKeys(config);
   setExtraAllowedOrigins((process.env.EXTRA_ALLOWED_ORIGINS ?? "").split(","));
 
   const engine: EngineOptions = {

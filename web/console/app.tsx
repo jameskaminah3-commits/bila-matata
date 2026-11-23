@@ -28,7 +28,7 @@ import { TeamPage } from "./pages/team.tsx";
 import { ChoosePassword, ForgotPassword } from "./pages/password.tsx";
 import { ResendLink, SignUp, type SignupConfig } from "./pages/signup.tsx";
 import { SetupPage } from "./pages/setup.tsx";
-import { alertsSupported, currentSubscription, turnAlertsOff, turnAlertsOn } from "./push.ts";
+import { alertsSupported, currentSubscription, keepAlertsWorking, turnAlertsOff, turnAlertsOn } from "./push.ts";
 import { atLeast, booksOfType, type Me, type OfferView, type Role } from "./types.ts";
 import { Button, Field, Icon, Message, Modal, Toggle, useAction, useEvery, useLoad } from "./ui.tsx";
 
@@ -76,7 +76,9 @@ export function App() {
 
   const loadMe = useCallback(async () => {
     try {
-      setMe(await api<Me>("GET", "/v1/console/me"));
+      const signedIn = await api<Me>("GET", "/v1/console/me");
+      setMe(signedIn);
+      void keepAlertsWorking(signedIn.push.public_key).catch(() => {});
     } catch {
       setMe(null);
     }

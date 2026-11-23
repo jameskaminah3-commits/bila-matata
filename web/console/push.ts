@@ -23,14 +23,37 @@ function keyBytes(base64url: string): Uint8Array {
   return Uint8Array.from(atob(padded), (char) => char.charCodeAt(0));
 }
 
+/** This device's subscription for the platform's current key: one made with an older key can't receive alerts any more, so it's replaced. */
+async function subscribe(worker: ServiceWorkerRegistration, publicKey: string): Promise<PushSubscription> {
+  const wanted = keyBytes(publicKey);
+  const existing = await worker.pushManager.getSubscription();
+  const held = existing?.options.applicationServerKey ? new Uint8Array(existing.options.applicationServerKey) : null;
+  if (existing && held && held.length === wanted.length && held.every((byte, index) => byte === wanted[index])) return existing;
+  if (existing) await existing.unsubscribe();
+  return worker.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: wanted });
+}
+
+async function register(subscription: PushSubscription): Promise<void> {
+  const json = subscription.toJSON();
+  await api("POST", "/v1/console/push-subscriptions", { endpoint: json.endpoint, keys: json.keys });
+}
+
 export async function turnAlertsOn(publicKey: string): Promise<void> {
   const permission = await Notification.requestPermission();
   if (permission !== "granted") throw new Error("Notifications weren't allowed.");
+  await register(await subscribe(await registration(), publicKey));
+}
+
+/**
+ * On opening the console: a device that has alerts on keeps them working,
+ * quietly, if the platform's key changed or the browser renewed its
+ * subscription. Never asks for permission.
+ */
+export async function keepAlertsWorking(publicKey: string | null): Promise<void> {
+  if (!publicKey || !alertsSupported() || Notification.permission !== "granted") return;
   const worker = await registration();
-  const subscription = (await worker.pushManager.getSubscription())
-    ?? await worker.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: keyBytes(publicKey) });
-  const json = subscription.toJSON();
-  await api("POST", "/v1/console/push-subscriptions", { endpoint: json.endpoint, keys: json.keys });
+  if (!(await worker.pushManager.getSubscription())) return;
+  await register(await subscribe(worker, publicKey));
 }
 
 export async function turnAlertsOff(): Promise<void> {
