@@ -796,3 +796,21 @@ a.card.customer-row:hover { border-color: var(--brand); }
 /* Outreach. */
 .offer-suggestion { justify-content: space-between; }
 .campaign-preview { grid-column: 1 / -1; margin-top: 6px; }
+
+/* Brand: the lettering choices, each showing the business's name in its face (the page's own fonts, loaded only here). */
+@font-face { font-family: "Door classic"; src: url(/c-assets/title-classic.woff2) format("woff2"); font-weight: 100 900; font-display: swap; }
+@font-face { font-family: "Door roman"; src: url(/c-assets/title-roman.woff2) format("woff2"); font-weight: 100 900; font-display: swap; }
+@font-face { font-family: "Door elegant"; src: url(/c-assets/title-elegant.woff2) format("woff2"); font-weight: 100 900; font-display: swap; }
+@font-face { font-family: "Door modern"; src: url(/c-assets/title-modern.woff2) format("woff2"); font-weight: 100 900; font-display: swap; }
+.lettering { grid-template-columns: repeat(2, minmax(0, 1fr)); max-width: 720px; }
+@media (max-width: 560px) { .lettering { grid-template-columns: minmax(0, 1fr); } }
+.lettering legend { grid-column: 1 / -1; }
+.lettering-option { position: relative; display: grid; gap: 6px; padding: 14px 16px 14px 44px; border: 1px solid var(--line); border-radius: 12px; cursor: pointer; min-width: 0; }
+.lettering-option input { position: absolute; left: 16px; top: 18px; width: 18px; height: 18px; margin: 0; accent-color: var(--brand); }
+.lettering-option.on { border-color: var(--brand); box-shadow: 0 0 0 1px var(--brand); }
+.title-sample { font-size: 24px; line-height: 1.2; overflow-wrap: anywhere; font-synthesis: none; }
+.title-classic { font-family: "Door classic", Georgia, serif; font-weight: 700; }
+.title-roman { font-family: "Door roman", Georgia, serif; font-weight: 600; font-size: 20px; letter-spacing: .03em; }
+.title-elegant { font-family: "Door elegant", Georgia, serif; font-weight: 600; font-size: 28px; }
+.title-modern { font-family: "Door modern", system-ui, sans-serif; font-weight: 600; font-size: 22px; }
+.lettering-note { font-size: 13px; color: var(--muted); }

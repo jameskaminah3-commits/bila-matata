@@ -12,7 +12,7 @@
 import { createHash } from "node:crypto";
 import { readableOn } from "../brand/assets.ts";
 import type { DoorCatalogue } from "./catalogue.ts";
-import { DISPLAY_FONT_VERSION } from "./display-font.ts";
+import { TITLE_FONTS, TITLE_FONT_KEYS, type TitleFont } from "./title-fonts.ts";
 
 const esc = (value: string) => value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
@@ -24,6 +24,8 @@ export type DoorView = {
   menuStyle?: "auto" | "light" | "dark" | "backdrop";
   /** The logo already spells the name: shown large as the heading, the name kept for screen readers. */
   logoHasName?: boolean;
+  /** The lettering of the name and section titles (classic unless the business chose another). */
+  titleFont?: TitleFont;
   assistant: string;
   role: string;
   color: string;
@@ -144,9 +146,10 @@ export function renderFrontDoor(view: DoorView): string {
   ].filter(Boolean).join("");
   const orders = view.catalogue?.items.some((item) => item.order?.verb === "order") ?? false;
   const wordmark = Boolean(view.logoHasName && view.logoUrl);
+  const font: TitleFont = view.titleFont && TITLE_FONT_KEYS.includes(view.titleFont) ? view.titleFont : "classic";
   const spot = view.catalogue && view.spot ? `<p class="door-spot">${ICONS.pin}<span>You're at <strong>${esc(view.spot)}</strong>.${orders ? " Anything you order here is brought to you." : ""}</span></p>` : "";
   return `<!doctype html>
-<html lang="en"${view.menuStyle && view.menuStyle !== "auto" ? ` data-menu="${view.menuStyle}"` : ""}>
+<html lang="en"${view.menuStyle && view.menuStyle !== "auto" ? ` data-menu="${view.menuStyle}"` : ""}${font === "classic" ? "" : ` data-title="${font}"`}>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -158,7 +161,7 @@ export function renderFrontDoor(view: DoorView): string {
 <meta property="og:description" content="${esc(description)}">
 <meta property="og:type" content="website">
 ${view.logoUrl ? `<meta property="og:image" content="${esc(view.logoUrl)}">\n<link rel="icon" href="${esc(view.logoUrl)}">` : `<link rel="icon" href="/site/zaina.svg" type="image/svg+xml">`}
-<link rel="preload" href="/c-assets/display.woff2?v=${DISPLAY_FONT_VERSION}" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/c-assets/title-${font}.woff2?v=${TITLE_FONTS[font].version}" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/c-assets/door.css?v=${DOOR_ASSETS_VERSION}">
 <link rel="stylesheet" href="/c/${id}/brand.css?v=${esc(view.brandVersion)}">
 </head>
@@ -224,13 +227,13 @@ export function brandCss(color: string): string {
 }
 
 export const DOOR_CSS = String.raw`
-@font-face { font-family: "Door Display"; src: url(/c-assets/display.woff2?v=${DISPLAY_FONT_VERSION}) format("woff2"); font-weight: 700; font-style: normal; font-display: swap; }
+${TITLE_FONT_KEYS.map((key) => `@font-face { font-family: "Door ${key}"; src: url(/c-assets/title-${key}.woff2?v=${TITLE_FONTS[key].version}) format("woff2"); font-weight: 100 900; font-style: normal; font-display: swap; }`).join("\n")}
 :root { --brand: #0f766e; --on-brand: #ffffff; --bg: #faf8f4; --surface: #ffffff; --ink: #1c1a17; --muted: #6b645a; --line: #e8e2d7; --alert: #b42318;
   --mark: color-mix(in srgb, var(--brand) 78%, var(--ink)); --tint: color-mix(in srgb, var(--brand) 8%, var(--bg)); --sheet: var(--surface);
   --hero: color-mix(in srgb, var(--brand) 6%, var(--bg)); --hero-glow: color-mix(in srgb, var(--brand) 16%, var(--bg));
   --hero-ink: var(--ink); --hero-soft: var(--muted); --hero-veil: color-mix(in srgb, var(--ink) 4%, transparent); --hero-edge: color-mix(in srgb, var(--ink) 14%, transparent);
   --foil-top: var(--ink); --foil-bottom: color-mix(in srgb, var(--brand) 60%, var(--ink)); --hero-rule: var(--mark);
-  --display: "Door Display", "Playfair Display", Georgia, "Times New Roman", serif; --tabs-h: 50px;
+  --display: "Door classic", "Playfair Display", Georgia, "Times New Roman", serif; --title-scale: 1; --title-track: -.005em; --title-weight: 700; --tabs-h: 50px;
   --chip: var(--ink); --chip-ink: var(--sheet); --pill: var(--ink); --pill-ink: var(--sheet); --pill-line: transparent; color-scheme: light; }
 @media (prefers-color-scheme: dark) {
   :root:not([data-menu="light"]) { --bg: #181613; --surface: #211e1a; --ink: #f4f0e9; --muted: #b0a79b; --line: #35302a; --alert: #ff8f80; --mark: color-mix(in srgb, var(--brand) 62%, #ffffff);
@@ -244,6 +247,10 @@ export const DOOR_CSS = String.raw`
     --hero-ink: #ffffff; --hero-soft: rgba(255, 255, 255, .78); --hero-veil: rgba(255, 255, 255, .1); --hero-edge: rgba(255, 255, 255, .18);
     --foil-top: #ffffff; --foil-bottom: color-mix(in srgb, var(--brand) 42%, #ffffff); --hero-rule: color-mix(in srgb, var(--brand) 60%, #ffffff);
     --chip: var(--mark); --chip-ink: #181613; --pill: #1d1a16; --pill-ink: #f4f0e9; --pill-line: color-mix(in srgb, var(--brand) 50%, transparent); color-scheme: dark; }
+/* The lettering the business chose, each set to sit at the same visual size. */
+:root[data-title="roman"] { --display: "Door roman", Cinzel, "Trajan Pro", Georgia, serif; --title-scale: .88; --title-track: .03em; --title-weight: 600; }
+:root[data-title="elegant"] { --display: "Door elegant", "Cormorant Garamond", Garamond, Georgia, serif; --title-scale: 1.16; --title-track: 0em; --title-weight: 600; }
+:root[data-title="modern"] { --display: "Door modern", Jost, Futura, "Century Gothic", system-ui, sans-serif; --title-scale: .92; --title-track: .01em; --title-weight: 600; }
 * { box-sizing: border-box; }
 html, body { height: 100%; margin: 0; }
 body { font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: var(--ink); background: var(--tint); -webkit-font-smoothing: antialiased; -webkit-tap-highlight-color: transparent; }
@@ -255,12 +262,12 @@ body { font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; 
 .door-logo { width: 72px; height: 72px; flex: none; border-radius: 20px; overflow: hidden; background: var(--surface); border: 1px solid var(--line); display: grid; place-items: center;
   box-shadow: 0 8px 22px -14px rgba(0, 0, 0, .5); }
 .door-logo img { width: 100%; height: 100%; object-fit: contain; display: block; }
-.door-logo.letters { background: var(--brand); color: var(--on-brand); border-color: transparent; font-family: var(--display); font-weight: 700; font-size: 1.6rem; }
+.door-logo.letters { background: var(--brand); color: var(--on-brand); border-color: transparent; font-family: var(--display); font-weight: var(--title-weight); font-synthesis: none; font-size: calc(1.6rem * var(--title-scale)); }
 .door-name { min-width: 0; }
 /* A logo that spells the name is the heading itself: large, on no plate of ours. */
 .has-wordmark .door-brand { flex-direction: column; align-items: flex-start; }
 .has-wordmark .door-logo { width: 168px; height: 168px; border-radius: 28px; border: 0; background: transparent; }
-.door-name h1 { margin: 0; font-family: var(--display); font-weight: 700; font-size: clamp(1.6rem, 1.1rem + 1.8vw, 2.5rem); line-height: 1.1; letter-spacing: -.01em; text-wrap: balance; overflow-wrap: anywhere; }
+.door-name h1 { margin: 0; font-family: var(--display); font-weight: var(--title-weight); font-synthesis: none; font-size: calc(clamp(1.6rem, 1.1rem + 1.8vw, 2.5rem) * var(--title-scale)); line-height: 1.1; letter-spacing: var(--title-track); text-wrap: balance; overflow-wrap: anywhere; }
 .door-name p { margin: 6px 0 0; color: var(--muted); font-size: 1.05rem; overflow-wrap: anywhere; }
 .door-spot { margin: 0; align-self: flex-start; display: flex; gap: 8px; align-items: center; padding: 10px 14px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); font-size: .92rem; max-width: 46ch; }
 .door-spot svg { color: var(--mark); flex: none; }
@@ -280,7 +287,7 @@ body { font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; 
 .door-chat.ready .door-loading { display: none; }
 .door.closed { display: grid; grid-template-columns: 1fr; place-items: center; }
 .door-closed { max-width: 46ch; text-align: center; }
-.door-closed h1 { font-family: var(--display); font-size: 1.7rem; margin: 0 0 10px; }
+.door-closed h1 { font-family: var(--display); font-weight: var(--title-weight); font-synthesis: none; font-size: calc(1.7rem * var(--title-scale)); margin: 0 0 10px; }
 .door-closed p { color: var(--muted); margin: 0; }
 .visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .door-foot { grid-column: 1 / -1; text-align: center; font-size: .78rem; padding: 4px 0 0; }
@@ -325,7 +332,7 @@ body { font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; 
 .cat-list { list-style: none; margin: 0; padding: 0 20px 12px; }
 .cat-heading { padding: 34px 0 6px; text-align: center; }
 .cat-list > .cat-heading:first-child { padding-top: 24px; }
-.cat-heading h2 { margin: 0; font-family: var(--display); font-weight: 700; font-size: 1.7rem; line-height: 1.15; color: var(--ink); text-wrap: balance; overflow-wrap: anywhere; }
+.cat-heading h2 { margin: 0; font-family: var(--display); font-weight: var(--title-weight); font-synthesis: none; font-size: calc(1.7rem * var(--title-scale)); letter-spacing: var(--title-track); line-height: 1.15; color: var(--ink); text-wrap: balance; overflow-wrap: anywhere; }
 .cat-heading h2::after { content: ""; display: block; width: 28px; height: 2px; margin: 12px auto 0; border-radius: 2px; background: var(--mark); }
 /* A section with the business's own photo for it: the whole photo, its name over it. */
 .cat-banner.has-picture { position: relative; aspect-ratio: 5 / 2; margin: 28px -4px 8px; padding: 0; border-radius: 18px; overflow: hidden; isolation: isolate; text-align: left; background: #111111; }
@@ -334,7 +341,7 @@ body { font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; 
 .cat-banner.has-picture::after { content: ""; position: absolute; inset: 0; z-index: -1; background: linear-gradient(0deg, rgba(0, 0, 0, .72), rgba(0, 0, 0, .08) 72%); }
 .cat-banner-text { height: 100%; display: flex; flex-direction: column; justify-content: flex-end; gap: 2px; padding: 14px 18px; color: #ffffff; }
 .cat-banner-brand { font-size: .66rem; font-weight: 700; letter-spacing: .24em; text-transform: uppercase; opacity: .85; }
-.cat-banner.has-picture h2 { color: #ffffff; font-size: 1.8rem; text-shadow: 0 1px 14px rgba(0, 0, 0, .5); }
+.cat-banner.has-picture h2 { color: #ffffff; font-size: calc(1.8rem * var(--title-scale)); text-shadow: 0 1px 14px rgba(0, 0, 0, .5); }
 .cat-banner.has-picture h2::after { margin: 10px 0 0; background: color-mix(in srgb, var(--brand) 55%, #ffffff); }
 .cat-item + .cat-item { border-top: 1px solid var(--line); }
 /* No line under a title, nor above the first of what a search or a section shows. */
@@ -408,11 +415,11 @@ body { font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; 
   .door-head .door-btn { background: color-mix(in srgb, var(--on-brand) 14%, transparent); color: var(--on-brand); border-color: color-mix(in srgb, var(--on-brand) 35%, transparent); }
   .door-head .door-btn svg { color: currentColor; }
   .door-logo { width: 46px; height: 46px; border-radius: 13px; }
-  .door-logo.letters { font-size: 1.15rem; }
+  .door-logo.letters { font-size: calc(1.15rem * var(--title-scale)); }
   .has-wordmark .door-brand { flex-direction: row; align-items: center; }
   .has-wordmark .door-logo { width: 72px; height: 72px; border-radius: 16px; }
   .door-brand { gap: 12px; }
-  .door-name h1 { font-size: 1.3rem; }
+  .door-name h1 { font-size: calc(1.3rem * var(--title-scale)); }
   .door-name p { font-size: .9rem; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .door-intro, .door-trust { display: none; }
   .door-actions { margin-top: 10px; gap: 8px; }
@@ -433,8 +440,8 @@ body { font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; 
     --foil-top: #ffffff; --foil-bottom: color-mix(in srgb, var(--brand) 42%, #ffffff); --hero-rule: color-mix(in srgb, var(--brand) 60%, #ffffff); }
   .has-catalogue .door-brand { flex-direction: column; gap: 12px; }
   .has-catalogue .door-logo { width: 76px; height: 76px; border-radius: 22px; border: 0; box-shadow: 0 0 0 1px var(--hero-edge), 0 16px 32px -16px rgba(0, 0, 0, .55); }
-  .has-catalogue .door-logo.letters { background: var(--brand); color: var(--on-brand); font-size: 2rem; }
-  .has-catalogue .door-name h1 { color: var(--hero-ink); font-size: clamp(2rem, 1.3rem + 3.4vw, 2.6rem);
+  .has-catalogue .door-logo.letters { background: var(--brand); color: var(--on-brand); font-size: calc(2rem * var(--title-scale)); }
+  .has-catalogue .door-name h1 { color: var(--hero-ink); font-size: calc(clamp(2rem, 1.3rem + 3.4vw, 2.6rem) * var(--title-scale));
     background: linear-gradient(180deg, var(--foil-top) 10%, var(--foil-bottom) 90%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
   /* A fine line in the business's colour, inset like the edge of a menu's cover. */
   .has-catalogue .door-head::before { content: ""; position: absolute; inset: calc(10px + env(safe-area-inset-top, 0px)) 10px 10px; border: 1px solid color-mix(in srgb, var(--brand) 42%, transparent); border-radius: 18px; pointer-events: none; }

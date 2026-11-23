@@ -94,10 +94,12 @@ test("a lounge's page opens on its menu: sections, a search box, pictures, price
   const version = html.match(/door\.js\?v=([0-9a-f]{12})/)![1];
   const script = await fetch(`${BASE}/c-assets/door.js?v=${version}`);
   assert.match(script.headers.get("cache-control") ?? "", /immutable/, "kept until the next change");
-  const font = await fetch(`${BASE}${html.match(/href="(\/c-assets\/display\.woff2\?v=[0-9a-f]{12})"/)![1]}`);
+  const font = await fetch(`${BASE}${html.match(/href="(\/c-assets\/title-classic\.woff2\?v=[0-9a-f]{12})"/)![1]}`);
   assert.equal(font.status, 200);
   assert.equal(font.headers.get("content-type"), "font/woff2");
   assert.equal(Buffer.from(await font.arrayBuffer()).subarray(0, 4).toString("latin1"), "wOF2");
+  assert.equal((await fetch(`${BASE}/c-assets/title-roman.woff2`)).status, 200, "each of the four faces answers");
+  assert.equal((await fetch(`${BASE}/c-assets/title-comic.woff2`)).status, 404);
   assert.equal(script.status, 200);
   assert.match(script.headers.get("content-type") ?? "", /javascript/);
   assert.match(await script.text(), /zaina\.ask\(text\)/);

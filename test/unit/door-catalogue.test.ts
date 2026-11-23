@@ -129,8 +129,10 @@ test("with a catalogue, the page opens on it, set like a printed menu: lines ope
   // Only the service's own scripts, styles and type, and nothing inline; each address carries its version.
   assert.match(html, new RegExp(`<script src="/c-assets/door\\.js\\?v=${DOOR_ASSETS_VERSION}" defer></script>`));
   assert.match(html, new RegExp(`<link rel="stylesheet" href="/c-assets/door\\.css\\?v=${DOOR_ASSETS_VERSION}">`));
-  assert.match(html, /<link rel="preload" href="\/c-assets\/display\.woff2\?v=[0-9a-f]{12}" as="font" type="font\/woff2" crossorigin>/);
-  assert.match(DOOR_CSS, /@font-face \{ font-family: "Door Display"; src: url\(\/c-assets\/display\.woff2\?v=[0-9a-f]{12}\) format\("woff2"\);[^}]*font-display: swap/);
+  assert.match(html, /<link rel="preload" href="\/c-assets\/title-classic\.woff2\?v=[0-9a-f]{12}" as="font" type="font\/woff2" crossorigin>/);
+  for (const key of ["classic", "roman", "elegant", "modern"]) {
+    assert.match(DOOR_CSS, new RegExp(`@font-face \\{ font-family: "Door ${key}"; src: url\\(/c-assets/title-${key}\\.woff2\\?v=[0-9a-f]{12}\\) format\\("woff2"\\);[^}]*font-display: swap`));
+  }
   assert.equal((html.match(/<script/g) ?? []).length, 2);
   assert.doesNotMatch(html, / style="| on[a-z]+="|<style|<script>(?!<)/);
   assert.match(html, /<footer class="door-foot"><a href="https:\/\/bilamatata\.com" target="_blank" rel="noopener">Powered by Bila Matata<\/a><\/footer>/);
@@ -214,4 +216,19 @@ test("a section typed in capitals reads as a title; one typed any other way stay
   const html = renderFrontDoor(view({ catalogue: { ...menu, sections: ["FOOD", "Gins"], items: menu.items.map((entry) => (entry.section === "Food" ? { ...entry, section: "FOOD" } : entry)) } }));
   assert.match(html, /data-section="FOOD" aria-pressed="false">Food<\/button>/);
   assert.match(html, /<li class="cat-heading" data-heading="FOOD"><h2>Food<\/h2><\/li>/);
+});
+
+test("the business chooses its lettering: the page says which, and loads only that face", async () => {
+  const { TITLE_FONTS } = await import("../../src/frontdoor/title-fonts.ts");
+  const { validateSettingsPatch } = await import("../../src/businesses/settings.ts");
+  assert.match(renderFrontDoor(view({ catalogue: menu })), /<html lang="en">/, "classic by default, nothing to say");
+  const roman = renderFrontDoor(view({ catalogue: menu, titleFont: "roman", menuStyle: "light" }));
+  assert.match(roman, /<html lang="en" data-menu="light" data-title="roman">/);
+  assert.match(roman, new RegExp(`<link rel="preload" href="/c-assets/title-roman\\.woff2\\?v=${TITLE_FONTS.roman.version}" as="font"`));
+  assert.equal((roman.match(/rel="preload"/g) ?? []).length, 1, "one face, the chosen one");
+  assert.match(DOOR_CSS, /:root\[data-title="roman"\] \{ --display: "Door roman"/);
+  assert.match(DOOR_CSS, /\.cat-heading h2 \{[^}]*font-family: var\(--display\); font-weight: var\(--title-weight\); font-synthesis: none; font-size: calc\(1\.7rem \* var\(--title-scale\)\)/);
+  for (const face of Object.values(TITLE_FONTS)) assert.equal(face.file.subarray(0, 4).toString("latin1"), "wOF2");
+  assert.deepEqual(validateSettingsPatch({ titleFont: "elegant" }), { ok: true, patch: { titleFont: "elegant" } });
+  assert.equal(validateSettingsPatch({ titleFont: "comic" }).ok, false);
 });

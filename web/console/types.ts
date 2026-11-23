@@ -123,6 +123,7 @@ export type Settings = {
   brandTagline: string | null;
   menuStyle?: "auto" | "light" | "dark" | "backdrop";
   logoHasName?: boolean;
+  titleFont?: "classic" | "roman" | "elegant" | "modern";
   chatAvatar: "zaina" | "logo";
   frontDoor: boolean;
   qrDestination: "page" | "website" | "whatsapp";

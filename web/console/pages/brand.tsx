@@ -13,6 +13,16 @@ import { ZAINA_FACE_DATA_URI } from "../../../src/brand/zaina-face.ts";
 import { atLeast, type Role, type Settings } from "../types.ts";
 import { Button, ErrorLine, Field, Message, useAction, useLoad } from "../ui.tsx";
 
+type Lettering = "classic" | "roman" | "elegant" | "modern";
+
+/** The four faces a business's page can use, each for a different kind of place (src/frontdoor/title-fonts.ts). */
+const LETTERING: { key: Lettering; label: string; note: string }[] = [
+  { key: "classic", label: "Classic", note: "restaurants and cocktail bars" },
+  { key: "roman", label: "Roman", note: "carved capitals for lounges, high-end bars and hotels" },
+  { key: "elegant", label: "Elegant", note: "fine dining, wine bars and boutique stays" },
+  { key: "modern", label: "Modern", note: "cafés, clubs and contemporary places" },
+];
+
 type BrandView = { logo_url: string | null; cover_url: string | null; limits: { logo_kb: number; cover_kb: number } };
 type Kind = "logo" | "cover";
 
@@ -25,13 +35,13 @@ export function Brand(props: { businessId: string; role: Role }) {
   const settings = useLoad(() => api<{ settings: Settings }>("GET", businessPath(props.businessId, "/settings")).then((result) => result.settings), [props.businessId]);
   const pictures = useLoad(() => api<BrandView>("GET", businessPath(props.businessId, "/brand")), [props.businessId]);
   const [brand, setBrand] = useState<BrandView | null>(null);
-  const [form, setForm] = useState<{ color: string; tagline: string; avatar: "zaina" | "logo"; menu: "auto" | "light" | "dark" | "backdrop"; logoName: boolean } | null>(null);
+  const [form, setForm] = useState<{ color: string; tagline: string; avatar: "zaina" | "logo"; menu: "auto" | "light" | "dark" | "backdrop"; logoName: boolean; font: Lettering } | null>(null);
   const save = useAction();
   const upload = useAction();
   const canEdit = atLeast(props.role, "manager");
   useEffect(() => setBrand(pictures.data), [pictures.data]);
   useEffect(() => {
-    if (settings.data) setForm({ color: settings.data.widgetColor, tagline: settings.data.brandTagline ?? "", avatar: settings.data.chatAvatar ?? "zaina", menu: settings.data.menuStyle ?? "auto", logoName: settings.data.logoHasName ?? false });
+    if (settings.data) setForm({ color: settings.data.widgetColor, tagline: settings.data.brandTagline ?? "", avatar: settings.data.chatAvatar ?? "zaina", menu: settings.data.menuStyle ?? "auto", logoName: settings.data.logoHasName ?? false, font: settings.data.titleFont ?? "classic" });
   }, [settings.data]);
   if (!form || !brand || !settings.data) return <ErrorLine error={settings.error ?? pictures.error} />;
   const name = settings.data.displayName;
@@ -91,7 +101,7 @@ export function Brand(props: { businessId: string; role: Role }) {
         className="form card"
         onSubmit={async (event) => {
           event.preventDefault();
-          await save.run(() => api("PATCH", businessPath(props.businessId, "/settings"), { widgetColor: form.color, brandTagline: form.tagline.trim() || null, chatAvatar: form.avatar, menuStyle: form.menu, logoHasName: form.logoName }), "Saved. Customers see your brand from their next visit.");
+          await save.run(() => api("PATCH", businessPath(props.businessId, "/settings"), { widgetColor: form.color, brandTagline: form.tagline.trim() || null, chatAvatar: form.avatar, menuStyle: form.menu, logoHasName: form.logoName, titleFont: form.font }), "Saved. Customers see your brand from their next visit.");
         }}
       >
         <h2>Colour, welcome line and picture</h2>
@@ -110,6 +120,16 @@ export function Brand(props: { businessId: string; role: Role }) {
           </Field>
         </div>
         <label className="check"><input type="checkbox" disabled={!canEdit || !brand.logo_url} checked={form.logoName} onChange={(event) => setForm({ ...form, logoName: event.target.checked })} /><span>My logo already shows our name{brand.logo_url ? "" : " (add your logo first)"}: show it large at the top of our page, instead of a small logo and the name again</span></label>
+        <fieldset className="choice lettering">
+          <legend>Lettering for your name and menu titles</legend>
+          {LETTERING.map((option) => (
+            <label key={option.key} className={`lettering-option${form.font === option.key ? " on" : ""}`}>
+              <input type="radio" name="lettering" disabled={!canEdit} checked={form.font === option.key} onChange={() => setForm({ ...form, font: option.key })} />
+              <span className={`title-sample title-${option.key}`}>{name}</span>
+              <span className="lettering-note"><strong>{option.label}</strong> · {option.note}</span>
+            </label>
+          ))}
+        </fieldset>
         <fieldset className="choice">
           <legend>The picture in the chat</legend>
           <label className="check"><input type="radio" name="avatar" disabled={!canEdit} checked={form.avatar === "zaina"} onChange={() => setForm({ ...form, avatar: "zaina" })} /><span>{assistant}'s face: a friendly host your customers recognise</span></label>

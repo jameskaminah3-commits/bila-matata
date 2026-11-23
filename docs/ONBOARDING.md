@@ -54,7 +54,11 @@ Do this together, on the owner's phone if that's what they'll use.
 1. **Profile** (Settings → Business): the name customers know, the phone
    number customers should call, a few lines on what they do, the hours.
 2. **Brand** (Settings → Brand): logo, colour and a welcome line. Choose
-   Zaina's face or their logo for the chat.
+   Zaina's face or their logo for the chat. For their page: the lettering
+   (Classic, Roman, Elegant or Modern, matched to the kind of place), menu
+   colours (a plain light or dark page reads best; "over your photos" only
+   with strong atmosphere photos), and "My logo already shows our name" when
+   the logo spells it. A cover photo and section photos carry the rest.
 3. **Setup interview** (Knowledge → Setup interview): choose the industry
    and answer the questions in their own words. This is what a website
    never says (deposits, cancellations, parking, children, what to bring).

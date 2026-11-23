@@ -263,6 +263,8 @@ export const businessSettings = pgTable("business_settings", {
   menuStyle: text("menu_style").$type<"auto" | "light" | "dark" | "backdrop">().notNull().default("auto"),
   /** The logo already spells the business's name: the page shows it large, as the heading. */
   logoHasName: boolean("logo_has_name").notNull().default(false),
+  /** The lettering of the name and the menu's section titles (frontdoor/title-fonts.ts). */
+  titleFont: text("title_font").$type<"classic" | "roman" | "elegant" | "modern">().notNull().default("classic"),
   /** Whose picture the chat shows: Zaina's face, or the business's logo. */
   chatAvatar: text("chat_avatar").$type<"zaina" | "logo">().notNull().default("zaina"),
   /** Whether the business's own page on this service (/c/<business>, behind its QR code) is open. */

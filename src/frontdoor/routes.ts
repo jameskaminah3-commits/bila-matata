@@ -13,7 +13,7 @@
 //                                     page here, its website with the chat open, or its WhatsApp)
 //   GET  /c-assets/door.css           the page's look
 //   GET  /c-assets/door.js            the page's tabs, pills, search and Order / Ask buttons
-//   GET  /c-assets/display.woff2      the face of its name and section titles (Playfair Display, SIL Open Font Licence)
+//   GET  /c-assets/title-<key>.woff2  the lettering of its name and section titles, as the business chose (title-fonts.ts)
 //   GET  /brand/:business/:kind       its logo or cover picture (kind: logo | cover)
 //
 //   Its team, from the dashboard (/v1/staff/businesses/:businessId/…):
@@ -38,7 +38,7 @@ import { personaRole } from "../engine/persona.ts";
 import { whatsappLink } from "../gateway/routes.ts";
 import { requireBusinessRole, requireStaff, staffOf } from "../staff/auth.ts";
 import { brandCss, DOOR_ASSETS_VERSION, DOOR_CSS, DOOR_JS, initials, renderDoorClosed, renderFrontDoor } from "./page.ts";
-import { DISPLAY_FONT, DISPLAY_FONT_VERSION } from "./display-font.ts";
+import { TITLE_FONTS, TITLE_FONT_KEYS, type TitleFont } from "./title-fonts.ts";
 import { cachedDoorCatalogue, doorCatalogue } from "./catalogue.ts";
 import { cleanSpot } from "./spot.ts";
 import { businessOrigin, canBeSubdomain, subdomainsOn } from "./subdomains.ts";
@@ -133,10 +133,12 @@ export function registerFrontDoorRoutes(app: Express, config: PlatformConfig): v
 
   // Each file's address carries its version (?v=), so a phone keeps it until it changes and gets a new one at once.
   const keep = (req: Request, res: Response, version: string) => res.setHeader("Cache-Control", req.query.v === version ? "public, max-age=31536000, immutable" : "public, max-age=300");
-  app.get("/c-assets/display.woff2", (req: Request, res: Response) => {
-    keep(req, res, DISPLAY_FONT_VERSION);
+  app.get(["/c-assets/title-:font.woff2", "/c-assets/display.woff2"], (req: Request, res: Response) => {
+    const key = (req.params.font ?? "classic") as TitleFont;
+    if (!TITLE_FONT_KEYS.includes(key)) return res.status(404).end();
+    keep(req, res, TITLE_FONTS[key].version);
     res.setHeader("Access-Control-Allow-Origin", "*");
-    res.type("font/woff2").send(DISPLAY_FONT);
+    res.type("font/woff2").send(TITLE_FONTS[key].file);
   });
   app.get("/c-assets/door.css", (req: Request, res: Response) => {
     keep(req, res, DOOR_ASSETS_VERSION);
@@ -245,6 +247,7 @@ export function registerFrontDoorRoutes(app: Express, config: PlatformConfig): v
         tagline: settings.brandTagline,
         menuStyle: settings.menuStyle ?? "auto",
         logoHasName: Boolean(settings.logoHasName && assets.logo),
+        titleFont: settings.titleFont ?? "classic",
         assistant: settings.assistantName ?? "Zaina",
         role: personaRole(business, settings),
         color: settings.widgetColor ?? "#0f766e",
