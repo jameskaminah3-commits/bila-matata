@@ -82,6 +82,13 @@ test("sizes of one thing in a section are one card with a price each; a lone bra
 test("with a catalogue, the page opens on it: cards open in place, and Zaina is there only for those who want her", () => {
   const html = renderFrontDoor(view({ catalogue: menu, spot: "Table 5" }));
   assert.match(html, /<div class="door has-catalogue">/);
+  // Each section under one heading, its items together, in the menu's order (Food's two items, then Gins' two).
+  assert.deepEqual([...html.matchAll(/<li class="cat-heading" data-heading="([^"]+)"><h2>([^<]+)<\/h2><\/li>/g)].map((match) => match[1]), ["Food", "Gins"]);
+  assert.ok(html.indexOf("Masala chips") < html.indexOf("Sly&quot;") && html.indexOf("Sly&quot;") < html.indexOf("Tanqueray"), "a section's items stay together");
+  assert.match(html, /<html lang="en">/, "the guest's phone decides light or dark by default");
+  assert.match(renderFrontDoor(view({ catalogue: menu, menuStyle: "dark" })), /<html lang="en" data-menu="dark">/);
+  assert.match(DOOR_CSS, /:root\[data-menu="dark"\] \{ --bg: #0e1412/);
+  assert.match(DOOR_CSS, /:root:not\(\[data-menu="light"\]\)/);
   assert.match(html, /role="tab" id="door-tab-catalogue" aria-controls="door-catalogue" aria-selected="true" data-tab="catalogue">Browse Menu<\/button>/);
   assert.match(html, /role="tab" id="door-tab-chat" aria-controls="zaina-chat" aria-selected="false" data-tab="chat">Ask Zaina<\/button>/);
   assert.match(html, /<main class="door-chat" id="zaina-chat" role="tabpanel" aria-labelledby="door-tab-chat" hidden>/);

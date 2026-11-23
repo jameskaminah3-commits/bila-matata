@@ -53,6 +53,7 @@ import { registerSupportRoutes } from "./support/routes.ts";
 import { registerNotificationRoutes } from "./notifications/routes.ts";
 import { registerFrontDoorRoutes } from "./frontdoor/routes.ts";
 import { businessOfHost, isKeptHost } from "./frontdoor/subdomains.ts";
+import { forgetDoorCatalogue } from "./frontdoor/catalogue.ts";
 import { registerCardRoutes } from "./cards/routes.ts";
 import { registerInterviewRoutes } from "./onboarding/interview-routes.ts";
 import { registerCapabilityRoutes } from "./capabilities/routes.ts";
@@ -225,6 +226,16 @@ export function createApp(config: PlatformConfig, engine: EngineOptions, whatsap
   app.use(cors());
   // The Starter tier can't add or change rooms, services, bookings, payments or calendars.
   app.use("/v1/staff/businesses/:businessId", fullTierOnly);
+  // A change the team saves (prices, items, rooms, settings) shows on the business's page at once,
+  // not after the few seconds its catalogue is kept (src/frontdoor/catalogue.ts).
+  app.use("/v1/staff/businesses/:businessId", (req: Request, res: Response, next: NextFunction) => {
+    if (req.method !== "GET" && req.method !== "HEAD") {
+      const id = String(req.params.businessId);
+      forgetDoorCatalogue(id);
+      res.on("finish", () => forgetDoorCatalogue(id));
+    }
+    next();
+  });
 
   registerGatewayRoutes(app, config, engine);
   registerStaffAccountRoutes(app, config);

@@ -111,6 +111,29 @@ export function groupVariants(items: DoorItem[]): DoorItem[] {
   return result;
 }
 
+/**
+ * The same, kept for a few seconds per business: a room full of guests scanning at once is one read of
+ * the menu, not eighty. A change the team makes shows within that time.
+ */
+const CACHE_MS = 10_000;
+const cache = new Map<string, { until: number; value: Promise<DoorCatalogue | null> }>();
+export function cachedDoorCatalogue(business: Business, settings: BusinessSettings | null): Promise<DoorCatalogue | null> {
+  const key = `${business.id}|${business.businessType}|${settings?.industry ?? ""}|${JSON.stringify(settings?.capabilities ?? null)}`;
+  const now = Date.now();
+  const hit = cache.get(key);
+  if (hit && hit.until > now) return hit.value;
+  const value = doorCatalogue(business, settings);
+  cache.set(key, { until: now + CACHE_MS, value });
+  value.catch(() => cache.delete(key));
+  if (cache.size > 2000) for (const [stale, entry] of cache) if (entry.until <= now) cache.delete(stale);
+  return value;
+}
+
+/** Drops a business's kept catalogue: its team just changed something, and its page shows it at once. */
+export function forgetDoorCatalogue(businessId: string): void {
+  for (const key of cache.keys()) if (key.startsWith(`${businessId}|`)) cache.delete(key);
+}
+
 /** The page's catalogue, or null when the business shows nothing (the page stays chat only). */
 export async function doorCatalogue(business: Business, settings: BusinessSettings | null): Promise<DoorCatalogue | null> {
   if (business.businessType === "custom") return null;

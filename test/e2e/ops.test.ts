@@ -24,7 +24,7 @@ async function login(email: string) {
 }
 
 before(async () => {
-  platform = await startPlatform({ port: PORT, env: { PUBLIC_BASE_URL: BASE, RESEND_API_KEY: "re_scripted", ALERT_FROM_EMAIL: "alerts@zaina.example", STUDIO_NOTIFY_EMAIL: "studio@example.com", HEALTH_CHECK_INTERVAL_MS: "400", REDIRECT_HOSTS: "bilamatata.co.ke, www.bilamatata.co.ke, www.bilamatata.com", CLIENT_IP_HEADER: "cf-connecting-ip" } });
+  platform = await startPlatform({ port: PORT, env: { PUBLIC_BASE_URL: BASE, RESEND_API_KEY: "re_scripted", ALERT_FROM_EMAIL: "alerts@zaina.example", STUDIO_NOTIFY_EMAIL: "studio@example.com", HEALTH_CHECK_INTERVAL_MS: "400", REDIRECT_HOSTS: "bilamatata.co.ke, www.bilamatata.co.ke, www.bilamatata.com", CLIENT_IP_HEADER: "cf-connecting-ip", LIMIT_DOOR_REQUESTS_PER_MINUTE: "120" } });
   api = apiFor(platform.base);
   platform.cli("create-staff.ts", ["--email", "ops@example.com", "--name", "Ops", "--platform-admin"], { STAFF_PASSWORD: PASSWORD });
   ops = await login("ops@example.com");
@@ -80,7 +80,8 @@ test("public one-tap and QR addresses stop a flood", async () => {
   // Another address still works.
   assert.equal((await fetch(`${BASE}/c/palm`)).status, 200);
   const statuses: number[] = [];
-  // The limit counts per minute: 245 scans put more than 120 in one minute even if a new minute starts midway.
+  // The limit counts per minute (set to 120 here; the default is higher, for a venue on one Wi-Fi):
+  // 245 scans put more than 120 in one minute even if a new minute starts midway.
   for (let index = 0; index < 245; index += 1) statuses.push((await fetch(`${BASE}/q/palm`, { redirect: "manual" })).status);
   assert.ok([301, 302, 307].includes(statuses[0]), String(statuses[0]));
   assert.ok(statuses.includes(429), "a flood is stopped");

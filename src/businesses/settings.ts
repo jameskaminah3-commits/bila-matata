@@ -22,7 +22,7 @@ export async function getBusinessSettings(businessId: string): Promise<BusinessS
 
 export type SettingsPatch = Partial<Pick<BusinessSettings,
   | "displayName" | "assistantName" | "about" | "contactPhone" | "contactPhoneDisplay" | "websiteUrl" | "supportEmail"
-  | "allowedLinkHosts" | "allowedLinkHostSuffixes" | "defaultCurrency" | "widgetColor" | "widgetPosition" | "widgetGreeting" | "widgetWhatsapp" | "personaRole" | "brandTagline" | "chatAvatar" | "frontDoor" | "qrDestination" | "cardDetails" | "industry" | "interview" | "websiteSync" | "capabilities" | "widgetSeen" | "catalogueFeed" | "orderSettings" | "customerRecognition" | "outreach">>;
+  | "allowedLinkHosts" | "allowedLinkHostSuffixes" | "defaultCurrency" | "widgetColor" | "widgetPosition" | "widgetGreeting" | "widgetWhatsapp" | "personaRole" | "brandTagline" | "menuStyle" | "chatAvatar" | "frontDoor" | "qrDestination" | "cardDetails" | "industry" | "interview" | "websiteSync" | "capabilities" | "widgetSeen" | "catalogueFeed" | "orderSettings" | "customerRecognition" | "outreach">>;
 
 const TEXT_FIELDS = ["displayName", "assistantName", "about", "contactPhone", "contactPhoneDisplay", "websiteUrl", "supportEmail"] as const;
 const HOST_PATTERN = /^(?:[a-z0-9-]+\.)+[a-z]{2,}$/;
@@ -94,6 +94,10 @@ export function validateSettingsPatch(input: Record<string, unknown>): { ok: tru
     if (tagline === null || tagline === "") patch.brandTagline = null;
     else if (typeof tagline !== "string" || tagline.trim().length < 2 || tagline.trim().length > 120) return { ok: false, error: "brandTagline is 2 to 120 characters" };
     else patch.brandTagline = tagline.trim().replace(/\s+/g, " ");
+  }
+  if ("menuStyle" in input) {
+    if (input.menuStyle !== "auto" && input.menuStyle !== "light" && input.menuStyle !== "dark") return { ok: false, error: "menuStyle is auto, light or dark" };
+    patch.menuStyle = input.menuStyle;
   }
   if ("chatAvatar" in input) {
     if (input.chatAvatar !== "zaina" && input.chatAvatar !== "logo") return { ok: false, error: "chatAvatar is zaina or logo" };

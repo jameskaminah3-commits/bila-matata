@@ -37,7 +37,7 @@ import { personaRole } from "../engine/persona.ts";
 import { whatsappLink } from "../gateway/routes.ts";
 import { requireBusinessRole, requireStaff, staffOf } from "../staff/auth.ts";
 import { brandCss, DOOR_CSS, DOOR_JS, initials, renderDoorClosed, renderFrontDoor } from "./page.ts";
-import { doorCatalogue } from "./catalogue.ts";
+import { cachedDoorCatalogue, doorCatalogue } from "./catalogue.ts";
 import { cleanSpot } from "./spot.ts";
 import { businessOrigin, canBeSubdomain, subdomainsOn } from "./subdomains.ts";
 import { qrSvg } from "./qr.ts";
@@ -139,7 +139,8 @@ export function registerFrontDoorRoutes(app: Express, config: PlatformConfig): v
   });
 
   // A busy counter is many phones; one phone reloading in a loop is not.
-  const doorLimit = rateLimited(config.sessionTokenSecret, "door", 120, 60);
+  // Per address, and an address is often a whole venue on one Wi-Fi: generous, so a full room scanning at once all get in.
+  const doorLimit = rateLimited(config.sessionTokenSecret, "door", config.rateLimits.doorRequestsPerMinute, 60);
   app.get("/c/:business/brand.css", async (req: Request, res: Response, next: NextFunction) => {
     try {
       // Colours aren't secret, and a paused business's customers still reach its payment page.
@@ -227,11 +228,12 @@ export function registerFrontDoorRoutes(app: Express, config: PlatformConfig): v
       const [assets, number] = await Promise.all([brandAssetsOf(business.id), settings.widgetWhatsapp === false ? null : getNumber(business.id)]);
       const via = doorSource(req.query.s);
       if (looksLikePerson(req.header("user-agent"))) void recordDoorVisit(business.id, via);
-      const catalogue = await doorCatalogue(business, settings).catch(() => null);
+      const catalogue = await cachedDoorCatalogue(business, settings).catch(() => null);
       res.type("html").send(renderFrontDoor({
         businessId: business.id,
         name: settings.displayName ?? business.name,
         tagline: settings.brandTagline,
+        menuStyle: settings.menuStyle ?? "auto",
         assistant: settings.assistantName ?? "Zaina",
         role: personaRole(business, settings),
         color: settings.widgetColor ?? "#0f766e",

@@ -121,6 +121,7 @@ export type Settings = {
   /** Her role on the team; empty means one that fits the business. */
   personaRole: string | null;
   brandTagline: string | null;
+  menuStyle?: "auto" | "light" | "dark";
   chatAvatar: "zaina" | "logo";
   frontDoor: boolean;
   qrDestination: "page" | "website" | "whatsapp";

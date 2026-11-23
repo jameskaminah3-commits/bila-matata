@@ -25,13 +25,13 @@ export function Brand(props: { businessId: string; role: Role }) {
   const settings = useLoad(() => api<{ settings: Settings }>("GET", businessPath(props.businessId, "/settings")).then((result) => result.settings), [props.businessId]);
   const pictures = useLoad(() => api<BrandView>("GET", businessPath(props.businessId, "/brand")), [props.businessId]);
   const [brand, setBrand] = useState<BrandView | null>(null);
-  const [form, setForm] = useState<{ color: string; tagline: string; avatar: "zaina" | "logo" } | null>(null);
+  const [form, setForm] = useState<{ color: string; tagline: string; avatar: "zaina" | "logo"; menu: "auto" | "light" | "dark" } | null>(null);
   const save = useAction();
   const upload = useAction();
   const canEdit = atLeast(props.role, "manager");
   useEffect(() => setBrand(pictures.data), [pictures.data]);
   useEffect(() => {
-    if (settings.data) setForm({ color: settings.data.widgetColor, tagline: settings.data.brandTagline ?? "", avatar: settings.data.chatAvatar ?? "zaina" });
+    if (settings.data) setForm({ color: settings.data.widgetColor, tagline: settings.data.brandTagline ?? "", avatar: settings.data.chatAvatar ?? "zaina", menu: settings.data.menuStyle ?? "auto" });
   }, [settings.data]);
   if (!form || !brand || !settings.data) return <ErrorLine error={settings.error ?? pictures.error} />;
   const name = settings.data.displayName;
@@ -91,7 +91,7 @@ export function Brand(props: { businessId: string; role: Role }) {
         className="form card"
         onSubmit={async (event) => {
           event.preventDefault();
-          await save.run(() => api("PATCH", businessPath(props.businessId, "/settings"), { widgetColor: form.color, brandTagline: form.tagline.trim() || null, chatAvatar: form.avatar }), "Saved. Customers see your brand from their next visit.");
+          await save.run(() => api("PATCH", businessPath(props.businessId, "/settings"), { widgetColor: form.color, brandTagline: form.tagline.trim() || null, chatAvatar: form.avatar, menuStyle: form.menu }), "Saved. Customers see your brand from their next visit.");
         }}
       >
         <h2>Colour, welcome line and picture</h2>
@@ -99,6 +99,13 @@ export function Brand(props: { businessId: string; role: Role }) {
           <Field label="Your colour" hint="Buttons, the chat's header and your page use it."><input type="color" disabled={!canEdit} value={form.color} onChange={(event) => setForm({ ...form, color: event.target.value })} /></Field>
           <Field label="Welcome line" hint="A short line under your name. For example: Hair and beauty in Nyali, open every day.">
             <input maxLength={120} disabled={!canEdit} value={form.tagline} onChange={(event) => setForm({ ...form, tagline: event.target.value })} />
+          </Field>
+          <Field label="Menu colours" hint="How your page looks to guests. Always dark suits a bar or club at night.">
+            <select disabled={!canEdit} value={form.menu} onChange={(event) => setForm({ ...form, menu: event.target.value as "auto" | "light" | "dark" })}>
+              <option value="auto">Follow the guest's phone</option>
+              <option value="light">Always light</option>
+              <option value="dark">Always dark</option>
+            </select>
           </Field>
         </div>
         <fieldset className="choice">

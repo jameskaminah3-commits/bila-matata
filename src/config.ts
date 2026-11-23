@@ -8,10 +8,16 @@ import { appAddressProblem, describeDatabaseUrl, parseDatabaseCa } from "./db/co
 export type RateLimits = {
   /** Messages one chat session may send per minute. */
   sessionMessagesPerMinute: number;
-  /** Messages one visitor (IP address) may send per 10 minutes, across sessions. */
+  /**
+   * Messages one visitor (IP address) may send per 10 minutes, across sessions. One address is often
+   * many people: a venue's Wi-Fi, or a mobile network's shared address. The business's hourly cap
+   * below is what bounds the cost.
+   */
   visitorMessagesPer10Minutes: number;
-  /** Chat sessions one visitor may open per hour. */
+  /** Chat sessions one visitor (IP address, often shared, as above) may open per hour. */
   visitorSessionsPerHour: number;
+  /** Requests one address may make per minute to businesses' pages and codes (80 guests scanning at once is ~160). */
+  doorRequestsPerMinute: number;
   /** Messages a whole business may receive per hour. */
   businessMessagesPerHour: number;
 };
@@ -294,8 +300,9 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): PlatformConfig
     migrateOnStart: env.MIGRATE_ON_START === "true",
     rateLimits: {
       sessionMessagesPerMinute: positiveInt(env, "LIMIT_SESSION_MESSAGES_PER_MINUTE", 20),
-      visitorMessagesPer10Minutes: positiveInt(env, "LIMIT_VISITOR_MESSAGES_PER_10_MINUTES", 60),
-      visitorSessionsPerHour: positiveInt(env, "LIMIT_VISITOR_SESSIONS_PER_HOUR", 30),
+      visitorMessagesPer10Minutes: positiveInt(env, "LIMIT_VISITOR_MESSAGES_PER_10_MINUTES", 600),
+      visitorSessionsPerHour: positiveInt(env, "LIMIT_VISITOR_SESSIONS_PER_HOUR", 600),
+      doorRequestsPerMinute: positiveInt(env, "LIMIT_DOOR_REQUESTS_PER_MINUTE", 1200),
       businessMessagesPerHour: positiveInt(env, "LIMIT_BUSINESS_MESSAGES_PER_HOUR", 3000),
     },
     modelPriceUsdPerMillion: inputPrice !== null && outputPrice !== null

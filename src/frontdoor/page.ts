@@ -18,6 +18,8 @@ export type DoorView = {
   businessId: string;
   name: string;
   tagline: string | null;
+  /** The page in the guest's phone's light or dark, or always one. */
+  menuStyle?: "auto" | "light" | "dark";
   assistant: string;
   role: string;
   color: string;
@@ -69,7 +71,16 @@ function renderCatalogue(catalogue: DoorCatalogue, view: DoorView): string {
     ? `<label class="cat-jump"><span class="visually-hidden">Jump to a section</span><select id="cat-jump"><option value="">Jump to…</option>${catalogue.sections.map((section) => `<option value="${esc(section)}">${esc(section)}</option>`).join("")}</select></label>`
     : "";
   const orders = catalogue.items.some((item) => item.order?.verb === "order");
-  const cards = catalogue.items.map((item) => {
+  const headed = catalogue.sections.length > 1;
+  // With sections, each one's items together under its heading, in the menu's own order (items with none first).
+  const ordered = headed
+    ? [...catalogue.items.filter((item) => !item.section), ...catalogue.sections.flatMap((name) => catalogue.items.filter((item) => item.section === name))]
+    : catalogue.items;
+  let previous: string | null = null;
+  const cards = ordered.map((item) => {
+    // A heading where each section starts, in the full list ("SNACKS", "VODKA").
+    const heading = headed && item.section && item.section !== previous ? `<li class="cat-heading" data-heading="${esc(item.section)}"><h2>${esc(item.section)}</h2></li>\n` : "";
+    previous = item.section;
     const search = [item.name, item.description, item.section, ...item.variants.map((variant) => variant.label)].filter(Boolean).join(" ").toLowerCase();
     const visual = item.picture
       ? `<img class="cat-thumb" src="${esc(item.picture)}" alt="" width="64" height="64" loading="lazy" decoding="async">`
@@ -80,7 +91,7 @@ function renderCatalogue(catalogue: DoorCatalogue, view: DoorView): string {
     const order = item.order && item.inStock
       ? `<button type="button" class="cat-zaina main" data-ask="${esc(item.order.text)}">${item.order.verb === "book" ? "Book" : "Order"} via ${assistant}</button>`
       : "";
-    return `<li class="cat-item${item.inStock ? "" : " out"}" data-section="${esc(item.section ?? "")}" data-search="${esc(search)}"><details class="cat-card">
+    return `${heading}<li class="cat-item${item.inStock ? "" : " out"}" data-section="${esc(item.section ?? "")}" data-search="${esc(search)}"><details class="cat-card">
 <summary>${visual}<span class="cat-body"><span class="cat-name">${esc(item.name)}</span>${item.description ? `<span class="cat-desc">${esc(item.description)}</span>` : ""}${prices}</span>${item.inStock ? "" : '<span class="cat-out">Out of stock</span>'}</summary>
 <div class="cat-more">${item.picture ? `<img class="cat-photo" src="${esc(item.picture)}" alt="${esc(item.name)}" loading="lazy" decoding="async">` : ""}<div class="cat-actions"><button type="button" class="cat-zaina" data-ask="${esc(item.tell)}">Ask ${assistant} about this</button>${order}</div></div>
 </details></li>`;
@@ -109,7 +120,7 @@ export function renderFrontDoor(view: DoorView): string {
     view.whatsapp ? `<a class="door-btn" href="${esc(view.whatsapp)}" target="_blank" rel="noopener noreferrer">${ICONS.whatsapp}<span>WhatsApp</span></a>` : "",
   ].filter(Boolean).join("");
   return `<!doctype html>
-<html lang="en">
+<html lang="en"${view.menuStyle === "light" || view.menuStyle === "dark" ? ` data-menu="${view.menuStyle}"` : ""}>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -188,8 +199,9 @@ export const DOOR_CSS = String.raw`
 :root { --brand: #0f766e; --on-brand: #ffffff; --bg: #f6f5f1; --surface: #ffffff; --ink: #111a17; --muted: #5b6763; --line: #e4e2da; --alert: #b42318;
   --tint: color-mix(in srgb, var(--brand) 9%, var(--bg)); color-scheme: light; }
 @media (prefers-color-scheme: dark) {
-  :root { --bg: #0e1412; --surface: #151d1a; --ink: #f1f4f2; --muted: #a3afab; --line: #26312d; --alert: #ff8f80; color-scheme: dark; }
+  :root:not([data-menu="light"]) { --bg: #0e1412; --surface: #151d1a; --ink: #f1f4f2; --muted: #a3afab; --line: #26312d; --alert: #ff8f80; color-scheme: dark; }
 }
+:root[data-menu="dark"] { --bg: #0e1412; --surface: #151d1a; --ink: #f1f4f2; --muted: #a3afab; --line: #26312d; --alert: #ff8f80; color-scheme: dark; }
 * { box-sizing: border-box; }
 html, body { height: 100%; margin: 0; }
 body { font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: var(--ink); background: var(--tint); -webkit-font-smoothing: antialiased; }
@@ -226,7 +238,13 @@ body { font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; 
 @media (max-width: 860px) {
   body { background: var(--surface); }
   .door { display: flex; flex-direction: column; align-items: stretch; gap: 0; padding: 0; max-width: none; }
-  .door-head { flex: none; gap: 0; padding: calc(12px + env(safe-area-inset-top, 0px)) 16px 12px; background: var(--tint); border-bottom: 1px solid var(--line); }
+  /* The business's own colour across the top: the page is theirs at a glance; the menu below stays calm to read. */
+  .door-head { flex: none; gap: 0; padding: calc(14px + env(safe-area-inset-top, 0px)) 16px 14px; color: var(--on-brand);
+    background: linear-gradient(135deg, var(--brand), color-mix(in srgb, var(--brand) 88%, var(--on-brand))); border-bottom: 0; }
+  .door-head .door-name h1 { color: var(--on-brand); }
+  .door-head .door-name p { color: color-mix(in srgb, var(--on-brand) 82%, transparent); }
+  .door-head .door-logo.letters { background: var(--on-brand); color: var(--brand); }
+  .door-head .door-btn { background: color-mix(in srgb, var(--on-brand) 14%, transparent); color: var(--on-brand); border-color: color-mix(in srgb, var(--on-brand) 35%, transparent); }
   .door-logo { width: 46px; height: 46px; border-radius: 13px; }
   .door-logo.letters { font-size: 1.05rem; }
   .door-brand { gap: 12px; }
@@ -274,6 +292,10 @@ body { font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; 
 .cat-jump select { width: 100%; min-width: 0; text-overflow: ellipsis; min-height: 46px; padding: 0 12px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg); color: var(--ink); font: inherit; font-size: 16px; font-weight: 600; }
 .cat-jump select:focus-visible { outline: 3px solid var(--brand); outline-offset: 1px; }
 .cat-list { list-style: none; margin: 0; padding: 4px 16px 8px; }
+.cat-heading { padding: 22px 0 8px; border-bottom: 1px solid var(--line); }
+.cat-list > .cat-heading:first-child { padding-top: 10px; }
+.cat-heading h2 { display: flex; align-items: center; gap: 10px; margin: 0; font-size: .8rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: var(--ink); }
+.cat-heading h2::before { content: ""; width: 18px; height: 3px; border-radius: 2px; background: var(--brand); flex: none; }
 .cat-item { border-bottom: 1px solid var(--line); }
 .cat-item:last-child { border-bottom: 0; }
 .cat-card summary { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-auto-flow: column; grid-auto-columns: auto; gap: 12px; align-items: start; padding: 14px 0; cursor: pointer; list-style: none; }
@@ -360,6 +382,7 @@ export const DOOR_JS = String.raw`(function () {
   var pills = Array.prototype.slice.call(document.querySelectorAll(".cat-pill"));
   var search = document.getElementById("cat-search");
   var none = document.getElementById("cat-none");
+  var headings = Array.prototype.slice.call(document.querySelectorAll(".cat-heading"));
   var section = "";
   function apply() {
     var words = (search && search.value ? search.value : "").toLowerCase().trim().split(/\s+/).filter(Boolean);
@@ -371,6 +394,10 @@ export const DOOR_JS = String.raw`(function () {
       if (ok) shown += 1;
     });
     if (none) none.hidden = shown > 0;
+    headings.forEach(function (heading) {
+      var name = heading.getAttribute("data-heading");
+      heading.hidden = Boolean(section) || !items.some(function (item) { return !item.hidden && item.getAttribute("data-section") === name; });
+    });
   }
   var jump = document.getElementById("cat-jump");
   function choose(value, from) {
