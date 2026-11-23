@@ -4,7 +4,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { CATALOGUE_WORDS, catalogueKind, groupVariants, type DoorCatalogue, type DoorItem } from "../../src/frontdoor/catalogue.ts";
-import { DOOR_CSS, DOOR_JS, POWERED_BY, renderFrontDoor, type DoorView } from "../../src/frontdoor/page.ts";
+import { DOOR_ASSETS_VERSION, DOOR_CSS, DOOR_JS, POWERED_BY, renderFrontDoor, type DoorView } from "../../src/frontdoor/page.ts";
 import { scanDestination, spotParam, websiteWithChat } from "../../src/frontdoor/routes.ts";
 import { cleanSpot, spotPrompt } from "../../src/frontdoor/spot.ts";
 
@@ -79,19 +79,19 @@ test("sizes of one thing in a section are one card with a price each; a lone bra
   assert.equal(grouped[0].order?.text, "I'd like to order Absolut Vodka");
 });
 
-test("with a catalogue, the page opens on it: cards open in place, and Zaina is there only for those who want her", () => {
+test("with a catalogue, the page opens on it, set like a printed menu: lines open in place, and Zaina is there only for those who want her", () => {
   const html = renderFrontDoor(view({ catalogue: menu, spot: "Table 5" }));
   assert.match(html, /<div class="door has-catalogue">/);
   // Each section under one heading, its items together, in the menu's order (Food's two items, then Gins' two).
-  assert.deepEqual([...html.matchAll(/<li class="cat-heading cat-banner[^"]*" data-heading="([^"]+)">/g)].map((match) => match[1]), ["Food", "Gins"]);
-  // Each section opens with a banner: drawn in the business's colour, with its name, until it adds a picture.
-  assert.match(html, /<li class="cat-heading cat-banner" data-heading="Food"><div class="cat-banner-text"><span class="cat-banner-brand">Kibanda Lounge<\/span><h2>Food<\/h2><\/div><\/li>/);
+  assert.deepEqual([...html.matchAll(/<li class="cat-heading[^"]*" data-heading="([^"]+)">/g)].map((match) => match[1]), ["Food", "Gins"]);
+  // Each section opens with its title in the display face, until the business adds a photo for it: then the photo, its title and the business's name.
+  assert.match(html, /<li class="cat-heading" data-heading="Food"><h2>Food<\/h2><\/li>/);
   const pictured = renderFrontDoor(view({ catalogue: { ...menu, banners: { Gins: "/catalogue/kibanda/sections/gins?v=0123456789ab" } } }));
   assert.match(pictured, /<li class="cat-heading cat-banner has-picture" data-heading="Gins" data-backdrop="\/catalogue\/kibanda\/sections\/gins\?v=0123456789ab"><img class="cat-banner-img" src="\/catalogue\/kibanda\/sections\/gins\?v=0123456789ab" alt="" width="1200" height="480" loading="lazy" decoding="async">/);
   assert.ok(html.indexOf("Masala chips") < html.indexOf("Sly&quot;") && html.indexOf("Sly&quot;") < html.indexOf("Tanqueray"), "a section's items stay together");
   assert.match(html, /<html lang="en">/, "the guest's phone decides light or dark by default");
   assert.match(renderFrontDoor(view({ catalogue: menu, menuStyle: "dark" })), /<html lang="en" data-menu="dark">/);
-  assert.match(DOOR_CSS, /:root\[data-menu="dark"\], :root\[data-menu="backdrop"\] \{ --bg: #0e1412/);
+  assert.match(DOOR_CSS, /:root\[data-menu="dark"\], :root\[data-menu="backdrop"\] \{ --bg: #100f0d/);
   assert.match(DOOR_CSS, /:root:not\(\[data-menu="light"\]\)/);
   // "Dark, over your photos": one blurred, dimmed layer behind glass cards; the section's photo travels with it.
   const backdrop = renderFrontDoor(view({ catalogue: { ...menu, banners: { Gins: "/catalogue/kibanda/sections/gins?v=0123456789ab" } }, menuStyle: "backdrop" }));
@@ -108,23 +108,28 @@ test("with a catalogue, the page opens on it: cards open in place, and Zaina is 
   assert.match(html, /<button type="button" class="cat-pill" data-section="" aria-pressed="true">All<\/button><button type="button" class="cat-pill" data-section="Food" aria-pressed="false">Food<\/button><button type="button" class="cat-pill" data-section="Gins"/);
   assert.doesNotMatch(html, /cat-jump/, "two sections: the pills are enough");
   assert.match(html, /<input type="search" id="cat-search" placeholder="Search the menu"/);
-  // A card is a closed <details>: name, short description and price. Opened: the photo and the optional buttons.
-  assert.match(html, /<details class="cat-card">\n<summary><img class="cat-thumb" src="\/catalogue\/kibanda\/a\?v=0123456789ab" alt="" width="64" height="64" loading="lazy" decoding="async"><span class="cat-body"><span class="cat-name">Masala chips<\/span><span class="cat-desc">Crispy, with our own pili pili<\/span><span class="cat-price">KSh 350<\/span><\/span><\/summary>/);
+  // A line is a closed <details>: name · · · price, the description below. Opened: the photo and the optional buttons.
+  assert.match(html, /<details class="cat-card">\n<summary><img class="cat-thumb" src="\/catalogue\/kibanda\/a\?v=0123456789ab" alt="" width="64" height="64" loading="lazy" decoding="async"><span class="cat-body"><span class="cat-top"><span class="cat-name">Masala chips<\/span><i class="cat-dots" aria-hidden="true"><\/i><span class="cat-price">KSh 350<\/span><\/span><span class="cat-desc">Crispy, with our own pili pili<\/span><\/span><\/summary>/);
   assert.match(html, /<img class="cat-photo" src="\/catalogue\/kibanda\/a\?v=0123456789ab" alt="Masala chips" loading="lazy" decoding="async"><div class="cat-actions"><button type="button" class="cat-zaina" data-ask="Tell me about Masala chips">Ask Zaina about this<\/button><button type="button" class="cat-zaina main" data-ask="I'd like to order Masala chips">Order via Zaina<\/button><\/div>/);
-  // Out of stock, no photo: initials in the brand's tint, a badge, and nothing to order (asking is still there).
-  assert.match(html, /<li class="cat-item out" data-section="Gins"[^>]*><details class="cat-card">\n<summary><span class="cat-mono" aria-hidden="true">TT<\/span><span class="cat-body"><span class="cat-name">Tanqueray &amp; tonic<\/span><span class="cat-price">KSh 600<\/span><\/span><span class="cat-out">Out of stock<\/span><\/summary>\n<div class="cat-more"><div class="cat-actions"><button type="button" class="cat-zaina" data-ask="Tell me about Tanqueray &amp; tonic">Ask Zaina about this<\/button><\/div><\/div>/);
-  // Sizes: one card, a price badge each.
-  assert.match(html, /<span class="cat-variants"><span class="cat-variant">750ml Bottle <b>KSh 5,000<\/b><\/span><span class="cat-variant out">Shot <b>KSh 300<\/b> <em>Out of stock<\/em><\/span><\/span>/);
+  // Out of stock, no photo: no stand-in picture, a quiet note, and nothing to order (asking is still there).
+  assert.match(html, /<li class="cat-item out" data-section="Gins"[^>]*><details class="cat-card">\n<summary><span class="cat-body"><span class="cat-top"><span class="cat-name">Tanqueray &amp; tonic<\/span><i class="cat-dots" aria-hidden="true"><\/i><span class="cat-price">KSh 600<\/span><\/span><span class="cat-out">Out of stock<\/span><\/span><\/summary>\n<div class="cat-more"><div class="cat-actions"><button type="button" class="cat-zaina" data-ask="Tell me about Tanqueray &amp; tonic">Ask Zaina about this<\/button><\/div><\/div>/);
+  // Sizes: one name, a line each with its own price.
+  assert.match(html, /<span class="cat-top"><span class="cat-name">Absolut Vodka<\/span><\/span>/);
+  assert.match(html, /<span class="cat-variants"><span class="cat-variant"><span>750ml Bottle<\/span><i class="cat-dots" aria-hidden="true"><\/i><b>KSh 5,000<\/b><\/span><span class="cat-variant out"><span>Shot <em>Out of stock<\/em><\/span><i class="cat-dots" aria-hidden="true"><\/i><b>KSh 300<\/b><\/span><\/span>/);
+  assert.doesNotMatch(html, /cat-mono/, "no letters standing in for a photo");
   assert.match(html, /data-search="absolut vodka gins 750ml bottle shot"/);
   // What the business typed is text.
   assert.doesNotMatch(html, /<script>alert|<img src=x/);
   assert.match(html, /Sly&quot;&gt;&lt;script&gt;/);
-  // Where the customer is, on the page and for the chat; and the optional pill.
-  assert.match(html, /You're at <strong>Table 5<\/strong>\. Anything you order here is brought to you\./);
+  // Where the customer is, under the business's name and for the chat; and the optional pill.
+  assert.match(html, /<\/div>\n    <p class="door-spot">.*You're at <strong>Table 5<\/strong>\. Anything you order here is brought to you\./);
   assert.match(html, /data-via="qr" data-spot="Table 5" async><\/script>/);
-  assert.match(html, /<div class="cat-nudge" id="cat-nudge"><button type="button" class="cat-nudge-go" data-tab-to="chat">Need a recommendation\? Ask Zaina<\/button><button type="button" class="cat-nudge-x" id="cat-nudge-x" aria-label="Hide this">×<\/button><\/div>/);
-  // Only the service's own scripts, and nothing inline.
-  assert.match(html, /<script src="\/c-assets\/door\.js" defer><\/script>/);
+  assert.match(html, /<div class="cat-nudge" id="cat-nudge"><button type="button" class="cat-nudge-go" data-tab-to="chat" title="Need a recommendation\? Ask Zaina"><svg[^>]*>.*?<\/svg><span>Ask Zaina<\/span><\/button><button type="button" class="cat-nudge-x" id="cat-nudge-x" aria-label="Hide this">×<\/button><\/div>/);
+  // Only the service's own scripts, styles and type, and nothing inline; each address carries its version.
+  assert.match(html, new RegExp(`<script src="/c-assets/door\\.js\\?v=${DOOR_ASSETS_VERSION}" defer></script>`));
+  assert.match(html, new RegExp(`<link rel="stylesheet" href="/c-assets/door\\.css\\?v=${DOOR_ASSETS_VERSION}">`));
+  assert.match(html, /<link rel="preload" href="\/c-assets\/display\.woff2\?v=[0-9a-f]{12}" as="font" type="font\/woff2" crossorigin>/);
+  assert.match(DOOR_CSS, /@font-face \{ font-family: "Door Display"; src: url\(\/c-assets\/display\.woff2\?v=[0-9a-f]{12}\) format\("woff2"\);[^}]*font-display: swap/);
   assert.equal((html.match(/<script/g) ?? []).length, 2);
   assert.doesNotMatch(html, / style="| on[a-z]+="|<style|<script>(?!<)/);
   assert.match(html, /<footer class="door-foot"><a href="https:\/\/bilamatata\.com" target="_blank" rel="noopener">Powered by Bila Matata<\/a><\/footer>/);
@@ -157,8 +162,14 @@ test("the page's script and styles: tabs, filters, the jump, the optional pill, 
   assert.match(DOOR_JS, /sessionStorage\.setItem\("door-nudge", "hidden"\)/);
   assert.match(DOOR_CSS, /\.cat-search input \{[^}]*font-size: 16px/);
   assert.match(DOOR_CSS, /\.cat-jump select \{[^}]*font-size: 16px/);
-  assert.match(DOOR_CSS, /\.cat-name \{[^}]*font-size: 1\.0625rem; font-weight: 700/);
-  assert.match(DOOR_CSS, /\.cat-price \{[^}]*font-weight: 800; font-variant-numeric: tabular-nums/);
+  assert.match(DOOR_CSS, /\.cat-name \{[^}]*font-size: 1\.0625rem; font-weight: 600/);
+  assert.match(DOOR_CSS, /\.cat-price \{[^}]*font-weight: 600; font-variant-numeric: tabular-nums/);
+  // On a phone the whole page scrolls with the bar on top; the chat fills the screen under the tabs.
+  assert.match(DOOR_CSS, /\.has-catalogue \.door-catalogue \{ overflow: visible; \}/);
+  assert.match(DOOR_CSS, /\.cat-tools \{ position: sticky; top: 0;/);
+  assert.match(DOOR_CSS, /\.has-catalogue \.door-chat \{ height: calc\(100dvh - var\(--tabs-h\)\)/);
+  // The backdrop's own reveal never takes the name of the tab switch (it once did, and the tabs stopped working).
+  assert.equal((DOOR_JS.match(/\bshow = /g) ?? []).length, 0);
   assert.match(DOOR_CSS, /\.cat-pills \{[^}]*overflow-x: auto/);
 });
 

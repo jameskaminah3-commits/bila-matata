@@ -82,15 +82,22 @@ test("a lounge's page opens on its menu: sections, a search box, pictures, price
   const photo = await fetch(`${BASE}${thumb![1]}`);
   assert.equal(photo.status, 200);
   assert.equal(photo.headers.get("content-type"), "image/png");
-  assert.match(html, /<span class="cat-name">Masala chips<\/span><span class="cat-desc">Crispy, with our own pili pili<\/span><span class="cat-price">KSh 350<\/span>/);
+  assert.match(html, /<span class="cat-name">Masala chips<\/span><i class="cat-dots" aria-hidden="true"><\/i><span class="cat-price">KSh 350<\/span><\/span><span class="cat-desc">Crispy, with our own pili pili<\/span>/);
   assert.match(html, /<span class="cat-price">KSh 50 each<\/span>/);
   // Asking or ordering through Zaina is inside the opened card, and optional.
   assert.match(html, /data-ask="Tell me about Masala chips">Ask Zaina about this<\/button><button type="button" class="cat-zaina main" data-ask="I'd like to order Masala chips">Order via Zaina<\/button>/);
-  assert.match(html, /Tanqueray &amp; tonic<\/span><span class="cat-price">KSh 600<\/span><\/span><span class="cat-out">Out of stock<\/span>/);
+  assert.match(html, /Tanqueray &amp; tonic<\/span><i class="cat-dots" aria-hidden="true"><\/i><span class="cat-price">KSh 600<\/span><\/span><span class="cat-out">Out of stock<\/span>/);
   assert.doesNotMatch(html, /I'd like to order Tanqueray/, "nothing to tap on what's out");
   assert.match(html, /<footer class="door-foot"><a href="https:\/\/bilamatata\.com"[^>]*>Powered by Bila Matata<\/a><\/footer>/);
   assert.match(response.headers.get("content-security-policy") ?? "", /script-src 'self'/);
-  const script = await fetch(`${BASE}/c-assets/door.js`);
+  assert.match(response.headers.get("content-security-policy") ?? "", /font-src 'self'/);
+  const version = html.match(/door\.js\?v=([0-9a-f]{12})/)![1];
+  const script = await fetch(`${BASE}/c-assets/door.js?v=${version}`);
+  assert.match(script.headers.get("cache-control") ?? "", /immutable/, "kept until the next change");
+  const font = await fetch(`${BASE}${html.match(/href="(\/c-assets\/display\.woff2\?v=[0-9a-f]{12})"/)![1]}`);
+  assert.equal(font.status, 200);
+  assert.equal(font.headers.get("content-type"), "font/woff2");
+  assert.equal(Buffer.from(await font.arrayBuffer()).subarray(0, 4).toString("latin1"), "wOF2");
   assert.equal(script.status, 200);
   assert.match(script.headers.get("content-type") ?? "", /javascript/);
   assert.match(await script.text(), /zaina\.ask\(text\)/);
@@ -102,12 +109,12 @@ test("a pasted list with sizes and a description becomes one card with a price p
   const imported = await staff("kibanda", "POST", "/price-list/import", { items: parsed.body.items, replace: false });
   assert.ok(imported.status < 300, JSON.stringify(imported.body));
   const html = await (await page("/c/kibanda")).text();
-  assert.match(html, /<span class="cat-name">Absolut Vodka<\/span><span class="cat-desc">Swedish, smooth<\/span><span class="cat-variants"><span class="cat-variant">750ml Bottle <b>KSh 5,000<\/b><\/span><span class="cat-variant">Shot <b>KSh 300<\/b><\/span><\/span>/);
+  assert.match(html, /<span class="cat-name">Absolut Vodka<\/span><\/span><span class="cat-desc">Swedish, smooth<\/span><span class="cat-variants"><span class="cat-variant"><span>750ml Bottle<\/span><i class="cat-dots" aria-hidden="true"><\/i><b>KSh 5,000<\/b><\/span><span class="cat-variant"><span>Shot<\/span><i class="cat-dots" aria-hidden="true"><\/i><b>KSh 300<\/b><\/span><\/span>/);
 });
 
-test("a section opens with a banner: the business's own photo once it adds one, its colour until then", async () => {
+test("a section opens with the business's own photo once it adds one, its title alone until then", async () => {
   const before = await (await page("/c/kibanda")).text();
-  assert.match(before, /<li class="cat-heading cat-banner" data-heading="Food"><div class="cat-banner-text"><span class="cat-banner-brand">Kibanda Lounge<\/span><h2>Food<\/h2>/);
+  assert.match(before, /<li class="cat-heading" data-heading="Food"><h2>Food<\/h2><\/li>/);
   const added = await fetch(`${BASE}/v1/staff/businesses/kibanda/catalogue-sections/picture?section=Food`, { method: "PUT", headers: { authorization: `Bearer ${tokens.kibanda}`, "content-type": "image/png" }, body: PNG });
   assert.equal(added.status, 200, await added.clone().text());
   const url = ((await added.json()) as { pictures: Record<string, string> }).pictures.food;
@@ -128,7 +135,7 @@ test("a section opens with a banner: the business's own photo once it adds one, 
 test("the words follow the business: a salon's services, and a page with nothing to show stays the chat", async () => {
   const salon = await (await page("/c/studio")).text();
   assert.match(salon, /data-tab="catalogue">Services &amp; Prices<\/button>/);
-  assert.match(salon, /<span class="cat-name">Haircut<\/span><span class="cat-desc">Wash, cut and style<\/span><span class="cat-price">KSh 1,500<\/span>/);
+  assert.match(salon, /<span class="cat-name">Haircut<\/span><i class="cat-dots" aria-hidden="true"><\/i><span class="cat-price">KSh 1,500<\/span><\/span><span class="cat-desc">Wash, cut and style<\/span>/);
   assert.match(salon, /data-ask="I'd like to book Haircut">Book via Zaina<\/button>/);
   const stays = await (await page("/c/palm")).text();
   assert.doesNotMatch(stays, /door-tabs|door\.js/);

@@ -13,6 +13,7 @@
 //                                     page here, its website with the chat open, or its WhatsApp)
 //   GET  /c-assets/door.css           the page's look
 //   GET  /c-assets/door.js            the page's tabs, pills, search and Order / Ask buttons
+//   GET  /c-assets/display.woff2      the face of its name and section titles (Playfair Display, SIL Open Font Licence)
 //   GET  /brand/:business/:kind       its logo or cover picture (kind: logo | cover)
 //
 //   Its team, from the dashboard (/v1/staff/businesses/:businessId/…):
@@ -36,7 +37,8 @@ import { getNumber } from "../channels/whatsapp/numbers.ts";
 import { personaRole } from "../engine/persona.ts";
 import { whatsappLink } from "../gateway/routes.ts";
 import { requireBusinessRole, requireStaff, staffOf } from "../staff/auth.ts";
-import { brandCss, DOOR_CSS, DOOR_JS, initials, renderDoorClosed, renderFrontDoor } from "./page.ts";
+import { brandCss, DOOR_ASSETS_VERSION, DOOR_CSS, DOOR_JS, initials, renderDoorClosed, renderFrontDoor } from "./page.ts";
+import { DISPLAY_FONT, DISPLAY_FONT_VERSION } from "./display-font.ts";
 import { cachedDoorCatalogue, doorCatalogue } from "./catalogue.ts";
 import { cleanSpot } from "./spot.ts";
 import { businessOrigin, canBeSubdomain, subdomainsOn } from "./subdomains.ts";
@@ -53,6 +55,7 @@ const DOOR_CSP = [
   "script-src 'self'",
   "style-src 'self'",
   "img-src 'self' data:",
+  "font-src 'self'",
   "connect-src 'self'",
   "form-action 'none'",
   "frame-ancestors 'none'",
@@ -128,12 +131,19 @@ export function registerFrontDoorRoutes(app: Express, config: PlatformConfig): v
   // On a business's own address the page is a different origin from the main one: its pictures from the main address are allowed too.
   const doorCsp = config.publicBaseUrl ? DOOR_CSP.replace("img-src 'self' data:", `img-src 'self' data: ${new URL(config.publicBaseUrl).origin}`) : DOOR_CSP;
 
-  app.get("/c-assets/door.css", (_req: Request, res: Response) => {
-    res.setHeader("Cache-Control", "public, max-age=300");
+  // Each file's address carries its version (?v=), so a phone keeps it until it changes and gets a new one at once.
+  const keep = (req: Request, res: Response, version: string) => res.setHeader("Cache-Control", req.query.v === version ? "public, max-age=31536000, immutable" : "public, max-age=300");
+  app.get("/c-assets/display.woff2", (req: Request, res: Response) => {
+    keep(req, res, DISPLAY_FONT_VERSION);
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.type("font/woff2").send(DISPLAY_FONT);
+  });
+  app.get("/c-assets/door.css", (req: Request, res: Response) => {
+    keep(req, res, DOOR_ASSETS_VERSION);
     res.type("text/css").send(DOOR_CSS);
   });
-  app.get("/c-assets/door.js", (_req: Request, res: Response) => {
-    res.setHeader("Cache-Control", "public, max-age=300");
+  app.get("/c-assets/door.js", (req: Request, res: Response) => {
+    keep(req, res, DOOR_ASSETS_VERSION);
     res.setHeader("X-Content-Type-Options", "nosniff");
     res.type("application/javascript").send(DOOR_JS);
   });

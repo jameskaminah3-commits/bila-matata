@@ -9,8 +9,10 @@
 // business's colours from /c/<business>/brand.css; the chat is the same
 // widget every website uses, filling the page instead of floating.
 
+import { createHash } from "node:crypto";
 import { readableOn } from "../brand/assets.ts";
 import type { DoorCatalogue } from "./catalogue.ts";
+import { DISPLAY_FONT_VERSION } from "./display-font.ts";
 
 const esc = (value: string) => value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
@@ -51,6 +53,8 @@ const ICONS = {
   phone: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2z"/></svg>',
   whatsapp: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21l1.6-4.8A8.5 8.5 0 1 1 7.8 19.4L3 21z"/><path d="M9 9.5c0 3 2.5 5.5 5.5 5.5l1-1.5-2-1-1 .8a4 4 0 0 1-1.8-1.8l.8-1-1-2L9 9.5z"/></svg>',
   search: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>',
+  list: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg>',
+  chat: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg>',
   pin: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>',
   shield: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3z"/><path d="M9 12l2 2 4-4"/></svg>',
 };
@@ -61,11 +65,16 @@ function backdropLayer(view: DoorView): string {
   return `<div class="cat-backdrop" aria-hidden="true"><img id="cat-backdrop-img" alt="" decoding="async"${first ? ` src="${esc(first)}"` : ""}></div>`;
 }
 
+/** The dotted line from a name to its price, as on a printed menu. */
+const DOTS = '<i class="cat-dots" aria-hidden="true"></i>';
+
 /**
- * The catalogue tab: what the business offers, to browse quietly. A card
- * opens to its full description and photo; asking Zaina, or ordering
- * through her where the business takes orders online, is inside it and
- * never in the way.
+ * The catalogue tab: what the business offers, set like a good printed menu:
+ * each section under its title (or the business's own photo for it), a name
+ * and its price on one line, the description below, sizes as lines of their
+ * own. A line opens to its full description and photo; asking Zaina, or
+ * ordering through her where the business takes orders online, is inside it
+ * and never in the way.
  */
 function renderCatalogue(catalogue: DoorCatalogue, view: DoorView): string {
   const assistant = esc(view.assistant);
@@ -74,9 +83,8 @@ function renderCatalogue(catalogue: DoorCatalogue, view: DoorView): string {
     : "";
   // A long list of sections gets a one-tap jump as well as the pills.
   const jump = catalogue.sections.length > 4
-    ? `<label class="cat-jump"><span class="visually-hidden">Jump to a section</span><select id="cat-jump"><option value="">Jump to…</option>${catalogue.sections.map((section) => `<option value="${esc(section)}">${esc(section)}</option>`).join("")}</select></label>`
+    ? `<label class="cat-jump" title="Jump to a section">${ICONS.list}<span class="visually-hidden">Jump to a section</span><select id="cat-jump"><option value="">Jump to…</option>${catalogue.sections.map((section) => `<option value="${esc(section)}">${esc(section)}</option>`).join("")}</select></label>`
     : "";
-  const orders = catalogue.items.some((item) => item.order?.verb === "order");
   const headed = catalogue.sections.length > 1;
   // With sections, each one's items together under its heading, in the menu's own order (items with none first).
   const ordered = headed
@@ -84,40 +92,36 @@ function renderCatalogue(catalogue: DoorCatalogue, view: DoorView): string {
     : catalogue.items;
   let previous: string | null = null;
   const cards = ordered.map((item) => {
-    // A heading where each section starts, in the full list ("SNACKS", "VODKA").
-    // Each section opens with a banner: the business's own picture for it, or one drawn in its colour; its name, and the business's.
+    // Where each section starts: its title, or the business's own photo for it with its name and the business's.
     const banner = item.section ? catalogue.banners?.[item.section] : undefined;
-    const heading = headed && item.section && item.section !== previous
-      ? `<li class="cat-heading cat-banner${banner ? " has-picture" : ""}" data-heading="${esc(item.section)}"${banner ? ` data-backdrop="${esc(banner)}"` : ""}>${banner ? `<img class="cat-banner-img" src="${esc(banner)}" alt="" width="1200" height="480" loading="lazy" decoding="async">` : ""}<div class="cat-banner-text"><span class="cat-banner-brand">${esc(view.name)}</span><h2>${esc(item.section)}</h2></div></li>\n`
-      : "";
+    const heading = !headed || !item.section || item.section === previous ? ""
+      : banner
+        ? `<li class="cat-heading cat-banner has-picture" data-heading="${esc(item.section)}" data-backdrop="${esc(banner)}"><img class="cat-banner-img" src="${esc(banner)}" alt="" width="1200" height="480" loading="lazy" decoding="async"><div class="cat-banner-text"><span class="cat-banner-brand">${esc(view.name)}</span><h2>${esc(item.section)}</h2></div></li>\n`
+        : `<li class="cat-heading" data-heading="${esc(item.section)}"><h2>${esc(item.section)}</h2></li>\n`;
     previous = item.section;
     const search = [item.name, item.description, item.section, ...item.variants.map((variant) => variant.label)].filter(Boolean).join(" ").toLowerCase();
-    const visual = item.picture
-      ? `<img class="cat-thumb" src="${esc(item.picture)}" alt="" width="64" height="64" loading="lazy" decoding="async">`
-      : `<span class="cat-mono" aria-hidden="true">${esc(initials(item.name))}</span>`;
-    const prices = item.variants.length
-      ? `<span class="cat-variants">${item.variants.map((variant) => `<span class="cat-variant${variant.inStock ? "" : " out"}">${esc(variant.label)}${variant.price ? ` <b>${esc(variant.price)}</b>` : ""}${variant.inStock ? "" : " <em>Out of stock</em>"}</span>`).join("")}</span>`
-      : item.price ? `<span class="cat-price">${esc(item.price)}</span>` : "";
+    const thumb = item.picture ? `<img class="cat-thumb" src="${esc(item.picture)}" alt="" width="64" height="64" loading="lazy" decoding="async">` : "";
+    const top = `<span class="cat-top"><span class="cat-name">${esc(item.name)}</span>${!item.variants.length && item.price ? `${DOTS}<span class="cat-price">${esc(item.price)}</span>` : ""}</span>`;
+    const sizes = item.variants.length
+      ? `<span class="cat-variants">${item.variants.map((variant) => `<span class="cat-variant${variant.inStock ? "" : " out"}"><span>${esc(variant.label)}${variant.inStock ? "" : " <em>Out of stock</em>"}</span>${variant.price ? `${DOTS}<b>${esc(variant.price)}</b>` : ""}</span>`).join("")}</span>`
+      : "";
     const order = item.order && item.inStock
       ? `<button type="button" class="cat-zaina main" data-ask="${esc(item.order.text)}">${item.order.verb === "book" ? "Book" : "Order"} via ${assistant}</button>`
       : "";
     return `${heading}<li class="cat-item${item.inStock ? "" : " out"}" data-section="${esc(item.section ?? "")}" data-search="${esc(search)}"><details class="cat-card">
-<summary>${visual}<span class="cat-body"><span class="cat-name">${esc(item.name)}</span>${item.description ? `<span class="cat-desc">${esc(item.description)}</span>` : ""}${prices}</span>${item.inStock ? "" : '<span class="cat-out">Out of stock</span>'}</summary>
+<summary>${thumb}<span class="cat-body">${top}${item.description ? `<span class="cat-desc">${esc(item.description)}</span>` : ""}${sizes}${item.inStock ? "" : '<span class="cat-out">Out of stock</span>'}</span></summary>
 <div class="cat-more">${item.picture ? `<img class="cat-photo" src="${esc(item.picture)}" alt="${esc(item.name)}" loading="lazy" decoding="async">` : ""}<div class="cat-actions"><button type="button" class="cat-zaina" data-ask="${esc(item.tell)}">Ask ${assistant} about this</button>${order}</div></div>
 </details></li>`;
   }).join("\n");
-  const spot = view.spot ? `<p class="door-spot">${ICONS.pin}<span>You're at <strong>${esc(view.spot)}</strong>.${orders ? " Anything you order here is brought to you." : ""}</span></p>` : "";
   return `<section class="door-catalogue" id="door-catalogue" role="tabpanel" aria-labelledby="door-tab-catalogue">
-    ${spot}
     <div class="cat-tools">
-      <div class="cat-row"><label class="cat-search">${ICONS.search}<span class="visually-hidden">${esc(catalogue.search)}</span><input type="search" id="cat-search" placeholder="${esc(catalogue.search)}" autocomplete="off" enterkeyhint="search"></label>${jump}</div>
-      ${pills}
+      <label class="cat-search" title="${esc(catalogue.search)}">${ICONS.search}<span class="visually-hidden">${esc(catalogue.search)}</span><input type="search" id="cat-search" placeholder="${esc(catalogue.search)}" autocomplete="off" enterkeyhint="search"></label>${pills}${jump}
     </div>
     <ul class="cat-list">
 ${cards}
     </ul>
     <p class="cat-none" id="cat-none" hidden>Nothing matches that. <button type="button" class="cat-link" data-tab-to="chat">Ask ${assistant}</button> instead.</p>
-    <div class="cat-nudge" id="cat-nudge"><button type="button" class="cat-nudge-go" data-tab-to="chat">Need a recommendation? Ask ${assistant}</button><button type="button" class="cat-nudge-x" id="cat-nudge-x" aria-label="Hide this">×</button></div>
+    <div class="cat-nudge" id="cat-nudge"><button type="button" class="cat-nudge-go" data-tab-to="chat" title="Need a recommendation? Ask ${assistant}">${ICONS.chat}<span>Ask ${assistant}</span></button><button type="button" class="cat-nudge-x" id="cat-nudge-x" aria-label="Hide this">×</button></div>
   </section>`;
 }
 
@@ -129,6 +133,8 @@ export function renderFrontDoor(view: DoorView): string {
     view.phone && view.phoneDisplay ? `<a class="door-btn" href="tel:${esc(view.phone)}">${ICONS.phone}<span>Call ${esc(view.phoneDisplay)}</span></a>` : "",
     view.whatsapp ? `<a class="door-btn" href="${esc(view.whatsapp)}" target="_blank" rel="noopener noreferrer">${ICONS.whatsapp}<span>WhatsApp</span></a>` : "",
   ].filter(Boolean).join("");
+  const orders = view.catalogue?.items.some((item) => item.order?.verb === "order") ?? false;
+  const spot = view.catalogue && view.spot ? `<p class="door-spot">${ICONS.pin}<span>You're at <strong>${esc(view.spot)}</strong>.${orders ? " Anything you order here is brought to you." : ""}</span></p>` : "";
   return `<!doctype html>
 <html lang="en"${view.menuStyle && view.menuStyle !== "auto" ? ` data-menu="${view.menuStyle}"` : ""}>
 <head>
@@ -142,7 +148,8 @@ export function renderFrontDoor(view: DoorView): string {
 <meta property="og:description" content="${esc(description)}">
 <meta property="og:type" content="website">
 ${view.logoUrl ? `<meta property="og:image" content="${esc(view.logoUrl)}">\n<link rel="icon" href="${esc(view.logoUrl)}">` : `<link rel="icon" href="/site/zaina.svg" type="image/svg+xml">`}
-<link rel="stylesheet" href="/c-assets/door.css">
+<link rel="preload" href="/c-assets/display.woff2?v=${DISPLAY_FONT_VERSION}" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/c-assets/door.css?v=${DOOR_ASSETS_VERSION}">
 <link rel="stylesheet" href="/c/${id}/brand.css?v=${esc(view.brandVersion)}">
 </head>
 <body>
@@ -156,6 +163,7 @@ ${view.logoUrl ? `<meta property="og:image" content="${esc(view.logoUrl)}">\n<li
         ${view.tagline ? `<p>${esc(view.tagline)}</p>` : ""}
       </div>
     </div>
+    ${spot}
     <p class="door-intro">${esc(view.assistant)} is our ${esc(view.role)}. Ask anything, any time: she answers from our own information, and our team is right behind her.</p>
     ${contact ? `<div class="door-actions">${contact}</div>` : ""}
     <p class="door-trust">${ICONS.shield}<span>You pay ${esc(view.name)} directly. ${esc(view.assistant)} never asks for card numbers or PINs.</span></p>
@@ -172,7 +180,7 @@ ${view.logoUrl ? `<meta property="og:image" content="${esc(view.logoUrl)}">\n<li
   </main>${view.catalogue ? "\n  </div>" : ""}
   <footer class="door-foot"><a href="${POWERED_BY.href}" target="_blank" rel="noopener">${POWERED_BY.text}</a></footer>
 </div>
-${view.catalogue ? `<script src="/c-assets/door.js" defer></script>\n` : ""}<script src="/zaina.js" data-business="${esc(view.businessId)}" data-mode="page" data-mount="#zaina-chat" data-via="${view.via}"${view.spot ? ` data-spot="${esc(view.spot)}"` : ""} async></script>
+${view.catalogue ? `<script src="/c-assets/door.js?v=${DOOR_ASSETS_VERSION}" defer></script>\n` : ""}<script src="/zaina.js" data-business="${esc(view.businessId)}" data-mode="page" data-mount="#zaina-chat" data-via="${view.via}"${view.spot ? ` data-spot="${esc(view.spot)}"` : ""} async></script>
 </body>
 </html>`;
 }
@@ -185,7 +193,7 @@ export function renderDoorClosed(): string {
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>This page isn't available</title>
 <meta name="robots" content="noindex">
-<link rel="stylesheet" href="/c-assets/door.css">
+<link rel="stylesheet" href="/c-assets/door.css?v=${DOOR_ASSETS_VERSION}">
 </head>
 <body>
 <div class="door closed">
@@ -206,15 +214,18 @@ export function brandCss(color: string): string {
 }
 
 export const DOOR_CSS = String.raw`
-:root { --brand: #0f766e; --on-brand: #ffffff; --bg: #f6f5f1; --surface: #ffffff; --ink: #111a17; --muted: #5b6763; --line: #e4e2da; --alert: #b42318;
-  --tint: color-mix(in srgb, var(--brand) 9%, var(--bg)); color-scheme: light; }
+@font-face { font-family: "Door Display"; src: url(/c-assets/display.woff2?v=${DISPLAY_FONT_VERSION}) format("woff2"); font-weight: 700; font-style: normal; font-display: swap; }
+:root { --brand: #0f766e; --on-brand: #ffffff; --bg: #faf8f4; --surface: #ffffff; --ink: #1c1a17; --muted: #6b645a; --line: #e8e2d7; --alert: #b42318;
+  --mark: color-mix(in srgb, var(--brand) 78%, var(--ink)); --tint: color-mix(in srgb, var(--brand) 8%, var(--bg)); --sheet: var(--surface);
+  --hero: color-mix(in srgb, var(--brand) 12%, #0c0b0a); --hero-glow: color-mix(in srgb, var(--brand) 36%, #0c0b0a);
+  --display: "Door Display", "Playfair Display", Georgia, "Times New Roman", serif; --tabs-h: 50px; color-scheme: light; }
 @media (prefers-color-scheme: dark) {
-  :root:not([data-menu="light"]) { --bg: #0e1412; --surface: #151d1a; --ink: #f1f4f2; --muted: #a3afab; --line: #26312d; --alert: #ff8f80; color-scheme: dark; }
+  :root:not([data-menu="light"]) { --bg: #100f0d; --surface: #1a1815; --ink: #f4f0e9; --muted: #aba297; --line: #2d2925; --alert: #ff8f80; --mark: color-mix(in srgb, var(--brand) 62%, #ffffff); color-scheme: dark; }
 }
-:root[data-menu="dark"], :root[data-menu="backdrop"] { --bg: #0e1412; --surface: #151d1a; --ink: #f1f4f2; --muted: #a3afab; --line: #26312d; --alert: #ff8f80; color-scheme: dark; }
+:root[data-menu="dark"], :root[data-menu="backdrop"] { --bg: #100f0d; --surface: #1a1815; --ink: #f4f0e9; --muted: #aba297; --line: #2d2925; --alert: #ff8f80; --mark: color-mix(in srgb, var(--brand) 62%, #ffffff); color-scheme: dark; }
 * { box-sizing: border-box; }
 html, body { height: 100%; margin: 0; }
-body { font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: var(--ink); background: var(--tint); -webkit-font-smoothing: antialiased; }
+body { font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: var(--ink); background: var(--tint); -webkit-font-smoothing: antialiased; -webkit-tap-highlight-color: transparent; }
 .door { min-height: 100%; height: 100dvh; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 460px); gap: 40px; align-items: center;
   max-width: 1080px; margin: 0 auto; padding: 32px max(24px, env(safe-area-inset-right)) 32px max(24px, env(safe-area-inset-left)); }
 .door-head { position: relative; display: flex; flex-direction: column; gap: 18px; min-width: 0; }
@@ -223,19 +234,21 @@ body { font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; 
 .door-logo { width: 72px; height: 72px; flex: none; border-radius: 20px; overflow: hidden; background: var(--surface); border: 1px solid var(--line); display: grid; place-items: center;
   box-shadow: 0 8px 22px -14px rgba(0, 0, 0, .5); }
 .door-logo img { width: 100%; height: 100%; object-fit: contain; display: block; }
-.door-logo.letters { background: var(--brand); color: var(--on-brand); border-color: transparent; font-weight: 700; font-size: 1.5rem; letter-spacing: .02em; }
+.door-logo.letters { background: var(--brand); color: var(--on-brand); border-color: transparent; font-family: var(--display); font-weight: 700; font-size: 1.6rem; }
 .door-name { min-width: 0; }
-.door-name h1 { margin: 0; font-size: clamp(1.5rem, 1.1rem + 1.6vw, 2.25rem); line-height: 1.12; letter-spacing: -.02em; text-wrap: balance; overflow-wrap: anywhere; }
+.door-name h1 { margin: 0; font-family: var(--display); font-weight: 700; font-size: clamp(1.6rem, 1.1rem + 1.8vw, 2.5rem); line-height: 1.1; letter-spacing: -.01em; text-wrap: balance; overflow-wrap: anywhere; }
 .door-name p { margin: 6px 0 0; color: var(--muted); font-size: 1.05rem; overflow-wrap: anywhere; }
+.door-spot { margin: 0; align-self: flex-start; display: flex; gap: 8px; align-items: center; padding: 10px 14px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); font-size: .92rem; max-width: 46ch; }
+.door-spot svg { color: var(--mark); flex: none; }
 .door-intro { margin: 0; max-width: 46ch; color: var(--muted); font-size: 1.02rem; }
 .door-actions { display: flex; flex-wrap: wrap; gap: 10px; }
 .door-btn { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 16px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface);
   color: var(--ink); text-decoration: none; font-weight: 600; font-size: .95rem; transition: border-color .15s ease, transform .15s ease; }
 .door-btn:hover { border-color: var(--brand); transform: translateY(-1px); }
 .door-btn:focus-visible { outline: 3px solid var(--brand); outline-offset: 2px; }
-.door-btn svg { color: var(--brand); flex: none; }
+.door-btn svg { color: var(--mark); flex: none; }
 .door-trust { margin: 0; display: flex; gap: 8px; align-items: flex-start; color: var(--muted); font-size: .88rem; max-width: 46ch; }
-.door-trust svg { flex: none; margin-top: 3px; color: var(--brand); }
+.door-trust svg { flex: none; margin-top: 3px; color: var(--mark); }
 .door-chat { height: min(720px, calc(100dvh - 64px)); min-height: 420px; background: var(--surface); border: 1px solid var(--line); border-radius: 24px; overflow: hidden;
   box-shadow: 0 30px 60px -34px rgba(0, 0, 0, .5); display: flex; flex-direction: column; }
 .door-chat #zaina-widget { flex: 1; min-height: 0; display: block; }
@@ -243,154 +256,193 @@ body { font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; 
 .door-chat.ready .door-loading { display: none; }
 .door.closed { display: grid; grid-template-columns: 1fr; place-items: center; }
 .door-closed { max-width: 46ch; text-align: center; }
-.door-closed h1 { font-size: 1.6rem; margin: 0 0 10px; }
+.door-closed h1 { font-family: var(--display); font-size: 1.7rem; margin: 0 0 10px; }
 .door-closed p { color: var(--muted); margin: 0; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.door-foot { grid-column: 1 / -1; text-align: center; font-size: .78rem; padding: 4px 0 0; }
+.door-foot a { color: var(--muted); text-decoration: none; letter-spacing: .02em; }
+.door-foot a:hover, .door-foot a:focus-visible { color: var(--ink); text-decoration: underline; }
+
+/* With a catalogue: tabs over the catalogue and the chat, which share the right-hand column. */
+.door.has-catalogue { grid-template-rows: 1fr auto; }
+.door-main { --sheet: var(--surface); height: min(760px, calc(100dvh - 92px)); min-height: 460px; display: flex; flex-direction: column; background: var(--sheet); border: 1px solid var(--line);
+  border-radius: 24px; overflow: hidden; box-shadow: 0 30px 60px -34px rgba(0, 0, 0, .5); min-width: 0; }
+.door-main .door-chat { flex: 1; min-height: 0; height: auto; border: none; border-radius: 0; box-shadow: none; }
+.door-main [hidden] { display: none !important; }
+.door-tabs { flex: none; display: grid; grid-template-columns: 1fr 1fr; height: var(--tabs-h); background: var(--sheet); border-bottom: 1px solid var(--line); }
+.door-tabs button { position: relative; border: 0; background: transparent; color: var(--muted); font: inherit; font-size: .95rem; font-weight: 600; cursor: pointer; }
+.door-tabs button[aria-selected="true"] { color: var(--ink); }
+.door-tabs button[aria-selected="true"]::after { content: ""; position: absolute; left: 50%; bottom: -1px; width: 48px; height: 2px; border-radius: 2px; transform: translateX(-50%); background: var(--mark); }
+.door-tabs button:focus-visible { outline: 3px solid var(--mark); outline-offset: -3px; }
+.door-catalogue { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+
+/* One slim bar that stays on top: search (an icon until it's tapped), the sections, and a jump to any of them. */
+.cat-tools { position: sticky; top: 0; z-index: 2; display: flex; align-items: center; gap: 8px; padding: 10px 16px;
+  background: color-mix(in srgb, var(--sheet) 90%, transparent); -webkit-backdrop-filter: blur(14px) saturate(1.3); backdrop-filter: blur(14px) saturate(1.3); border-bottom: 1px solid var(--line); }
+.cat-search, .cat-jump { position: relative; flex: none; width: 44px; height: 44px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); }
+.cat-search svg, .cat-jump svg { position: absolute; left: 12px; top: 12px; pointer-events: none; }
+/* 16px at least, or iPhones zoom the page in when it's tapped. */
+.cat-search input { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; border-radius: inherit; background: transparent; color: var(--ink); font: inherit; font-size: 16px; padding: 0 12px 0 40px; outline: none; opacity: 0; cursor: pointer; }
+.cat-search:focus-within, .cat-search.on, .cat-search:only-child { flex: 1 1 auto; width: auto; }
+.cat-search:focus-within { border-color: var(--mark); }
+.cat-search:focus-within input, .cat-search.on input, .cat-search:only-child input { opacity: 1; cursor: text; }
+.cat-search:focus-within ~ *, .cat-search.on ~ * { display: none; }
+.cat-jump select { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; font: inherit; font-size: 16px; cursor: pointer; border: 0; }
+.cat-jump:focus-within { outline: 3px solid var(--mark); outline-offset: 2px; }
+.cat-pills { flex: 1 1 auto; min-width: 0; display: flex; gap: 2px; overflow-x: auto; scrollbar-width: none; padding-right: 24px;
+  -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent); }
+.cat-pills.scrolled { -webkit-mask-image: linear-gradient(90deg, transparent, #000 24px, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(90deg, transparent, #000 24px, #000 calc(100% - 28px), transparent); }
+.cat-pills::-webkit-scrollbar { display: none; }
+.cat-pill { flex: none; min-height: 40px; padding: 0 14px; border-radius: 999px; border: 0; background: transparent; color: var(--muted); font: inherit; font-size: .92rem; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.cat-pill[aria-pressed="true"] { background: var(--ink); color: var(--sheet); }
+.cat-pill:focus-visible { outline: 3px solid var(--mark); outline-offset: 1px; }
+
+/* The menu itself: section titles set in the display face, then name · · · price. */
+.cat-list { list-style: none; margin: 0; padding: 0 20px 12px; }
+.cat-heading { padding: 34px 0 6px; text-align: center; }
+.cat-list > .cat-heading:first-child { padding-top: 24px; }
+.cat-heading h2 { margin: 0; font-family: var(--display); font-weight: 700; font-size: 1.7rem; line-height: 1.15; color: var(--ink); text-wrap: balance; overflow-wrap: anywhere; }
+.cat-heading h2::after { content: ""; display: block; width: 28px; height: 2px; margin: 12px auto 0; border-radius: 2px; background: var(--mark); }
+/* A section with the business's own photo for it: the whole photo, its name over it. */
+.cat-banner.has-picture { position: relative; aspect-ratio: 5 / 2; margin: 28px -4px 8px; padding: 0; border-radius: 18px; overflow: hidden; isolation: isolate; text-align: left; background: #111111; }
+.cat-list > .cat-banner.has-picture:first-child { margin-top: 16px; }
+.cat-banner-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: -1; }
+.cat-banner.has-picture::after { content: ""; position: absolute; inset: 0; z-index: -1; background: linear-gradient(0deg, rgba(0, 0, 0, .72), rgba(0, 0, 0, .08) 72%); }
+.cat-banner-text { height: 100%; display: flex; flex-direction: column; justify-content: flex-end; gap: 2px; padding: 14px 18px; color: #ffffff; }
+.cat-banner-brand { font-size: .66rem; font-weight: 700; letter-spacing: .24em; text-transform: uppercase; opacity: .85; }
+.cat-banner.has-picture h2 { color: #ffffff; font-size: 1.8rem; text-shadow: 0 1px 14px rgba(0, 0, 0, .5); }
+.cat-banner.has-picture h2::after { margin: 10px 0 0; background: color-mix(in srgb, var(--brand) 55%, #ffffff); }
+.cat-item + .cat-item { border-top: 1px solid var(--line); }
+/* No line under a title, nor above the first of what a search or a section shows. */
+.cat-heading + .cat-item, .cat-item.lead { border-top: 0; }
+.cat-card summary { display: flex; gap: 14px; align-items: flex-start; padding: 16px 0; cursor: pointer; list-style: none; }
+.cat-card summary::-webkit-details-marker { display: none; }
+.cat-card summary:focus-visible { outline: 3px solid var(--mark); outline-offset: 2px; border-radius: 10px; }
+/* A light plate behind every photo, so a cut-out with no background still reads in dark mode. */
+.cat-thumb { flex: none; width: 64px; height: 64px; border-radius: 12px; object-fit: contain; background: #ffffff; display: block; }
+.cat-body { flex: 1; min-width: 0; display: grid; gap: 4px; }
+.cat-top { display: flex; align-items: baseline; gap: 10px; }
+.cat-name { min-width: 0; font-size: 1.0625rem; font-weight: 600; line-height: 1.3; overflow-wrap: anywhere; }
+.cat-dots { flex: 1 1 16px; min-width: 16px; border-bottom: 1.5px dotted color-mix(in srgb, var(--muted) 50%, transparent); transform: translateY(-.3em); }
+.cat-price { flex: none; font-size: 1rem; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.cat-desc { color: var(--muted); font-size: .92rem; line-height: 1.5; max-width: 62ch; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.cat-card[open] .cat-desc { display: block; overflow: visible; }
+.cat-variants { display: grid; gap: 4px; margin-top: 4px; }
+.cat-variant { display: flex; align-items: baseline; gap: 10px; font-size: .95rem; font-variant-numeric: tabular-nums; }
+.cat-variant > span { min-width: 0; color: var(--muted); }
+.cat-variant b { flex: none; font-weight: 600; white-space: nowrap; }
+.cat-variant.out > span, .cat-variant.out b { color: var(--muted); opacity: .7; }
+.cat-variant em { font-style: normal; font-size: .72rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--alert); margin-left: 4px; }
+.cat-out { justify-self: start; font-size: .72rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--alert); }
+.cat-item.out .cat-name, .cat-item.out .cat-price { color: var(--muted); }
+.cat-more { display: grid; gap: 14px; padding: 0 0 18px; }
+/* The whole picture, never cropped: square like every uploaded one, and an older one of another shape shown whole on white. */
+.cat-photo { width: 100%; max-width: 420px; aspect-ratio: 1 / 1; object-fit: contain; border-radius: 16px; background: #ffffff; display: block; }
+.cat-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.cat-zaina { min-height: 44px; padding: 0 18px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: inherit; font-size: .92rem; font-weight: 600; cursor: pointer; }
+.cat-zaina.main { background: var(--brand); border-color: var(--brand); color: var(--on-brand); }
+.cat-zaina:focus-visible { outline: 3px solid var(--mark); outline-offset: 2px; }
+.cat-nudge { position: sticky; bottom: calc(14px + env(safe-area-inset-bottom, 0px)); z-index: 2; display: flex; align-items: center; width: max-content; max-width: calc(100% - 32px);
+  margin: 12px 16px 14px auto; border-radius: 999px; background: var(--ink); color: var(--sheet); box-shadow: 0 12px 28px -10px rgba(0, 0, 0, .55); }
+.cat-nudge-go { display: inline-flex; align-items: center; gap: 8px; border: 0; background: none; color: inherit; font: inherit; font-size: .92rem; font-weight: 600; min-height: 44px; padding: 0 2px 0 16px; cursor: pointer; }
+.cat-nudge-x { flex: none; border: 0; background: none; color: inherit; font: inherit; font-size: 1.2rem; line-height: 1; width: 40px; height: 44px; border-radius: 999px; cursor: pointer; opacity: .65; }
+.cat-nudge button:focus-visible { outline: 3px solid var(--mark); outline-offset: -3px; }
+.cat-none { margin: 28px 16px; color: var(--muted); text-align: center; }
+.cat-link { border: 0; background: none; padding: 0; font: inherit; color: var(--ink); font-weight: 650; text-decoration: underline; text-decoration-color: var(--mark); cursor: pointer; min-height: 44px; }
+
+/* "Dark, over your photos": the photo blurred once on a single layer and dimmed, glass cards over it.
+   Only the small sticky bar blurs what's behind it, so scrolling stays smooth on any phone. */
+.cat-backdrop { display: none; }
+[data-menu="backdrop"] .door-main { --sheet: #121110; position: relative; background: #0b0a09; }
+[data-menu="backdrop"] .cat-backdrop { display: block; position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none;
+  background: radial-gradient(120% 90% at 20% 0%, color-mix(in srgb, var(--brand) 45%, #000000), #0b0a09 70%); }
+[data-menu="backdrop"] .cat-backdrop img { position: absolute; inset: -40px; width: calc(100% + 80px); height: calc(100% + 80px); object-fit: cover; filter: blur(18px) saturate(1.15); opacity: 0; transition: opacity .5s ease; }
+[data-menu="backdrop"] .cat-backdrop img.on { opacity: 1; }
+[data-menu="backdrop"] .cat-backdrop::after { content: ""; position: absolute; inset: 0; background: rgba(8, 7, 6, .74); }
+[data-menu="backdrop"] .door-tabs, [data-menu="backdrop"] .door-catalogue, [data-menu="backdrop"] .door-chat { position: relative; z-index: 1; }
+[data-menu="backdrop"] .door-tabs { background: rgba(12, 11, 10, .55); border-bottom-color: rgba(255, 255, 255, .08); }
+[data-menu="backdrop"] .door-catalogue { background: transparent; }
+[data-menu="backdrop"] .cat-tools { background: rgba(12, 11, 10, .6); border-bottom-color: rgba(255, 255, 255, .08); }
+[data-menu="backdrop"] .cat-search, [data-menu="backdrop"] .cat-jump { background: rgba(255, 255, 255, .06); border-color: rgba(255, 255, 255, .14); }
+[data-menu="backdrop"] .cat-heading h2 { color: #ffffff; text-shadow: 0 2px 18px rgba(0, 0, 0, .6); }
+[data-menu="backdrop"] .cat-item, [data-menu="backdrop"] .cat-item + .cat-item { margin: 8px 0; padding: 0 16px; border: 1px solid rgba(255, 255, 255, .08); border-radius: 16px;
+  background: rgba(20, 18, 16, .72); box-shadow: 0 10px 30px -18px rgba(0, 0, 0, .8); }
+@media (prefers-reduced-transparency: reduce) {
+  [data-menu="backdrop"] .cat-item, [data-menu="backdrop"] .cat-tools { background: #171513; -webkit-backdrop-filter: none; backdrop-filter: none; }
+}
+@media (prefers-reduced-motion: reduce) { [data-menu="backdrop"] .cat-backdrop img { transition: none; } .door-btn { transition: none; } .door-btn:hover { transform: none; } }
+
 @media (max-width: 860px) {
   body { background: var(--surface); }
   .door { display: flex; flex-direction: column; align-items: stretch; gap: 0; padding: 0; max-width: none; }
-  /* The business's own colour across the top: the page is theirs at a glance; the menu below stays calm to read. */
+  /* A page that's only the chat: the business's colour across the top, the chat below. */
   .door-head { flex: none; gap: 0; padding: calc(14px + env(safe-area-inset-top, 0px)) 16px 14px; color: var(--on-brand);
-    background: linear-gradient(135deg, var(--brand), color-mix(in srgb, var(--brand) 88%, var(--on-brand))); border-bottom: 0; }
+    background: linear-gradient(135deg, var(--brand), color-mix(in srgb, var(--brand) 88%, var(--on-brand))); }
   .door-head .door-name h1 { color: var(--on-brand); }
   .door-head .door-name p { color: color-mix(in srgb, var(--on-brand) 82%, transparent); }
   .door-head .door-logo.letters { background: var(--on-brand); color: var(--brand); }
   .door-head .door-btn { background: color-mix(in srgb, var(--on-brand) 14%, transparent); color: var(--on-brand); border-color: color-mix(in srgb, var(--on-brand) 35%, transparent); }
+  .door-head .door-btn svg { color: currentColor; }
   .door-logo { width: 46px; height: 46px; border-radius: 13px; }
-  .door-logo.letters { font-size: 1.05rem; }
+  .door-logo.letters { font-size: 1.15rem; }
   .door-brand { gap: 12px; }
-  .door-name h1 { font-size: 1.15rem; }
+  .door-name h1 { font-size: 1.3rem; }
   .door-name p { font-size: .9rem; margin-top: 1px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .door-intro, .door-trust { display: none; }
   .door-actions { margin-top: 10px; gap: 8px; }
   .door-btn { min-height: 40px; padding: 0 13px; font-size: .88rem; flex: 1; justify-content: center; }
   .door-chat { flex: 1; min-height: 0; height: auto; border: none; border-radius: 0; box-shadow: none; }
-  /* The cover becomes the header's ground, under a wash of the page colour so the name stays readable. */
   .has-cover .door-head { overflow: hidden; }
   .has-cover .door-cover { position: absolute; inset: 0; width: 100%; height: 100%; aspect-ratio: auto; border-radius: 0; box-shadow: none; opacity: .28; }
   .has-cover .door-brand, .has-cover .door-actions { position: relative; }
-}
-.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
-.door-foot { grid-column: 1 / -1; text-align: center; font-size: .78rem; padding: 4px 0 0; }
-.door-foot a { color: var(--muted); text-decoration: none; }
-.door-foot a:hover, .door-foot a:focus-visible { color: var(--ink); text-decoration: underline; }
-/* With a catalogue: tabs over the catalogue and the chat, which share the right-hand column. */
-.door.has-catalogue { grid-template-rows: 1fr auto; }
-.door-main { height: min(760px, calc(100dvh - 92px)); min-height: 460px; display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--line);
-  border-radius: 24px; overflow: hidden; box-shadow: 0 30px 60px -34px rgba(0, 0, 0, .5); min-width: 0; }
-.door-main .door-chat { flex: 1; min-height: 0; height: auto; border: none; border-radius: 0; box-shadow: none; }
-.door-main [hidden] { display: none !important; }
-.door-tabs { flex: none; display: grid; grid-template-columns: 1fr 1fr; gap: 4px; padding: 6px; background: var(--tint); border-bottom: 1px solid var(--line); }
-.door-tabs button { min-height: 44px; border: 0; border-radius: 14px; background: transparent; color: var(--muted); font: inherit; font-weight: 650; font-size: .95rem; cursor: pointer; }
-.door-tabs button[aria-selected="true"] { background: var(--surface); color: var(--ink); box-shadow: 0 2px 8px -4px rgba(0, 0, 0, .35); }
-.door-tabs button:focus-visible { outline: 3px solid var(--brand); outline-offset: -3px; }
-.door-catalogue { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
-.door-spot { margin: 12px 16px 0; padding: 10px 12px; border-radius: 12px; background: var(--tint); display: flex; gap: 8px; align-items: center; font-size: .92rem; }
-.door-spot svg { color: var(--brand); flex: none; }
-.cat-tools { position: sticky; top: 0; z-index: 1; background: var(--surface); padding: 12px 16px 10px; display: flex; flex-direction: column; gap: 10px; border-bottom: 1px solid var(--line); }
-.cat-search { display: flex; align-items: center; gap: 8px; min-height: 46px; padding: 0 14px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg); color: var(--muted); }
-.cat-search:focus-within { border-color: var(--brand); }
-/* 16px at least, or iPhones zoom the page in when it's tapped. */
-.cat-search input { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--ink); font: inherit; font-size: 16px; outline: none; padding: 10px 0; }
-.cat-pills { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; margin: 0 -16px; padding: 0 16px; }
-.cat-pills::-webkit-scrollbar { display: none; }
-.cat-pill { flex: none; min-height: 40px; padding: 0 16px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: inherit; font-size: .9rem; font-weight: 600; cursor: pointer; white-space: nowrap; }
-.cat-pill[aria-pressed="true"] { background: var(--brand); border-color: var(--brand); color: var(--on-brand); }
-.cat-pill:focus-visible { outline: 3px solid var(--brand); outline-offset: 2px; }
-.cat-row { display: flex; gap: 8px; }
-.cat-row .cat-search { flex: 1; min-width: 0; }
-.cat-jump { flex: none; width: 36%; display: flex; }
-.cat-jump select { width: 100%; min-width: 0; text-overflow: ellipsis; min-height: 46px; padding: 0 12px; border: 1px solid var(--line); border-radius: 999px; background: var(--bg); color: var(--ink); font: inherit; font-size: 16px; font-weight: 600; }
-.cat-jump select:focus-visible { outline: 3px solid var(--brand); outline-offset: 1px; }
-.cat-list { list-style: none; margin: 0; padding: 4px 16px 8px; }
-/* Each section opens with a banner: the business's picture for it (loaded only as it nears the screen), or its colour with a fine pattern. */
-.cat-banner { position: relative; height: 112px; margin: 18px 0 4px; border-radius: 18px; overflow: hidden; isolation: isolate;
-  background: repeating-linear-gradient(135deg, rgba(255, 255, 255, .07) 0 2px, transparent 2px 14px),
-    radial-gradient(130% 150% at 0% 0%, color-mix(in srgb, var(--brand) 85%, #ffffff), var(--brand) 45%, color-mix(in srgb, var(--brand) 55%, #000000)); }
-.cat-list > .cat-banner:first-child { margin-top: 8px; }
-.cat-banner-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; z-index: -1; }
-.cat-banner::after { content: ""; position: absolute; inset: 0; z-index: -1; background: linear-gradient(90deg, rgba(0, 0, 0, .55), rgba(0, 0, 0, .12) 75%); }
-.cat-banner-text { height: 100%; display: flex; flex-direction: column; justify-content: space-between; padding: 12px 16px 14px; color: #ffffff; }
-.cat-banner-brand { font-size: .68rem; font-weight: 700; letter-spacing: .22em; text-transform: uppercase; opacity: .88; }
-.cat-banner h2 { margin: 0; font-size: 1.4rem; font-weight: 800; line-height: 1.15; color: #ffffff; text-shadow: 0 1px 3px rgba(0, 0, 0, .45); overflow-wrap: anywhere; }
-.cat-item { border-bottom: 1px solid var(--line); }
-.cat-item:last-child { border-bottom: 0; }
-.cat-card summary { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-auto-flow: column; grid-auto-columns: auto; gap: 12px; align-items: start; padding: 14px 0; cursor: pointer; list-style: none; }
-.cat-card summary::-webkit-details-marker { display: none; }
-.cat-card summary::after { content: ""; width: 9px; height: 9px; margin: 7px 4px 0 0; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(45deg); transition: transform .15s ease; }
-.cat-card[open] summary::after { transform: rotate(225deg); margin-top: 12px; }
-.cat-card summary:focus-visible { outline: 3px solid var(--brand); outline-offset: 2px; border-radius: 12px; }
-.cat-thumb, .cat-mono { width: 64px; height: 64px; border-radius: 14px; }
-/* A light plate behind every photo, so a cut-out with no background still reads in dark mode. */
-.cat-thumb { object-fit: contain; background: #ffffff; display: block; }
-.cat-mono { display: grid; place-items: center; background: color-mix(in srgb, var(--brand) 16%, var(--surface)); color: var(--ink); border: 1px solid var(--line); font-weight: 800; font-size: 1.15rem; letter-spacing: .03em; }
-.cat-body { min-width: 0; display: grid; gap: 4px; }
-.cat-name { font-size: 1.0625rem; font-weight: 700; line-height: 1.3; overflow-wrap: anywhere; }
-.cat-desc { color: var(--muted); font-size: .94rem; line-height: 1.45; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
-.cat-card[open] .cat-desc { display: block; overflow: visible; color: var(--ink); }
-.cat-price { font-size: 1rem; font-weight: 800; font-variant-numeric: tabular-nums; }
-.cat-variants { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
-.cat-variant { display: inline-flex; gap: 6px; align-items: baseline; padding: 5px 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); font-size: .9rem; font-weight: 600; font-variant-numeric: tabular-nums; }
-.cat-variant b { font-weight: 800; }
-.cat-variant.out { color: var(--muted); }
-.cat-variant em { font-style: normal; font-size: .78rem; font-weight: 800; color: var(--alert); }
-.cat-out { align-self: center; font-size: .8rem; font-weight: 800; color: var(--alert); border: 1.5px solid currentColor; border-radius: 999px; padding: 5px 10px; white-space: nowrap; }
-.cat-item.out .cat-name, .cat-item.out .cat-price { color: var(--muted); }
-.cat-more { display: grid; gap: 12px; padding: 0 0 16px; }
-/* The whole picture, never cropped: square like every uploaded one, and an older one of another shape shown whole on white. */
-.cat-photo { width: 100%; max-width: 360px; aspect-ratio: 1 / 1; object-fit: contain; border-radius: 16px; background: #ffffff; display: block; }
-.cat-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-.cat-zaina { min-height: 44px; padding: 0 16px; border-radius: 999px; border: 1.5px solid var(--brand); background: transparent; color: var(--ink); font: inherit; font-size: .92rem; font-weight: 700; cursor: pointer; }
-.cat-zaina.main { background: var(--brand); color: var(--on-brand); }
-.cat-zaina:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
-/* "Dark, over your photos": the photo blurred once on a single layer and dimmed, glass cards over it.
-   Only the small sticky search bar blurs what's behind it, so scrolling stays smooth on any phone. */
-.cat-backdrop { display: none; }
-[data-menu="backdrop"] .door-main { position: relative; background: #0b0f0e; }
-[data-menu="backdrop"] .cat-backdrop { display: block; position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none;
-  background: radial-gradient(120% 90% at 20% 0%, color-mix(in srgb, var(--brand) 55%, #000000), #0b0f0e 70%); }
-[data-menu="backdrop"] .cat-backdrop img { position: absolute; inset: -40px; width: calc(100% + 80px); height: calc(100% + 80px); object-fit: cover; filter: blur(18px) saturate(1.15); opacity: 0; transition: opacity .5s ease; }
-[data-menu="backdrop"] .cat-backdrop img.on { opacity: 1; }
-[data-menu="backdrop"] .cat-backdrop::after { content: ""; position: absolute; inset: 0; background: rgba(6, 9, 8, .78); }
-[data-menu="backdrop"] .door-tabs, [data-menu="backdrop"] .door-catalogue, [data-menu="backdrop"] .door-chat { position: relative; z-index: 1; }
-[data-menu="backdrop"] .door-tabs { background: rgba(10, 14, 13, .6); border-bottom-color: rgba(255, 255, 255, .08); }
-[data-menu="backdrop"] .door-catalogue { background: transparent; }
-[data-menu="backdrop"] .cat-tools { background: rgba(10, 14, 13, .62); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); border-bottom-color: rgba(255, 255, 255, .08); }
-[data-menu="backdrop"] .door-spot { background: rgba(255, 255, 255, .08); }
-[data-menu="backdrop"] .cat-item, [data-menu="backdrop"] .cat-item:last-child { margin: 10px 0; padding: 0 14px; border: 1px solid rgba(255, 255, 255, .09); border-radius: 18px;
-  background: rgba(18, 22, 21, .74); box-shadow: 0 10px 30px -18px rgba(0, 0, 0, .8); }
-[data-menu="backdrop"] .cat-variant { background: rgba(255, 255, 255, .06); border-color: rgba(255, 255, 255, .12); }
-[data-menu="backdrop"] .cat-mono { background: rgba(255, 255, 255, .08); border-color: rgba(255, 255, 255, .1); }
-@media (prefers-reduced-transparency: reduce) {
-  [data-menu="backdrop"] .cat-item, [data-menu="backdrop"] .cat-tools { background: #151d1a; -webkit-backdrop-filter: none; backdrop-filter: none; }
-}
-@media (prefers-reduced-motion: reduce) { [data-menu="backdrop"] .cat-backdrop img { transition: none; } }
-.cat-nudge { position: sticky; bottom: 12px; display: flex; align-items: center; gap: 2px; width: max-content; max-width: calc(100% - 32px); margin: 8px auto 12px; padding: 2px 2px 2px 16px; border-radius: 999px; background: var(--ink); color: var(--bg); box-shadow: 0 10px 24px -12px rgba(0, 0, 0, .6); }
-.cat-nudge-go { border: 0; background: none; color: inherit; font: inherit; font-size: .9rem; font-weight: 650; min-height: 44px; text-align: left; cursor: pointer; }
-.cat-nudge-x { flex: none; border: 0; background: none; color: inherit; font: inherit; font-size: 1.25rem; line-height: 1; width: 44px; height: 44px; border-radius: 999px; cursor: pointer; }
-.cat-nudge button:focus-visible { outline: 3px solid var(--brand); outline-offset: -3px; }
-.cat-none { margin: 24px 16px; color: var(--muted); text-align: center; }
-.cat-link { border: 0; background: none; padding: 0; font: inherit; color: var(--brand); font-weight: 650; text-decoration: underline; cursor: pointer; min-height: 44px; }
-@media (max-width: 860px) {
-  .door.has-catalogue { display: flex; }
-  .door-main { flex: 1; min-height: 0; height: auto; border: none; border-radius: 0; box-shadow: none; }
-  .door-tabs { position: relative; }
   .door-foot { flex: none; padding: 6px 0 calc(6px + env(safe-area-inset-bottom, 0px)); background: var(--surface); border-top: 1px solid var(--line); }
-  .cat-card summary { gap: 10px; }
+
+  /* With a catalogue the whole page scrolls, like a menu in the hand: the name and photo pass by, the bar stays on top. */
+  body:has(.has-catalogue) { background: var(--bg); }
+  .door.has-catalogue { display: block; height: auto; min-height: 100%; background: var(--bg); }
+  .has-catalogue .door-head { z-index: 3; align-items: center; text-align: center; padding: calc(40px + env(safe-area-inset-top, 0px)) 20px 30px; color: #ffffff; overflow: hidden; isolation: isolate;
+    background: radial-gradient(130% 95% at 50% 0%, var(--hero-glow), var(--hero) 72%); }
+  .has-catalogue .door-brand { flex-direction: column; gap: 16px; }
+  .has-catalogue .door-logo { width: 84px; height: 84px; border-radius: 24px; border: 0; box-shadow: 0 0 0 1px rgba(255, 255, 255, .16), 0 16px 32px -14px rgba(0, 0, 0, .8); }
+  .has-catalogue .door-logo.letters { background: var(--brand); color: var(--on-brand); font-size: 2rem; }
+  .has-catalogue .door-name h1 { color: #ffffff; font-size: clamp(2rem, 1.3rem + 3.4vw, 2.6rem); }
+  .has-catalogue .door-name p { color: rgba(255, 255, 255, .78); white-space: normal; font-size: .74rem; font-weight: 600; letter-spacing: .22em; text-transform: uppercase; margin-top: 12px; }
+  .has-catalogue .door-name::after { content: ""; display: block; width: 36px; height: 2px; margin: 18px auto 0; border-radius: 2px; background: color-mix(in srgb, var(--brand) 60%, #ffffff); }
+  .has-catalogue .door-spot { align-self: center; margin-top: 20px; padding: 8px 16px; border-radius: 999px; background: rgba(255, 255, 255, .1); border: 1px solid rgba(255, 255, 255, .16); color: #ffffff; text-align: left; font-size: .9rem; }
+  .has-catalogue .door-spot svg { color: currentColor; }
+  .has-catalogue .door-actions { justify-content: center; margin-top: 18px; }
+  .has-catalogue .door-btn { flex: none; background: rgba(255, 255, 255, .1); color: #ffffff; border-color: rgba(255, 255, 255, .2); }
+  .has-catalogue.has-cover .door-cover { z-index: -1; opacity: 1; }
+  .has-catalogue.has-cover .door-head::after { content: ""; position: absolute; inset: 0; z-index: -1; background: linear-gradient(180deg, rgba(0, 0, 0, .42), rgba(0, 0, 0, .74)); }
+  .has-catalogue .door-main { --sheet: var(--bg); display: block; height: auto; min-height: 0; overflow: visible; border: 0; border-radius: 0; box-shadow: none; }
+  .has-catalogue .door-catalogue { overflow: visible; }
+  .has-catalogue .door-chat { height: calc(100dvh - var(--tabs-h)); min-height: 380px; }
+  .has-catalogue .cat-tools { top: env(safe-area-inset-top, 0px); }
+  .has-catalogue .door-foot { padding: 24px 0 calc(28px + env(safe-area-inset-bottom, 0px)); background: transparent; border: 0; }
+  /* "Dark, over your photos" on a phone: the photo stays put behind the menu as it scrolls. */
+  [data-menu="backdrop"] .has-catalogue .cat-backdrop { position: fixed; }
+  [data-menu="backdrop"] .has-catalogue .door-foot { position: relative; z-index: 1; }
 }
-@media (prefers-reduced-motion: reduce) { .door-btn { transition: none; } .door-btn:hover { transform: none; } }
 `;
 
 /**
  * The page's own script (the page allows no inline script): the two tabs,
- * the section pills and the search, and the buttons that ask Zaina for an
- * item. Plain JavaScript, no build step; the page works without it as a
- * list to read.
+ * the section pills, the jump and the search, and the buttons that ask
+ * Zaina about an item. Plain JavaScript, no build step; the page works
+ * without it as a menu to read.
  */
 export const DOOR_JS = String.raw`(function () {
   "use strict";
   var tabs = Array.prototype.slice.call(document.querySelectorAll("[data-tab]"));
   var panels = { catalogue: document.getElementById("door-catalogue"), chat: document.getElementById("zaina-chat") };
-  if (!tabs.length || !panels.catalogue || !panels.chat) return;
+  var main = document.querySelector(".door-main");
+  if (!tabs.length || !panels.catalogue || !panels.chat || !main) return;
+  // On a phone the whole page scrolls (the menu's own box does on a wide screen).
+  function pageScrolls() { return getComputedStyle(panels.catalogue).overflowY === "visible"; }
+  function scrollUp(to, always) {
+    var top = to.getBoundingClientRect().top + window.scrollY;
+    if (always || window.scrollY > top) window.scrollTo(0, top);
+  }
   function show(name, focus) {
     tabs.forEach(function (tab) {
       var on = tab.getAttribute("data-tab") === name;
@@ -400,6 +452,8 @@ export const DOOR_JS = String.raw`(function () {
     });
     panels.catalogue.hidden = name !== "catalogue";
     panels.chat.hidden = name !== "chat";
+    // The chat fills the screen under the tabs; back on the menu, its top.
+    if (pageScrolls()) scrollUp(main, name === "chat");
   }
   tabs.forEach(function (tab, index) {
     tab.addEventListener("click", function () { show(tab.getAttribute("data-tab"), false); });
@@ -415,13 +469,17 @@ export const DOOR_JS = String.raw`(function () {
   });
   if (location.hash === "#chat" || location.hash === "#zaina") show("chat", false);
 
-  // Filter: a section pill and the search words, together.
+  // Filter: a section pill and the search words, together; the list starts again at its top.
   var items = Array.prototype.slice.call(document.querySelectorAll(".cat-item"));
   var pills = Array.prototype.slice.call(document.querySelectorAll(".cat-pill"));
   var search = document.getElementById("cat-search");
   var none = document.getElementById("cat-none");
   var headings = Array.prototype.slice.call(document.querySelectorAll(".cat-heading"));
   var section = "";
+  function toListTop() {
+    if (pageScrolls()) scrollUp(panels.catalogue, false);
+    else panels.catalogue.scrollTop = 0;
+  }
   function apply() {
     var words = (search && search.value ? search.value : "").toLowerCase().trim().split(/\s+/).filter(Boolean);
     var shown = 0;
@@ -432,6 +490,13 @@ export const DOOR_JS = String.raw`(function () {
       if (ok) shown += 1;
     });
     if (none) none.hidden = shown > 0;
+    var group = null;
+    items.forEach(function (item) {
+      if (item.hidden) return;
+      var name = item.getAttribute("data-section");
+      item.classList.toggle("lead", group === null || name !== group);
+      group = name;
+    });
     headings.forEach(function (heading) {
       var name = heading.getAttribute("data-heading");
       heading.hidden = (Boolean(section) && name !== section) || !items.some(function (item) { return !item.hidden && item.getAttribute("data-section") === name; });
@@ -443,19 +508,37 @@ export const DOOR_JS = String.raw`(function () {
     pills.forEach(function (pill) {
       var on = (pill.getAttribute("data-section") || "") === value;
       pill.setAttribute("aria-pressed", on ? "true" : "false");
-      if (on && from !== "pill" && pill.scrollIntoView) pill.scrollIntoView({ block: "nearest", inline: "center" });
+      // The chosen one comes into the middle of the row (both measured from the same bar).
+      var row = pill.parentNode;
+      if (on && from !== "pill" && row && row.scrollTo) row.scrollTo({ left: pill.offsetLeft - row.offsetLeft - (row.clientWidth - pill.offsetWidth) / 2 });
     });
     if (jump && from !== "jump") jump.value = value;
     apply();
-    if (from === "jump") panels.catalogue.scrollTop = 0;
+    toListTop();
   }
   pills.forEach(function (pill) {
     pill.addEventListener("click", function () { choose(pill.getAttribute("data-section") || "", "pill"); });
   });
+  // The row fades at an edge only where there's more to scroll to.
+  var row = document.querySelector(".cat-pills");
+  if (row) row.addEventListener("scroll", function () { row.classList.toggle("scrolled", row.scrollLeft > 4); }, { passive: true });
   if (jump) jump.addEventListener("change", function () { choose(jump.value, "jump"); });
-  if (search) search.addEventListener("input", apply);
+  if (search) {
+    // The search stays open while it holds words; Escape clears it.
+    var box = search.parentNode;
+    var typed = function () {
+      box.classList.toggle("on", Boolean(search.value));
+      apply();
+      toListTop();
+    };
+    search.addEventListener("input", typed);
+    search.addEventListener("keydown", function (event) {
+      if (event.key === "Escape") { search.value = ""; typed(); search.blur(); }
+      if (event.key === "Enter") search.blur();
+    });
+  }
 
-  // Asking Zaina is optional: a button inside an opened card, or the small pill at the bottom.
+  // Asking Zaina is optional: a button inside an opened line, or the small pill at the bottom.
   function ask(text, tries) {
     var zaina = window.Zaina;
     if (zaina && typeof zaina.ask === "function") { zaina.ask(text); return; }
@@ -479,24 +562,28 @@ export const DOOR_JS = String.raw`(function () {
   var backdrop = document.getElementById("cat-backdrop-img");
   if (backdrop) {
     var current = backdrop.getAttribute("src") || "";
-    var show = function () { backdrop.classList.add("on"); };
-    if (current) { if (backdrop.complete && backdrop.naturalWidth) show(); else backdrop.addEventListener("load", show); }
+    var reveal = function () { backdrop.classList.add("on"); };
+    if (current) { if (backdrop.complete && backdrop.naturalWidth) reveal(); else backdrop.addEventListener("load", reveal); }
     var swap = function (src) {
       if (!src || src === current) return;
       current = src;
       var next = new Image();
       next.onload = function () {
         backdrop.classList.remove("on");
-        setTimeout(function () { backdrop.src = src; show(); }, 200);
+        setTimeout(function () { backdrop.src = src; reveal(); }, 200);
       };
       next.src = src;
     };
     if ("IntersectionObserver" in window) {
+      // The screen itself, whether the page scrolls or the menu's box does.
       var watcher = new IntersectionObserver(function (entries) {
         entries.forEach(function (entry) { if (entry.isIntersecting) swap(entry.target.getAttribute("data-backdrop")); });
-      }, { root: panels.catalogue, rootMargin: "0px 0px -60% 0px" });
+      }, { rootMargin: "0px 0px -60% 0px" });
       Array.prototype.forEach.call(document.querySelectorAll("[data-backdrop]"), function (banner) { watcher.observe(banner); });
     }
   }
 })();
 `;
+
+/** Changes whenever the page's look or script does, so phones keep them until then and get a new one at once. */
+export const DOOR_ASSETS_VERSION = createHash("sha256").update(DOOR_CSS).update(DOOR_JS).digest("hex").slice(0, 12);
