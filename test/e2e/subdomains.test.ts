@@ -65,6 +65,11 @@ test("clubxo.<domain> is Club XO's page, its codes scan there, and the chat open
   // The page's own script and styles answer there.
   assert.equal((await get("clubxo.localhost", "/c-assets/door.css")).status, 200);
   assert.equal((await get("clubxo.localhost", "/c-assets/door.js")).status, 200);
+  // Its own colours too (the page takes styles only from its own address); another business's go to the main address.
+  const colours = await get("clubxo.localhost", "/c/clubxo/brand.css");
+  assert.equal(colours.status, 200);
+  assert.match(colours.text, /--brand:#b8860b/);
+  assert.equal((await get("clubxo.localhost", "/c/other/brand.css")).status, 301);
   // What the dashboard shows and prints.
   const token = (await api("POST", "/v1/staff/login", { email: "clubxo@example.com", password: PASSWORD })).body.token;
   const door = await api("GET", "/v1/staff/businesses/clubxo/front-door", undefined, token);

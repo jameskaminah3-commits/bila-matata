@@ -70,11 +70,15 @@ export const CATALOGUE_WORDS: Record<Kind, { tab: string; search: string }> = {
 
 const OFFERING_SECTION = { room_type: "Rooms", service: "Services", table: "Tables" } as const;
 const SIZE = /^(.+?)\s*\(([^()]{1,40})\)$/;
+/** What a size looks like: "750ml Bottle", "Shot", "6 Pieces", "Large". */
+const SIZE_WORDS = /\d+(\.\d+)?\s*(ml|cl|l|ltr|litres?|liters?|oz|g|kg|pcs?|pieces?)\b|\b(bottle|shot|glass|pint|jug|pitcher|carafe|can|tot|double|single|half|full|small|medium|large|regular|cup|portion)\b/i;
 
 /**
  * Items of one section that differ only by a size in brackets become one
  * card: "Absolut Vodka" with "750ml Bottle", "1L Bottle" and "Shot", each at
- * its price. A name in brackets on its own stays as it is.
+ * its price. One with a single size ("Don Julio 1942 (750ml Bottle)") reads
+ * the same way, its size on a line with the price; any other name in
+ * brackets ("Airport transfer (Moi Airport)") stays as it is.
  */
 export function groupVariants(items: DoorItem[]): DoorItem[] {
   const keyOf = (item: DoorItem) => {
@@ -90,7 +94,7 @@ export function groupVariants(items: DoorItem[]): DoorItem[] {
   const result: DoorItem[] = [];
   for (const item of items) {
     const key = keyOf(item);
-    if (!key || (counts.get(key) ?? 0) < 2) {
+    if (!key || ((counts.get(key) ?? 0) < 2 && !SIZE_WORDS.test(SIZE.exec(item.name)![2]))) {
       result.push(item);
       continue;
     }

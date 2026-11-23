@@ -202,6 +202,8 @@ export function createApp(config: PlatformConfig, engine: EngineOptions, whatsap
       const query = req.url.slice(req.path.length);
       if (req.path === "/") req.url = `/c/${own}${query}`;
       else if (req.path === "/q" || req.path === "/k") req.url = `${req.path}/${own}${query}`;
+      // Its own colours, from its own address: the page takes styles only from where it is.
+      else if (req.path === `/c/${own}/brand.css`) return next();
       else if (!/^\/(api|v1|c-assets|catalogue|brand|site)\//.test(req.path) && !["/zaina.js", "/widget.js", "/favicon.ico", "/robots.txt"].includes(req.path)) {
         return res.redirect(301, `${canonical.origin}${req.originalUrl}`);
       }

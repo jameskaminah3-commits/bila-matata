@@ -67,6 +67,13 @@ function backdropLayer(view: DoorView): string {
   return `<div class="cat-backdrop" aria-hidden="true"><img id="cat-backdrop-img" alt="" decoding="async"${first ? ` src="${esc(first)}"` : ""}></div>`;
 }
 
+/** A section typed in capitals ("SALADS & SANDWICHES") reads as a title ("Salads & Sandwiches"); one typed any other way stays as it is. */
+export function sectionTitle(name: string): string {
+  if (/\p{Ll}/u.test(name) || !/\p{Lu}.*\p{Lu}/u.test(name)) return name;
+  return name.toLowerCase().replace(/(^|[\s\-/(&])(\p{L}+)/gu, (_, before: string, word: string, at: number) =>
+    before + (at > 0 && ["and", "of", "the", "with", "on", "in", "a"].includes(word) ? word : word[0].toUpperCase() + word.slice(1)));
+}
+
 /** The dotted line from a name to its price, as on a printed menu. */
 const DOTS = '<i class="cat-dots" aria-hidden="true"></i>';
 
@@ -81,11 +88,11 @@ const DOTS = '<i class="cat-dots" aria-hidden="true"></i>';
 function renderCatalogue(catalogue: DoorCatalogue, view: DoorView): string {
   const assistant = esc(view.assistant);
   const pills = catalogue.sections.length > 1
-    ? `<div class="cat-pills" role="group" aria-label="Sections"><button type="button" class="cat-pill" data-section="" aria-pressed="true">All</button>${catalogue.sections.map((section) => `<button type="button" class="cat-pill" data-section="${esc(section)}" aria-pressed="false">${esc(section)}</button>`).join("")}</div>`
+    ? `<div class="cat-pills" role="group" aria-label="Sections"><button type="button" class="cat-pill" data-section="" aria-pressed="true">All</button>${catalogue.sections.map((section) => `<button type="button" class="cat-pill" data-section="${esc(section)}" aria-pressed="false">${esc(sectionTitle(section))}</button>`).join("")}</div>`
     : "";
   // A long list of sections gets a one-tap jump as well as the pills.
   const jump = catalogue.sections.length > 4
-    ? `<label class="cat-jump" title="Jump to a section">${ICONS.list}<span class="visually-hidden">Jump to a section</span><select id="cat-jump"><option value="">Jump to…</option>${catalogue.sections.map((section) => `<option value="${esc(section)}">${esc(section)}</option>`).join("")}</select></label>`
+    ? `<label class="cat-jump" title="Jump to a section">${ICONS.list}<span class="visually-hidden">Jump to a section</span><select id="cat-jump"><option value="">Jump to…</option>${catalogue.sections.map((section) => `<option value="${esc(section)}">${esc(sectionTitle(section))}</option>`).join("")}</select></label>`
     : "";
   const headed = catalogue.sections.length > 1;
   // With sections, each one's items together under its heading, in the menu's own order (items with none first).
@@ -98,8 +105,8 @@ function renderCatalogue(catalogue: DoorCatalogue, view: DoorView): string {
     const banner = item.section ? catalogue.banners?.[item.section] : undefined;
     const heading = !headed || !item.section || item.section === previous ? ""
       : banner
-        ? `<li class="cat-heading cat-banner has-picture" data-heading="${esc(item.section)}" data-backdrop="${esc(banner)}"><img class="cat-banner-img" src="${esc(banner)}" alt="" width="1200" height="480" loading="lazy" decoding="async"><div class="cat-banner-text"><span class="cat-banner-brand">${esc(view.name)}</span><h2>${esc(item.section)}</h2></div></li>\n`
-        : `<li class="cat-heading" data-heading="${esc(item.section)}"><h2>${esc(item.section)}</h2></li>\n`;
+        ? `<li class="cat-heading cat-banner has-picture" data-heading="${esc(item.section)}" data-backdrop="${esc(banner)}"><img class="cat-banner-img" src="${esc(banner)}" alt="" width="1200" height="480" loading="lazy" decoding="async"><div class="cat-banner-text"><span class="cat-banner-brand">${esc(view.name)}</span><h2>${esc(sectionTitle(item.section))}</h2></div></li>\n`
+        : `<li class="cat-heading" data-heading="${esc(item.section)}"><h2>${esc(sectionTitle(item.section))}</h2></li>\n`;
     previous = item.section;
     const search = [item.name, item.description, item.section, ...item.variants.map((variant) => variant.label)].filter(Boolean).join(" ").toLowerCase();
     const thumb = item.picture ? `<img class="cat-thumb" src="${esc(item.picture)}" alt="" width="64" height="64" loading="lazy" decoding="async">` : "";
@@ -419,25 +426,25 @@ body { font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; 
   /* With a catalogue the whole page scrolls, like a menu in the hand: the name and photo pass by, the bar stays on top. */
   body:has(.has-catalogue) { background: var(--bg); }
   .door.has-catalogue { display: block; height: auto; min-height: 100%; background: var(--bg); }
-  .has-catalogue .door-head { z-index: 3; align-items: center; text-align: center; padding: calc(40px + env(safe-area-inset-top, 0px)) 20px 30px; color: var(--hero-ink); overflow: hidden; isolation: isolate;
+  .has-catalogue .door-head { z-index: 3; align-items: center; text-align: center; padding: calc(26px + env(safe-area-inset-top, 0px)) 20px 22px; color: var(--hero-ink); overflow: hidden; isolation: isolate;
     background: radial-gradient(130% 95% at 50% 0%, var(--hero-glow), var(--hero) 72%); border-bottom: 1px solid var(--line); }
   /* Over the business's cover photo the header is always dark, so its name reads. */
   .has-catalogue.has-cover .door-head { --hero-ink: #ffffff; --hero-soft: rgba(255, 255, 255, .8); --hero-veil: rgba(255, 255, 255, .12); --hero-edge: rgba(255, 255, 255, .2);
     --foil-top: #ffffff; --foil-bottom: color-mix(in srgb, var(--brand) 42%, #ffffff); --hero-rule: color-mix(in srgb, var(--brand) 60%, #ffffff); }
-  .has-catalogue .door-brand { flex-direction: column; gap: 16px; }
-  .has-catalogue .door-logo { width: 84px; height: 84px; border-radius: 24px; border: 0; box-shadow: 0 0 0 1px var(--hero-edge), 0 16px 32px -16px rgba(0, 0, 0, .55); }
+  .has-catalogue .door-brand { flex-direction: column; gap: 12px; }
+  .has-catalogue .door-logo { width: 76px; height: 76px; border-radius: 22px; border: 0; box-shadow: 0 0 0 1px var(--hero-edge), 0 16px 32px -16px rgba(0, 0, 0, .55); }
   .has-catalogue .door-logo.letters { background: var(--brand); color: var(--on-brand); font-size: 2rem; }
   .has-catalogue .door-name h1 { color: var(--hero-ink); font-size: clamp(2rem, 1.3rem + 3.4vw, 2.6rem);
     background: linear-gradient(180deg, var(--foil-top) 10%, var(--foil-bottom) 90%); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
   /* A fine line in the business's colour, inset like the edge of a menu's cover. */
   .has-catalogue .door-head::before { content: ""; position: absolute; inset: calc(10px + env(safe-area-inset-top, 0px)) 10px 10px; border: 1px solid color-mix(in srgb, var(--brand) 42%, transparent); border-radius: 18px; pointer-events: none; }
   .has-catalogue.has-wordmark .door-brand { flex-direction: column; }
-  .has-catalogue.has-wordmark .door-logo { width: min(176px, 48vw); height: auto; aspect-ratio: 1 / 1; border-radius: 28px; box-shadow: 0 22px 44px -24px rgba(0, 0, 0, .6); }
-  .has-catalogue .door-name p { color: var(--hero-soft); white-space: normal; font-size: .74rem; font-weight: 600; letter-spacing: .22em; text-transform: uppercase; margin-top: 12px; }
-  .has-catalogue .door-name::after { content: ""; display: block; width: 36px; height: 2px; margin: 18px auto 0; border-radius: 2px; background: var(--hero-rule); }
-  .has-catalogue .door-spot { align-self: center; margin-top: 20px; padding: 8px 16px; border-radius: 999px; background: var(--hero-veil); border: 1px solid var(--hero-edge); color: var(--hero-ink); text-align: left; font-size: .9rem; }
+  .has-catalogue.has-wordmark .door-logo { width: min(136px, 38vw); height: auto; aspect-ratio: 1 / 1; border-radius: 24px; box-shadow: 0 22px 44px -24px rgba(0, 0, 0, .6); }
+  .has-catalogue .door-name p { color: var(--hero-soft); white-space: normal; font-size: .74rem; font-weight: 600; letter-spacing: .22em; text-transform: uppercase; margin-top: 10px; }
+  .has-catalogue .door-name::after { content: ""; display: block; width: 36px; height: 2px; margin: 14px auto 0; border-radius: 2px; background: var(--hero-rule); }
+  .has-catalogue .door-spot { align-self: center; margin-top: 14px; padding: 8px 16px; border-radius: 999px; background: var(--hero-veil); border: 1px solid var(--hero-edge); color: var(--hero-ink); text-align: left; font-size: .9rem; }
   .has-catalogue .door-spot svg { color: currentColor; }
-  .has-catalogue .door-actions { justify-content: center; margin-top: 18px; }
+  .has-catalogue .door-actions { justify-content: center; margin-top: 14px; }
   .has-catalogue .door-btn { flex: none; background: var(--hero-veil); color: var(--hero-ink); border-color: var(--hero-edge); }
   .has-catalogue.has-cover .door-cover { z-index: -1; opacity: 1; }
   .has-catalogue.has-cover .door-head::after { content: ""; position: absolute; inset: 0; z-index: -1; background: linear-gradient(180deg, rgba(0, 0, 0, .42), rgba(0, 0, 0, .74)); }

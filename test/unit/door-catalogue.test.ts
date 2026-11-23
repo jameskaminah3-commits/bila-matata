@@ -62,14 +62,15 @@ test("the tab is named for the industry, else the business type", () => {
   assert.equal(CATALOGUE_WORDS.catalogue.tab, "Browse Catalogue");
 });
 
-test("sizes of one thing in a section are one card with a price each; a lone bracket stays as it is", () => {
+test("sizes of one thing in a section are one card with a price each; a lone size is a line too; another bracket stays as it is", () => {
   const vodka = (size: string, price: string, inStock = true) =>
     item({ id: size, name: `Absolut Vodka (${size})`, section: "Vodka", price, inStock, description: size === "Shot" ? null : "Swedish, smooth" });
   const grouped = groupVariants([
     vodka("750ml Bottle", "KSh 5,000"), item({ name: "Airport transfer (Moi Airport)", section: "Vodka" }),
     vodka("1L Bottle", "KSh 6,500", false), vodka("Shot", "KSh 300"), item({ name: "Absolut Vodka (Shot)", section: "Gins" }),
   ]);
-  assert.deepEqual(grouped.map((entry) => entry.name), ["Absolut Vodka", "Airport transfer (Moi Airport)", "Absolut Vodka (Shot)"]);
+  assert.deepEqual(grouped.map((entry) => entry.name), ["Absolut Vodka", "Airport transfer (Moi Airport)", "Absolut Vodka"]);
+  assert.deepEqual(grouped[2].variants, [{ label: "Shot", price: null, inStock: true }], "a single size in brackets: its size on a line of its own");
   assert.deepEqual(grouped[0].variants, [
     { label: "750ml Bottle", price: "KSh 5,000", inStock: true }, { label: "1L Bottle", price: "KSh 6,500", inStock: false }, { label: "Shot", price: "KSh 300", inStock: true },
   ]);
@@ -193,11 +194,24 @@ test("a logo that spells the name is the heading: large, the name kept for scree
   assert.match(wordmark, /<span class="door-logo"><img src="[^"]+" alt="" width="240" height="240"><\/span>\n      <div class="door-name">\n        <h1 class="visually-hidden">Kibanda Lounge<\/h1>/);
   // Without a logo there's nothing to stand in for the name.
   assert.doesNotMatch(renderFrontDoor(view({ catalogue: menu, logoHasName: true })), /has-wordmark|visually-hidden">Kibanda/);
-  assert.match(DOOR_CSS, /\.has-catalogue\.has-wordmark \.door-logo \{ width: min\(176px, 48vw\)/);
+  assert.match(DOOR_CSS, /\.has-catalogue\.has-wordmark \.door-logo \{ width: min\(136px, 38vw\)/);
 });
 
 test("the logo-as-heading setting takes only true or false", async () => {
   const { validateSettingsPatch } = await import("../../src/businesses/settings.ts");
   assert.deepEqual(validateSettingsPatch({ logoHasName: true }), { ok: true, patch: { logoHasName: true } });
   assert.equal(validateSettingsPatch({ logoHasName: "yes" }).ok, false);
+});
+
+test("a section typed in capitals reads as a title; one typed any other way stays as it is", async () => {
+  const { sectionTitle } = await import("../../src/frontdoor/page.ts");
+  assert.equal(sectionTitle("SALADS & SANDWICHES"), "Salads & Sandwiches");
+  assert.equal(sectionTitle("FISH AND CHIPS"), "Fish and Chips");
+  assert.equal(sectionTitle("TEQUILA"), "Tequila");
+  assert.equal(sectionTitle("Wines of the Cape"), "Wines of the Cape");
+  assert.equal(sectionTitle("VIP"), "Vip");
+  assert.equal(sectionTitle("A"), "A");
+  const html = renderFrontDoor(view({ catalogue: { ...menu, sections: ["FOOD", "Gins"], items: menu.items.map((entry) => (entry.section === "Food" ? { ...entry, section: "FOOD" } : entry)) } }));
+  assert.match(html, /data-section="FOOD" aria-pressed="false">Food<\/button>/);
+  assert.match(html, /<li class="cat-heading" data-heading="FOOD"><h2>Food<\/h2><\/li>/);
 });
