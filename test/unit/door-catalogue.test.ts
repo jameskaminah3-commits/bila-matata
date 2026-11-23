@@ -87,12 +87,21 @@ test("with a catalogue, the page opens on it: cards open in place, and Zaina is 
   // Each section opens with a banner: drawn in the business's colour, with its name, until it adds a picture.
   assert.match(html, /<li class="cat-heading cat-banner" data-heading="Food"><div class="cat-banner-text"><span class="cat-banner-brand">Kibanda Lounge<\/span><h2>Food<\/h2><\/div><\/li>/);
   const pictured = renderFrontDoor(view({ catalogue: { ...menu, banners: { Gins: "/catalogue/kibanda/sections/gins?v=0123456789ab" } } }));
-  assert.match(pictured, /<li class="cat-heading cat-banner has-picture" data-heading="Gins"><img class="cat-banner-img" src="\/catalogue\/kibanda\/sections\/gins\?v=0123456789ab" alt="" width="1200" height="480" loading="lazy" decoding="async">/);
+  assert.match(pictured, /<li class="cat-heading cat-banner has-picture" data-heading="Gins" data-backdrop="\/catalogue\/kibanda\/sections\/gins\?v=0123456789ab"><img class="cat-banner-img" src="\/catalogue\/kibanda\/sections\/gins\?v=0123456789ab" alt="" width="1200" height="480" loading="lazy" decoding="async">/);
   assert.ok(html.indexOf("Masala chips") < html.indexOf("Sly&quot;") && html.indexOf("Sly&quot;") < html.indexOf("Tanqueray"), "a section's items stay together");
   assert.match(html, /<html lang="en">/, "the guest's phone decides light or dark by default");
   assert.match(renderFrontDoor(view({ catalogue: menu, menuStyle: "dark" })), /<html lang="en" data-menu="dark">/);
-  assert.match(DOOR_CSS, /:root\[data-menu="dark"\] \{ --bg: #0e1412/);
+  assert.match(DOOR_CSS, /:root\[data-menu="dark"\], :root\[data-menu="backdrop"\] \{ --bg: #0e1412/);
   assert.match(DOOR_CSS, /:root:not\(\[data-menu="light"\]\)/);
+  // "Dark, over your photos": one blurred, dimmed layer behind glass cards; the section's photo travels with it.
+  const backdrop = renderFrontDoor(view({ catalogue: { ...menu, banners: { Gins: "/catalogue/kibanda/sections/gins?v=0123456789ab" } }, menuStyle: "backdrop" }));
+  assert.match(backdrop, /<html lang="en" data-menu="backdrop">/);
+  assert.match(backdrop, /<div class="door-main"><div class="cat-backdrop" aria-hidden="true"><img id="cat-backdrop-img" alt="" decoding="async" src="\/catalogue\/kibanda\/sections\/gins\?v=0123456789ab"><\/div>/);
+  assert.match(backdrop, /data-heading="Gins" data-backdrop="\/catalogue\/kibanda\/sections\/gins\?v=0123456789ab"/);
+  assert.doesNotMatch(html, /cat-backdrop"/, "only when chosen");
+  assert.match(DOOR_CSS, /\[data-menu="backdrop"\] \.cat-backdrop img \{[^}]*filter: blur\(18px\)/);
+  assert.doesNotMatch(DOOR_CSS, /\.cat-item[^{]*\{[^}]*backdrop-filter: blur/, "no per-card blur: scrolling stays smooth");
+  assert.match(DOOR_JS, /IntersectionObserver/);
   assert.match(html, /role="tab" id="door-tab-catalogue" aria-controls="door-catalogue" aria-selected="true" data-tab="catalogue">Browse Menu<\/button>/);
   assert.match(html, /role="tab" id="door-tab-chat" aria-controls="zaina-chat" aria-selected="false" data-tab="chat">Ask Zaina<\/button>/);
   assert.match(html, /<main class="door-chat" id="zaina-chat" role="tabpanel" aria-labelledby="door-tab-chat" hidden>/);

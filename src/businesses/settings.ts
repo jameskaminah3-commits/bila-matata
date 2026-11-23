@@ -96,8 +96,8 @@ export function validateSettingsPatch(input: Record<string, unknown>): { ok: tru
     else patch.brandTagline = tagline.trim().replace(/\s+/g, " ");
   }
   if ("menuStyle" in input) {
-    if (input.menuStyle !== "auto" && input.menuStyle !== "light" && input.menuStyle !== "dark") return { ok: false, error: "menuStyle is auto, light or dark" };
-    patch.menuStyle = input.menuStyle;
+    if (!["auto", "light", "dark", "backdrop"].includes(input.menuStyle as string)) return { ok: false, error: "menuStyle is auto, light, dark or backdrop" };
+    patch.menuStyle = input.menuStyle as "auto" | "light" | "dark" | "backdrop";
   }
   if ("chatAvatar" in input) {
     if (input.chatAvatar !== "zaina" && input.chatAvatar !== "logo") return { ok: false, error: "chatAvatar is zaina or logo" };

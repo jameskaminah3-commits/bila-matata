@@ -260,7 +260,7 @@ export const businessSettings = pgTable("business_settings", {
   /** A line under the business's name wherever Zaina speaks for it (migration 0019). */
   brandTagline: text("brand_tagline"),
   /** How the business's page looks: the guest's phone's light or dark, or always one (migration 0038). */
-  menuStyle: text("menu_style").$type<"auto" | "light" | "dark">().notNull().default("auto"),
+  menuStyle: text("menu_style").$type<"auto" | "light" | "dark" | "backdrop">().notNull().default("auto"),
   /** Whose picture the chat shows: Zaina's face, or the business's logo. */
   chatAvatar: text("chat_avatar").$type<"zaina" | "logo">().notNull().default("zaina"),
   /** Whether the business's own page on this service (/c/<business>, behind its QR code) is open. */

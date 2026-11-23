@@ -25,7 +25,7 @@ export function Brand(props: { businessId: string; role: Role }) {
   const settings = useLoad(() => api<{ settings: Settings }>("GET", businessPath(props.businessId, "/settings")).then((result) => result.settings), [props.businessId]);
   const pictures = useLoad(() => api<BrandView>("GET", businessPath(props.businessId, "/brand")), [props.businessId]);
   const [brand, setBrand] = useState<BrandView | null>(null);
-  const [form, setForm] = useState<{ color: string; tagline: string; avatar: "zaina" | "logo"; menu: "auto" | "light" | "dark" } | null>(null);
+  const [form, setForm] = useState<{ color: string; tagline: string; avatar: "zaina" | "logo"; menu: "auto" | "light" | "dark" | "backdrop" } | null>(null);
   const save = useAction();
   const upload = useAction();
   const canEdit = atLeast(props.role, "manager");
@@ -100,11 +100,12 @@ export function Brand(props: { businessId: string; role: Role }) {
           <Field label="Welcome line" hint="A short line under your name. For example: Hair and beauty in Nyali, open every day.">
             <input maxLength={120} disabled={!canEdit} value={form.tagline} onChange={(event) => setForm({ ...form, tagline: event.target.value })} />
           </Field>
-          <Field label="Menu colours" hint="How your page looks to guests. Always dark suits a bar or club at night.">
-            <select disabled={!canEdit} value={form.menu} onChange={(event) => setForm({ ...form, menu: event.target.value as "auto" | "light" | "dark" })}>
+          <Field label="Menu colours" hint="How your page looks to guests. Always dark suits a bar or club at night; over your photos, your cover and section photos sit dimmed behind the menu.">
+            <select disabled={!canEdit} value={form.menu} onChange={(event) => setForm({ ...form, menu: event.target.value as "auto" | "light" | "dark" | "backdrop" })}>
               <option value="auto">Follow the guest's phone</option>
               <option value="light">Always light</option>
               <option value="dark">Always dark</option>
+              <option value="backdrop">Dark, over your photos</option>
             </select>
           </Field>
         </div>

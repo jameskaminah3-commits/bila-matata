@@ -19,7 +19,7 @@ export type DoorView = {
   name: string;
   tagline: string | null;
   /** The page in the guest's phone's light or dark, or always one. */
-  menuStyle?: "auto" | "light" | "dark";
+  menuStyle?: "auto" | "light" | "dark" | "backdrop";
   assistant: string;
   role: string;
   color: string;
@@ -55,6 +55,12 @@ const ICONS = {
   shield: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3z"/><path d="M9 12l2 2 4-4"/></svg>',
 };
 
+/** "Dark, over your photos": one layer behind the menu, its photo blurred once and dimmed; the cover photo first, else the first section's. */
+function backdropLayer(view: DoorView): string {
+  const first = view.coverUrl ?? (view.catalogue?.banners ? Object.values(view.catalogue.banners)[0] : undefined) ?? null;
+  return `<div class="cat-backdrop" aria-hidden="true"><img id="cat-backdrop-img" alt="" decoding="async"${first ? ` src="${esc(first)}"` : ""}></div>`;
+}
+
 /**
  * The catalogue tab: what the business offers, to browse quietly. A card
  * opens to its full description and photo; asking Zaina, or ordering
@@ -82,7 +88,7 @@ function renderCatalogue(catalogue: DoorCatalogue, view: DoorView): string {
     // Each section opens with a banner: the business's own picture for it, or one drawn in its colour; its name, and the business's.
     const banner = item.section ? catalogue.banners?.[item.section] : undefined;
     const heading = headed && item.section && item.section !== previous
-      ? `<li class="cat-heading cat-banner${banner ? " has-picture" : ""}" data-heading="${esc(item.section)}">${banner ? `<img class="cat-banner-img" src="${esc(banner)}" alt="" width="1200" height="480" loading="lazy" decoding="async">` : ""}<div class="cat-banner-text"><span class="cat-banner-brand">${esc(view.name)}</span><h2>${esc(item.section)}</h2></div></li>\n`
+      ? `<li class="cat-heading cat-banner${banner ? " has-picture" : ""}" data-heading="${esc(item.section)}"${banner ? ` data-backdrop="${esc(banner)}"` : ""}>${banner ? `<img class="cat-banner-img" src="${esc(banner)}" alt="" width="1200" height="480" loading="lazy" decoding="async">` : ""}<div class="cat-banner-text"><span class="cat-banner-brand">${esc(view.name)}</span><h2>${esc(item.section)}</h2></div></li>\n`
       : "";
     previous = item.section;
     const search = [item.name, item.description, item.section, ...item.variants.map((variant) => variant.label)].filter(Boolean).join(" ").toLowerCase();
@@ -124,7 +130,7 @@ export function renderFrontDoor(view: DoorView): string {
     view.whatsapp ? `<a class="door-btn" href="${esc(view.whatsapp)}" target="_blank" rel="noopener noreferrer">${ICONS.whatsapp}<span>WhatsApp</span></a>` : "",
   ].filter(Boolean).join("");
   return `<!doctype html>
-<html lang="en"${view.menuStyle === "light" || view.menuStyle === "dark" ? ` data-menu="${view.menuStyle}"` : ""}>
+<html lang="en"${view.menuStyle && view.menuStyle !== "auto" ? ` data-menu="${view.menuStyle}"` : ""}>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -154,7 +160,7 @@ ${view.logoUrl ? `<meta property="og:image" content="${esc(view.logoUrl)}">\n<li
     ${contact ? `<div class="door-actions">${contact}</div>` : ""}
     <p class="door-trust">${ICONS.shield}<span>You pay ${esc(view.name)} directly. ${esc(view.assistant)} never asks for card numbers or PINs.</span></p>
   </header>
-  ${view.catalogue ? `<div class="door-main">
+  ${view.catalogue ? `<div class="door-main">${view.menuStyle === "backdrop" ? backdropLayer(view) : ""}
   <div class="door-tabs" role="tablist" aria-label="${esc(view.name)}">
     <button type="button" role="tab" id="door-tab-catalogue" aria-controls="door-catalogue" aria-selected="true" data-tab="catalogue">${esc(view.catalogue.tab)}</button>
     <button type="button" role="tab" id="door-tab-chat" aria-controls="zaina-chat" aria-selected="false" data-tab="chat">Ask ${esc(view.assistant)}</button>
@@ -205,7 +211,7 @@ export const DOOR_CSS = String.raw`
 @media (prefers-color-scheme: dark) {
   :root:not([data-menu="light"]) { --bg: #0e1412; --surface: #151d1a; --ink: #f1f4f2; --muted: #a3afab; --line: #26312d; --alert: #ff8f80; color-scheme: dark; }
 }
-:root[data-menu="dark"] { --bg: #0e1412; --surface: #151d1a; --ink: #f1f4f2; --muted: #a3afab; --line: #26312d; --alert: #ff8f80; color-scheme: dark; }
+:root[data-menu="dark"], :root[data-menu="backdrop"] { --bg: #0e1412; --surface: #151d1a; --ink: #f1f4f2; --muted: #a3afab; --line: #26312d; --alert: #ff8f80; color-scheme: dark; }
 * { box-sizing: border-box; }
 html, body { height: 100%; margin: 0; }
 body { font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color: var(--ink); background: var(--tint); -webkit-font-smoothing: antialiased; }
@@ -336,6 +342,28 @@ body { font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; 
 .cat-zaina { min-height: 44px; padding: 0 16px; border-radius: 999px; border: 1.5px solid var(--brand); background: transparent; color: var(--ink); font: inherit; font-size: .92rem; font-weight: 700; cursor: pointer; }
 .cat-zaina.main { background: var(--brand); color: var(--on-brand); }
 .cat-zaina:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
+/* "Dark, over your photos": the photo blurred once on a single layer and dimmed, glass cards over it.
+   Only the small sticky search bar blurs what's behind it, so scrolling stays smooth on any phone. */
+.cat-backdrop { display: none; }
+[data-menu="backdrop"] .door-main { position: relative; background: #0b0f0e; }
+[data-menu="backdrop"] .cat-backdrop { display: block; position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none;
+  background: radial-gradient(120% 90% at 20% 0%, color-mix(in srgb, var(--brand) 55%, #000000), #0b0f0e 70%); }
+[data-menu="backdrop"] .cat-backdrop img { position: absolute; inset: -40px; width: calc(100% + 80px); height: calc(100% + 80px); object-fit: cover; filter: blur(18px) saturate(1.15); opacity: 0; transition: opacity .5s ease; }
+[data-menu="backdrop"] .cat-backdrop img.on { opacity: 1; }
+[data-menu="backdrop"] .cat-backdrop::after { content: ""; position: absolute; inset: 0; background: rgba(6, 9, 8, .78); }
+[data-menu="backdrop"] .door-tabs, [data-menu="backdrop"] .door-catalogue, [data-menu="backdrop"] .door-chat { position: relative; z-index: 1; }
+[data-menu="backdrop"] .door-tabs { background: rgba(10, 14, 13, .6); border-bottom-color: rgba(255, 255, 255, .08); }
+[data-menu="backdrop"] .door-catalogue { background: transparent; }
+[data-menu="backdrop"] .cat-tools { background: rgba(10, 14, 13, .62); -webkit-backdrop-filter: blur(14px); backdrop-filter: blur(14px); border-bottom-color: rgba(255, 255, 255, .08); }
+[data-menu="backdrop"] .door-spot { background: rgba(255, 255, 255, .08); }
+[data-menu="backdrop"] .cat-item, [data-menu="backdrop"] .cat-item:last-child { margin: 10px 0; padding: 0 14px; border: 1px solid rgba(255, 255, 255, .09); border-radius: 18px;
+  background: rgba(18, 22, 21, .74); box-shadow: 0 10px 30px -18px rgba(0, 0, 0, .8); }
+[data-menu="backdrop"] .cat-variant { background: rgba(255, 255, 255, .06); border-color: rgba(255, 255, 255, .12); }
+[data-menu="backdrop"] .cat-mono { background: rgba(255, 255, 255, .08); border-color: rgba(255, 255, 255, .1); }
+@media (prefers-reduced-transparency: reduce) {
+  [data-menu="backdrop"] .cat-item, [data-menu="backdrop"] .cat-tools { background: #151d1a; -webkit-backdrop-filter: none; backdrop-filter: none; }
+}
+@media (prefers-reduced-motion: reduce) { [data-menu="backdrop"] .cat-backdrop img { transition: none; } }
 .cat-nudge { position: sticky; bottom: 12px; display: flex; align-items: center; gap: 2px; width: max-content; max-width: calc(100% - 32px); margin: 8px auto 12px; padding: 2px 2px 2px 16px; border-radius: 999px; background: var(--ink); color: var(--bg); box-shadow: 0 10px 24px -12px rgba(0, 0, 0, .6); }
 .cat-nudge-go { border: 0; background: none; color: inherit; font: inherit; font-size: .9rem; font-weight: 650; min-height: 44px; text-align: left; cursor: pointer; }
 .cat-nudge-x { flex: none; border: 0; background: none; color: inherit; font: inherit; font-size: 1.25rem; line-height: 1; width: 44px; height: 44px; border-radius: 999px; cursor: pointer; }
@@ -446,5 +474,29 @@ export const DOOR_JS = String.raw`(function () {
     nudge.hidden = true;
     try { sessionStorage.setItem("door-nudge", "hidden"); } catch (error) { /* no storage */ }
   });
+
+  // "Dark, over your photos": the backdrop shows the cover photo, then each section's own as it comes into view.
+  var backdrop = document.getElementById("cat-backdrop-img");
+  if (backdrop) {
+    var current = backdrop.getAttribute("src") || "";
+    var show = function () { backdrop.classList.add("on"); };
+    if (current) { if (backdrop.complete && backdrop.naturalWidth) show(); else backdrop.addEventListener("load", show); }
+    var swap = function (src) {
+      if (!src || src === current) return;
+      current = src;
+      var next = new Image();
+      next.onload = function () {
+        backdrop.classList.remove("on");
+        setTimeout(function () { backdrop.src = src; show(); }, 200);
+      };
+      next.src = src;
+    };
+    if ("IntersectionObserver" in window) {
+      var watcher = new IntersectionObserver(function (entries) {
+        entries.forEach(function (entry) { if (entry.isIntersecting) swap(entry.target.getAttribute("data-backdrop")); });
+      }, { root: panels.catalogue, rootMargin: "0px 0px -60% 0px" });
+      Array.prototype.forEach.call(document.querySelectorAll("[data-backdrop]"), function (banner) { watcher.observe(banner); });
+    }
+  }
 })();
 `;

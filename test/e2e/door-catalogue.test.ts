@@ -113,7 +113,7 @@ test("a section opens with a banner: the business's own photo once it adds one, 
   const url = ((await added.json()) as { pictures: Record<string, string> }).pictures.food;
   assert.match(url, /^\/catalogue\/kibanda\/sections\/food\?v=[0-9a-f]{12}$/);
   const after = await (await page("/c/kibanda")).text();
-  assert.ok(after.includes(`<li class="cat-heading cat-banner has-picture" data-heading="Food"><img class="cat-banner-img" src="${url}" alt="" width="1200" height="480" loading="lazy" decoding="async">`), "shown at once, and only as it nears the screen");
+  assert.ok(after.includes(`<li class="cat-heading cat-banner has-picture" data-heading="Food" data-backdrop="${url}"><img class="cat-banner-img" src="${url}" alt="" width="1200" height="480" loading="lazy" decoding="async">`), "shown at once, and only as it nears the screen");
   const picture = await fetch(`${BASE}${url}`);
   assert.equal(picture.status, 200);
   assert.equal(picture.headers.get("content-type"), "image/png");
