@@ -25,7 +25,7 @@ import type { PlatformConfig } from "../config.ts";
 import { anyBusinessById } from "../businesses/registry.ts";
 import { zonedInstant, localParts } from "../booking/local-time.ts";
 import { formatMoney } from "../booking/money.ts";
-import type { Business, Invoice, Plan, StaffRole, Subscription } from "../db/schema.ts";
+import { menuPlanFits, type Business, type Invoice, type Plan, type StaffRole, type Subscription } from "../db/schema.ts";
 import { inBusiness } from "../db/tenant.ts";
 import { consumeLimits } from "../gateway/rate-limit.ts";
 import { requireBusinessRole, requirePlatformAdmin, requireStaff, staffOf } from "../staff/auth.ts";
@@ -169,7 +169,9 @@ export function registerBillingRoutes(app: Express, config: PlatformConfig): voi
   async function view(businessId: string, role: StaffRole) {
     const now = new Date();
     const business = (await anyBusinessById(businessId))!;
-    const [offered, mine, used] = await Promise.all([listPlans(), billingOf(business.id), conversationsThisMonth(business, now)]);
+    const [all, mine, used] = await Promise.all([listPlans(), billingOf(business.id), conversationsThisMonth(business, now)]);
+    // The Menu plan is offered to restaurants, bars and hotels (and to a business already on it).
+    const offered = all.filter((entry) => entry.tier !== "menu" || business.tier === "menu" || menuPlanFits(business.businessType));
     const subscription = mine.subscription;
     const plan = subscription ? await planById(subscription.planId) : undefined;
     const open = mine.invoices.find((invoice) => invoice.status === "open") ?? null;
@@ -201,6 +203,10 @@ export function registerBillingRoutes(app: Express, config: PlatformConfig): voi
   app.post(`${base}/billing/plan`, ...role("owner"), handle(async (req, res, { business, role }) => {
     const planId = typeof req.body?.plan_id === "string" ? req.body.plan_id : "";
     if (!planId) return res.status(400).json({ error: "plan_required", message: "Which plan?" });
+    const chosen = await planById(planId);
+    if (chosen?.tier === "menu" && business.tier !== "menu" && !menuPlanFits(business.businessType)) {
+      return res.status(400).json({ error: "plan_not_offered", message: "The Menu plan is for restaurants, bars and hotels." });
+    }
     await choosePlan(business.id, planId);
     res.json(await view(business.id, role));
   }));

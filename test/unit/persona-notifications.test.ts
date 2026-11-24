@@ -53,7 +53,7 @@ test("a notification address is checked, normalised, and must get something", ()
 });
 
 test("each plan allows its own number of notification emails", () => {
-  assert.deepEqual(TIER_NOTIFICATION_EMAILS, { starter: 2, full: 5 });
+  assert.deepEqual(TIER_NOTIFICATION_EMAILS, { menu: 1, starter: 2, full: 5 });
   assert.ok(TIER_NOTIFICATION_EMAILS.full > TIER_NOTIFICATION_EMAILS.starter, "the bigger plan allows more");
 });
 

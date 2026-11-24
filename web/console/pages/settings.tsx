@@ -34,7 +34,7 @@ function fromAddress(value: string | null | undefined): { tab: Tab; outcome: str
   return { tab: TABS.includes(name as Tab) ? name as Tab : "profile", outcome: params.get("google") ?? params.get("paid") };
 }
 
-export function SettingsPage(props: { businessId: string; role: Role; me: Me; businessType?: string | null; books?: Books; orders?: boolean; tab?: string | null; onBusinessChanged?: () => void; onOfferChanged?: () => void }) {
+export function SettingsPage(props: { businessId: string; role: Role; me: Me; businessType?: string | null; books?: Books; orders?: boolean; menuOnly?: boolean; tab?: string | null; onBusinessChanged?: () => void; onOfferChanged?: () => void }) {
   const initial = fromAddress(props.tab);
   const books = props.books ?? booksOfType(props.businessType ?? null);
   const stays = books.rooms || books.services || books.tables;
@@ -42,6 +42,8 @@ export function SettingsPage(props: { businessId: string; role: Role; me: Me; bu
   const payments = !stays && props.orders === true;
   const [tab, setTab] = useState<Tab>(initial.tab === "payments" && stays ? "bookings" : initial.tab);
   const ownSystem = props.businessType === "custom";
+  // The Menu plan has no Zaina: no offer to set up, no website chat, no WhatsApp.
+  const zaina = !props.menuOnly;
   return (
     <div className="page">
       <div className="page-head"><h1>Settings</h1></div>
@@ -51,17 +53,16 @@ export function SettingsPage(props: { businessId: string; role: Role; me: Me; bu
         onChange={setTab}
         tabs={[
           { id: "profile", label: "Business" },
-          ...(ownSystem ? [] : [{ id: "offer" as const, label: "What you offer" }]),
+          ...(ownSystem || !zaina ? [] : [{ id: "offer" as const, label: "What you offer" }]),
           { id: "brand", label: "Brand" },
           { id: "door", label: "QR code & link" },
           { id: "cards", label: "Business cards" },
           ...(stays ? [{ id: "bookings" as const, label: "Bookings & payments" }, { id: "calendars" as const, label: "Calendars" }] : []),
           ...(payments ? [{ id: "payments" as const, label: "Payments" }] : []),
           { id: "notifications", label: "Notifications" },
-          { id: "widget", label: "Website widget" },
-          { id: "whatsapp", label: "WhatsApp" },
-          ...(ownSystem ? [] : [{ id: "owner" as const, label: "Manage from WhatsApp" }]),
-          ...(atLeast(props.role, "manager") ? [{ id: "system" as const, label: "Your system" }] : []),
+          ...(zaina ? [{ id: "widget" as const, label: "Website widget" }, { id: "whatsapp" as const, label: "WhatsApp" }] : []),
+          ...(ownSystem || !zaina ? [] : [{ id: "owner" as const, label: "Manage from WhatsApp" }]),
+          ...(atLeast(props.role, "manager") && zaina ? [{ id: "system" as const, label: "Your system" }] : []),
           { id: "hours", label: "Hours" },
           { id: "billing", label: "Plan & billing" },
         ]}

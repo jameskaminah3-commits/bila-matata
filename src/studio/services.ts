@@ -42,6 +42,7 @@ export const REQUEST_TOPICS: ReadonlyArray<{ id: string; label: string }> = [
   { id: "zaina_starter", label: "Zaina AI: Starter Sales Concierge" },
   { id: "zaina_full", label: "Zaina AI: Full Booking & Quote Engine" },
   { id: "zaina_system", label: "Zaina AI: inside our own shop or booking system" },
+  { id: "menu_plan", label: "Menu plan: our branded QR menu" },
   ...STUDIO_SERVICES.map((service) => ({ id: service.id as string, label: service.title as string })),
   { id: "other", label: "Something else" },
 ];

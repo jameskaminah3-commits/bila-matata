@@ -75,6 +75,19 @@ export function guessPath(facts: Pick<Facts, "integration_ok" | "calendars" | "w
 export function stepsFor(business: Pick<Business, "id" | "businessType" | "tier" | "status" | "allowedOrigins">, facts: Facts, path: OnboardingPath, ticks: Record<string, boolean>): Step[] {
   const at = (page: string) => `#/b/${business.id}/${page}`;
   const books = business.tier === "full" && takesBookings(business.businessType);
+  // The Menu plan is the page alone: its steps are the menu, the brand and the printed code.
+  if (business.tier === "menu") {
+    const menu: Step[] = [
+      { id: "profile", label: "Profile: name, phone and a few lines on what they do", done: Boolean(facts.display_name && facts.contact_phone && facts.about_length >= 40), auto: true, fix: at("settings/profile") },
+      { id: "brand", label: "Brand: logo or welcome line", done: facts.has_logo || Boolean(facts.brand_tagline), auto: true, fix: at("settings/brand") },
+      { id: "catalogue", label: "The menu: sections, items and prices", done: facts.price_items > 0, auto: true, fix: at("prices") },
+      { id: "reach", label: "Customers open the menu: QR code scanned", done: facts.scans > 0, auto: true, fix: at("settings/door") },
+      { id: "walkthrough", label: MANUAL_STEPS.walkthrough, done: ticks.walkthrough === true, auto: false, fix: null },
+      { id: "printed", label: MANUAL_STEPS.printed, done: ticks.printed === true, auto: false, fix: null },
+      { id: "live", label: "Live: the menu is open to customers", done: business.status === "active", auto: true, fix: null },
+    ];
+    return menu;
+  }
   const steps: Step[] = [
     { id: "profile", label: "Profile: name, phone and a few lines on what they do", done: Boolean(facts.display_name && facts.contact_phone && facts.about_length >= 40), auto: true, fix: at("settings/profile") },
     { id: "brand", label: "Brand: logo or welcome line", done: facts.has_logo || Boolean(facts.brand_tagline), auto: true, fix: at("settings/brand") },

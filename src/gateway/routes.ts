@@ -20,7 +20,7 @@ import { brandAssetUrl, brandAssetsOf } from "../brand/assets.ts";
 import { doorSource, recordDoorChat } from "../frontdoor/stats.ts";
 import type { Express, NextFunction, Request, Response } from "express";
 import type { PlatformConfig } from "../config.ts";
-import type { Business } from "../db/schema.ts";
+import { chatsOnTier, type Business } from "../db/schema.ts";
 import { runForBusiness } from "../db/tenant.ts";
 import { allowedOriginsFor, anyBusinessById, businessById, businessByPublicKey } from "../businesses/registry.ts";
 import { getBusinessSettings } from "../businesses/settings.ts";
@@ -88,7 +88,7 @@ export function registerGatewayRoutes(app: Express, config: PlatformConfig, engi
     const preview = business && (!live || !originAllowed)
       ? (await runForBusiness(business.id, () => getSession(claims.sessionId)))?.preview === true
       : false;
-    if (!business || (!live && !preview)) {
+    if (!business || (!live && !preview) || !chatsOnTier(business.tier)) {
       refuse(res, 404, "unknown_business", "This chat is not available.");
       return null;
     }
@@ -119,7 +119,8 @@ export function registerGatewayRoutes(app: Express, config: PlatformConfig, engi
   app.post("/v1/sessions", async (req: Request, res: Response, next: NextFunction) => {
     try {
       const business = await namedBusiness(req.body?.business ?? req.body?.business_key);
-      if (!business) return refuse(res, 404, "unknown_business", "This chat is not available.");
+      // On the Menu plan there is no chat.
+      if (!business || !chatsOnTier(business.tier)) return refuse(res, 404, "unknown_business", "This chat is not available.");
       if (!isOriginAllowed(req.header("origin"), allowedOriginsFor(business))) {
         return refuse(res, 403, "origin_not_allowed", "This website can't use this chat.");
       }
@@ -212,7 +213,7 @@ export function registerGatewayRoutes(app: Express, config: PlatformConfig, engi
   app.get("/v1/widget/config", async (req: Request, res: Response, next: NextFunction) => {
     try {
       const business = await namedBusiness(req.query.business ?? req.query.key);
-      if (!business) return refuse(res, 404, "unknown_business", "This chat is not available.");
+      if (!business || !chatsOnTier(business.tier)) return refuse(res, 404, "unknown_business", "This chat is not available.");
       const origin = req.header("origin");
       const allowed = isOriginAllowed(origin, allowedOriginsFor(business));
       // Where the chat opens (or is refused), for the business's dashboard; not its own pages here.

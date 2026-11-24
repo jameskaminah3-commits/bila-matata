@@ -18,7 +18,7 @@
 // business's own rules for them (policies.ts). What a business sells, and
 // its rules, are its own: nothing here is a default policy.
 
-import { type Business, type BusinessSettings, type BusinessType, type OfferingKind } from "../db/schema.ts";
+import { booksOnTier, type Business, type BusinessSettings, type BusinessType, type OfferingKind } from "../db/schema.ts";
 import type { Industry } from "../engine/playbooks.ts";
 
 export const capabilityKeys = ["rooms", "tables", "appointments", "transfers", "activities", "orders", "quotes"] as const;
@@ -142,7 +142,7 @@ export type BookingModules = {
  * (bookings are what Full adds), whatever the business offers.
  */
 export function bookingModules(business: Pick<Business, "businessType" | "tier">, capabilities: Capability[]): BookingModules {
-  if (business.businessType === "custom" || business.tier === "starter") return { rooms: false, slotKinds: [] };
+  if (business.businessType === "custom" || !booksOnTier(business.tier)) return { rooms: false, slotKinds: [] };
   return {
     rooms: capabilities.includes("rooms"),
     slotKinds: [

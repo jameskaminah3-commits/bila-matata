@@ -45,6 +45,8 @@ export type DoorView = {
   whatsOn?: { today: string[]; soon: Array<{ label: string; text: string }> } | null;
   /** Where the customer is, from the code they scanned ("Table 5"). */
   spot?: string | null;
+  /** False on the Menu plan: the menu and What's on alone, with no chat and no "Ask Zaina" anywhere. */
+  chat?: boolean;
 };
 
 /** The quiet line at the foot of every page and printed card. */
@@ -92,6 +94,7 @@ const DOTS = '<i class="cat-dots" aria-hidden="true"></i>';
  */
 function renderCatalogue(catalogue: DoorCatalogue, view: DoorView): string {
   const assistant = esc(view.assistant);
+  const chat = view.chat !== false;
   const pills = catalogue.sections.length > 1
     ? `<div class="cat-pills" role="group" aria-label="Sections"><button type="button" class="cat-pill" data-section="" aria-pressed="true">All</button>${catalogue.sections.map((section) => `<button type="button" class="cat-pill" data-section="${esc(section)}" aria-pressed="false">${esc(sectionTitle(section))}</button>`).join("")}</div>`
     : "";
@@ -119,19 +122,19 @@ function renderCatalogue(catalogue: DoorCatalogue, view: DoorView): string {
     const sizes = item.variants.length
       ? `<span class="cat-variants">${item.variants.map((variant) => `<span class="cat-variant${variant.inStock ? "" : " out"}"><span>${esc(variant.label)}${variant.inStock ? "" : " <em>Out of stock</em>"}</span>${variant.price ? `${DOTS}<b>${esc(variant.price)}</b>` : ""}</span>`).join("")}</span>`
       : "";
-    const order = item.order && item.inStock
+    const order = chat && item.order && item.inStock
       ? `<button type="button" class="cat-zaina main" data-ask="${esc(item.order.text)}">${item.order.verb === "book" ? "Book" : "Order"} via ${assistant}</button>`
       : "";
     return `${heading}<li class="cat-item${item.inStock ? "" : " out"}" data-section="${esc(item.section ?? "")}" data-search="${esc(search)}"><details class="cat-card">
 <summary>${thumb}<span class="cat-body">${top}${item.description ? `<span class="cat-desc">${esc(item.description)}</span>` : ""}${sizes}${item.inStock ? "" : '<span class="cat-out">Out of stock</span>'}</span></summary>
-<div class="cat-more">${item.picture ? `<img class="cat-photo" src="${esc(item.picture)}" alt="${esc(item.name)}" loading="lazy" decoding="async">` : ""}<div class="cat-actions"><button type="button" class="cat-zaina" data-ask="${esc(item.tell)}">Ask ${assistant} about this</button>${order}</div></div>
+<div class="cat-more">${item.picture ? `<img class="cat-photo" src="${esc(item.picture)}" alt="${esc(item.name)}" loading="lazy" decoding="async">` : ""}${chat ? `<div class="cat-actions"><button type="button" class="cat-zaina" data-ask="${esc(item.tell)}">Ask ${assistant} about this</button>${order}</div>` : ""}</div>
 </details></li>`;
   }).join("\n");
   const on = view.whatsOn;
   const whatsOn = on && (on.today.length || on.soon.length)
     ? `<aside class="whats-on" aria-label="What's on"><p class="whats-on-title">${on.today.length ? `Today at ${esc(view.name)}` : "Coming up"}</p>${on.today.length ? `<ul class="whats-on-today">${on.today.map((text) => `<li>${esc(text)}</li>`).join("")}</ul>` : ""}${on.soon.length ? `<ul class="whats-on-soon">${on.soon.map((entry) => `<li><b>${esc(entry.label)}</b> ${esc(entry.text)}</li>`).join("")}</ul>` : ""}</aside>`
     : "";
-  return `<section class="door-catalogue" id="door-catalogue" role="tabpanel" aria-labelledby="door-tab-catalogue">
+  return `<section class="door-catalogue" id="door-catalogue"${chat ? ' role="tabpanel" aria-labelledby="door-tab-catalogue"' : ` aria-label="${esc(catalogue.tab.replace(/^Browse\s+/i, ""))}"`}>
     <div class="cat-tools">
       <label class="cat-search" title="${esc(catalogue.search)}">${ICONS.search}<span class="visually-hidden">${esc(catalogue.search)}</span><input type="search" id="cat-search" placeholder="${esc(catalogue.search)}" autocomplete="off" enterkeyhint="search"></label>${pills}${jump}
     </div>
@@ -139,12 +142,13 @@ function renderCatalogue(catalogue: DoorCatalogue, view: DoorView): string {
     <ul class="cat-list">
 ${cards}
     </ul>
-    <p class="cat-none" id="cat-none" hidden>Nothing matches that. <button type="button" class="cat-link" data-tab-to="chat">Ask ${assistant}</button> instead.</p>
-    <div class="cat-nudge" id="cat-nudge"><button type="button" class="cat-nudge-go" data-tab-to="chat" title="Need a recommendation? Ask ${assistant}">${ICONS.chat}<span>Ask ${assistant}</span></button><button type="button" class="cat-nudge-x" id="cat-nudge-x" aria-label="Hide this">×</button></div>
+    <p class="cat-none" id="cat-none" hidden>Nothing matches that.${chat ? ` <button type="button" class="cat-link" data-tab-to="chat">Ask ${assistant}</button> instead.` : ""}</p>
+    ${chat ? `<div class="cat-nudge" id="cat-nudge"><button type="button" class="cat-nudge-go" data-tab-to="chat" title="Need a recommendation? Ask ${assistant}">${ICONS.chat}<span>Ask ${assistant}</span></button><button type="button" class="cat-nudge-x" id="cat-nudge-x" aria-label="Hide this">×</button></div>` : ""}
   </section>`;
 }
 
 export function renderFrontDoor(view: DoorView): string {
+  if (view.chat === false) return renderMenuDoor(view);
   const title = `${view.name} · Chat with ${view.assistant}`;
   const description = `Chat with ${view.assistant}, the ${view.role} at ${view.name}: ask a question, check what's available, or leave your details for the team.`;
   const id = encodeURIComponent(view.businessId);
@@ -207,6 +211,63 @@ ${view.logoUrl ? `<meta property="og:image" content="${esc(view.logoUrl)}">\n<li
 </div>
 ${view.catalogue ? `<script src="/c-assets/door.js?v=${DOOR_ASSETS_VERSION}" defer></script>\n` : ""}<script src="${widget}" data-business="${esc(view.businessId)}" data-mode="page" data-mount="#zaina-chat" data-via="${view.via}"${view.spot ? ` data-spot="${esc(view.spot)}"` : ""} async></script>
 </body>
+</html>`;
+}
+
+/**
+ * The Menu plan's page: the same branded header, menu and What's on, with no
+ * chat. No chat script loads, and nothing on the page offers one.
+ */
+function renderMenuDoor(view: DoorView): string {
+  // "Browse Menu" on the tab beside the chat; here, with no tab, just "Menu".
+  const tab = (view.catalogue?.tab ?? "Menu").replace(/^Browse\s+/i, "");
+  const title = `${view.name} · ${tab}`;
+  const description = `The ${tab.toLowerCase()} at ${view.name}${view.tagline ? `: ${view.tagline}` : ""}.`;
+  const id = encodeURIComponent(view.businessId);
+  const contact = [
+    view.phone && view.phoneDisplay ? `<a class="door-btn" href="tel:${esc(view.phone)}">${ICONS.phone}<span>Call ${esc(view.phoneDisplay)}</span></a>` : "",
+    view.whatsapp ? `<a class="door-btn" href="${esc(view.whatsapp)}" target="_blank" rel="noopener noreferrer">${ICONS.whatsapp}<span>WhatsApp</span></a>` : "",
+  ].filter(Boolean).join("");
+  const wordmark = Boolean(view.logoHasName && view.logoUrl);
+  const font: TitleFont = view.titleFont && TITLE_FONT_KEYS.includes(view.titleFont) ? view.titleFont : "classic";
+  const spot = view.catalogue && view.spot ? `<p class="door-spot">${ICONS.pin}<span>You're at <strong>${esc(view.spot)}</strong>.</span></p>` : "";
+  return `<!doctype html>
+<html lang="en"${view.menuStyle && view.menuStyle !== "auto" ? ` data-menu="${view.menuStyle}"` : ""}${font === "classic" ? "" : ` data-title="${font}"`}>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>${esc(title)}</title>
+<meta name="description" content="${esc(description)}">
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="${esc(view.color)}">
+<meta property="og:title" content="${esc(title)}">
+<meta property="og:description" content="${esc(description)}">
+<meta property="og:type" content="website">
+${view.logoUrl ? `<meta property="og:image" content="${esc(view.logoUrl)}">\n<link rel="icon" href="${esc(view.logoUrl)}">` : `<link rel="icon" href="/site/zaina.svg" type="image/svg+xml">`}
+<link rel="preload" href="/c-assets/title-${font}.woff2?v=${TITLE_FONTS[font].version}" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/c-assets/door.css?v=${DOOR_ASSETS_VERSION}">
+<link rel="stylesheet" href="/c/${id}/brand.css?v=${esc(view.brandVersion)}">
+</head>
+<body>
+<div class="door menu-only${view.coverUrl ? " has-cover" : ""}${view.catalogue ? " has-catalogue" : ""}${wordmark ? " has-wordmark" : ""}">
+  <header class="door-head">
+    ${view.coverUrl ? `<img class="door-cover" src="${esc(view.coverUrl)}" alt="" width="1200" height="600">` : ""}
+    <div class="door-brand">
+      <span class="door-logo${view.logoUrl ? "" : " letters"}">${view.logoUrl ? `<img src="${esc(view.logoUrl)}" alt="" width="${wordmark ? 240 : 72}" height="${wordmark ? 240 : 72}">` : esc(initials(view.name))}</span>
+      <div class="door-name">
+        <h1${wordmark ? ' class="visually-hidden"' : ""}>${esc(view.name)}</h1>
+        ${view.tagline ? `<p>${esc(view.tagline)}</p>` : ""}
+      </div>
+    </div>
+    ${spot}
+    ${contact ? `<div class="door-actions">${contact}</div>` : ""}
+  </header>
+  ${view.catalogue ? `<div class="door-main">${view.menuStyle === "backdrop" ? backdropLayer(view) : ""}
+  ${renderCatalogue(view.catalogue, view)}
+  </div>` : `<main class="door-chat"><p class="door-loading">Our ${esc(tab.toLowerCase())} is on its way.${view.phoneDisplay ? ` Call us on ${esc(view.phoneDisplay)} in the meantime.` : ""}</p></main>`}
+  <footer class="door-foot"><a href="${POWERED_BY.href}" target="_blank" rel="noopener">${POWERED_BY.text}</a></footer>
+</div>
+${view.catalogue ? `<script src="/c-assets/door.js?v=${DOOR_ASSETS_VERSION}" defer></script>\n` : ""}</body>
 </html>`;
 }
 
@@ -499,7 +560,9 @@ export const DOOR_JS = String.raw`(function () {
   var tabs = Array.prototype.slice.call(document.querySelectorAll("[data-tab]"));
   var panels = { catalogue: document.getElementById("door-catalogue"), chat: document.getElementById("zaina-chat") };
   var main = document.querySelector(".door-main");
-  if (!tabs.length || !panels.catalogue || !panels.chat || !main) return;
+  if (!panels.catalogue || !main) return;
+  // On the Menu plan the page is the menu alone: no tabs and no chat.
+  var chatOn = tabs.length > 0 && Boolean(panels.chat);
   // On a phone the whole page scrolls (the menu's own box does on a wide screen).
   function pageScrolls() { return getComputedStyle(panels.catalogue).overflowY === "visible"; }
   function scrollUp(to, always) {
@@ -507,6 +570,7 @@ export const DOOR_JS = String.raw`(function () {
     if (always || window.scrollY > top) window.scrollTo(0, top);
   }
   function show(name, focus) {
+    if (!chatOn) return;
     tabs.forEach(function (tab) {
       var on = tab.getAttribute("data-tab") === name;
       tab.setAttribute("aria-selected", on ? "true" : "false");

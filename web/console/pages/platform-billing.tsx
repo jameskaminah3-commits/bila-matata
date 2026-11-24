@@ -32,8 +32,12 @@ type PlatformBilling = {
   grace_days: number;
 };
 
-/** The two plans on the website, as the studio prices them. */
+/** The Menu plan on the website: the menu page alone, for restaurants, bars and hotels. */
+const MENU_PLAN = { id: "menu", name: "Menu", description: "Your branded QR menu, printable table cards and What's on, kept up to date by your team. No chat: Zaina comes with Starter.", price_minor: 490_000, currency: "KES", billing_interval: "month", trial_days: 0, tier: "menu", notification_emails: 1, setup_fee_minor: 500_000, sort_order: 5 };
+
+/** The plans on the website, as the studio prices them. */
 const STANDARD_PLANS = [
+  MENU_PLAN,
   { id: "starter", name: "Starter Sales Concierge", description: "Zaina answers your customers day and night from your own catalogue and price list, captures every lead and hands over to your team.", price_minor: 670_000, currency: "KES", billing_interval: "month", trial_days: 0, tier: "starter", notification_emails: 2, setup_fee_minor: 1_000_000, sort_order: 10 },
   { id: "full", name: "Full Booking & Quote Engine", description: "Everything in Starter, plus live availability, exact totals, bookings created from start to finish, M-Pesa and card checkout, and calendar sync.", price_minor: 1_100_000, currency: "KES", billing_interval: "month", trial_days: 0, tier: "full", notification_emails: 5, setup_fee_minor: 2_000_000, sort_order: 20 },
 ];
@@ -77,7 +81,7 @@ export function PlatformBillingSection() {
               {plans.data.map((plan) => (
                 <tr key={plan.id}>
                   <td><strong>{plan.name}</strong><div className="small muted">{plan.id}</div></td>
-                  <td><span className={`chip${plan.tier === "full" ? " ok" : ""}`}>{plan.tier === "full" ? "Full" : "Starter"}</span></td>
+                  <td><span className={`chip${plan.tier === "full" ? " ok" : ""}`}>{plan.tier === "full" ? "Full" : plan.tier === "menu" ? "Menu" : "Starter"}</span></td>
                   <td>{plan.price_text}<div className="small muted">{plan.notification_emails} notification email{plan.notification_emails === 1 ? "" : "s"}</div>{plan.setup_fee_minor > 0 ? <div className="small muted">+ {cents(plan.setup_fee_minor, plan.currency)} set-up</div> : null}</td>
                   <td className="number">{plan.trial_days ? `${plan.trial_days} days` : "—"}</td>
                   <td className="number">{plan.conversations_per_month ? count(plan.conversations_per_month) : "—"}</td>
@@ -93,9 +97,18 @@ export function PlatformBillingSection() {
             <Button kind="primary" busy={action.busy} onClick={() => void action.run(async () => {
               for (const plan of STANDARD_PLANS) await api("POST", "/v1/platform/plans", plan);
               await reload();
-            }, "The Starter and Full plans are offered now.")}>Add the two standard plans</Button>
-            <span className="small">Starter Sales Concierge, KSh 6,700 a month (set-up KSh 10,000), and Full Booking &amp; Quote Engine, KSh 11,000 a month (set-up KSh 20,000): the prices on the website.</span>
+            }, "The Menu, Starter and Full plans are offered now.")}>Add the three standard plans</Button>
+            <span className="small">Menu, KSh 4,900 a month (set-up KSh 5,000); Starter Sales Concierge, KSh 6,700 a month (set-up KSh 10,000); and Full Booking &amp; Quote Engine, KSh 11,000 a month (set-up KSh 20,000): the prices on the website.</span>
           </Empty>
+        ) : null}
+        {plans.data?.length && !plans.data.some((plan) => plan.tier === "menu") ? (
+          <p className="small muted">
+            <Button small busy={action.busy} onClick={() => void action.run(async () => {
+              await api("POST", "/v1/platform/plans", MENU_PLAN);
+              await reload();
+            }, "The Menu plan is offered now, to restaurants, bars and hotels.")}>Add the Menu plan</Button>{" "}
+            KSh 4,900 a month, set-up KSh 5,000: the menu page, QR code, table cards and What's on, with no Zaina. Offered to restaurants, bars and hotels.
+          </p>
         ) : null}
       </div>
 
@@ -252,7 +265,7 @@ function PlanForm(props: { plan: Plan | null; onClose: () => void; onSaved: (mes
         </div>
         <div className="form-row">
           <Field label="What it includes" hint="Starter: answers, prices, leads, hand-over. Full: those, plus availability, bookings, checkout and calendars.">
-            <select value={form.tier} onChange={(event) => set("tier", event.target.value)}><option value="starter">Starter</option><option value="full">Full</option></select>
+            <select value={form.tier} onChange={(event) => set("tier", event.target.value)}><option value="menu">Menu (no Zaina)</option><option value="starter">Starter</option><option value="full">Full</option></select>
           </Field>
           <Field label="One-off set-up fee" hint="Billed once, as a studio invoice, when you add a business. 0 for none."><input inputMode="decimal" value={form.setup} onChange={(event) => set("setup", event.target.value)} /></Field>
           <Field label="Notification emails" hint="How many addresses the business may add. Empty: 2 on Starter, 5 on Full."><input type="number" min={0} max={50} value={form.emails} onChange={(event) => set("emails", event.target.value)} /></Field>

@@ -15,7 +15,8 @@ import { appointmentsConnector } from "../../src/connectors/appointments/index.t
 import { basicConnector } from "../../src/connectors/basic/index.ts";
 import { hospitalityConnector } from "../../src/connectors/hospitality/index.ts";
 import { connectorFor } from "../../src/connectors/registry.ts";
-import { workingType } from "../../src/db/schema.ts";
+import { booksOnTier, chatsOnTier, menuPlanFits, workingType } from "../../src/db/schema.ts";
+import { stepsFor } from "../../src/onboarding/tracker.ts";
 import { DEMO_JS, DEMO_SCENES, renderDemo } from "../../src/studio/demo.ts";
 import { readRequest } from "../../src/studio/requests.ts";
 import { REQUEST_TOPICS, STUDIO_SERVICES } from "../../src/studio/services.ts";
@@ -25,6 +26,24 @@ import { validateMessage, validateNewThread } from "../../src/support/store.ts";
 const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const PAGE = { baseUrl: "https://bilamatata.com" };
 const text = (html: string) => html.replace(/<script[\s\S]*?<\/script>/g, " ").replace(/<[^>]+>/g, " ").replace(/&amp;/g, "&").replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/\s+/g, " ");
+
+test("the Menu tier: the page alone, no chat and no bookings, for restaurants, bars and hotels", async () => {
+  assert.equal(chatsOnTier("menu"), false);
+  assert.equal(chatsOnTier("starter"), true);
+  assert.equal(chatsOnTier(undefined), true, "a business from before tiers keeps its chat");
+  assert.equal(booksOnTier("menu"), false);
+  assert.equal(booksOnTier("starter"), false);
+  assert.equal(booksOnTier("full"), true);
+  assert.equal(workingType({ businessType: "restaurant", tier: "menu" }), "general");
+  assert.equal(await connectorFor({ id: "m1", businessType: "restaurant", tier: "menu" }), basicConnector);
+  assert.deepEqual(bookingModules({ businessType: "guesthouse", tier: "menu" }, capabilitiesFromType("guesthouse")), { rooms: false, slotKinds: [] });
+  assert.deepEqual(["restaurant", "guesthouse", "general", "salon", "custom"].map((type) => menuPlanFits(type as "general")), [true, true, true, false, false]);
+  assert.equal(validatePlan({ id: "menu", name: "Menu", price_minor: 490_000, currency: "KES", tier: "menu" }, true).ok, true);
+  const facts = { display_name: "Corner", contact_phone: "+254700000000", about_length: 60, website_url: null, brand_tagline: null, has_logo: true, industry: null, answers: 0, sources: 0, offerings: 0, price_items: 12, payments: false, alert_emails: 0, members: 1, scans: 3, whatsapp: false, calendars: 0, integration_ok: false, previews: 0 };
+  const steps = stepsFor({ id: "corner", businessType: "restaurant", tier: "menu", status: "onboarding", allowedOrigins: [] }, facts, "notebook", { printed: true });
+  assert.deepEqual(steps.map((step) => [step.id, step.done]), [["profile", true], ["brand", true], ["catalogue", true], ["reach", true], ["walkthrough", false], ["printed", true], ["live", false]]);
+  assert.ok(!steps.some((step) => /Zaina/.test(step.label)), "no Zaina steps on the Menu plan");
+});
 
 test("on Starter a business works as a general one, whatever it sells; on Full as what it is", async () => {
   assert.equal(workingType({ businessType: "salon", tier: "starter" }), "general");
@@ -69,7 +88,7 @@ test("the website's starting prices are the ones on the studio's price list", ()
   for (const [name, amount] of [["Website and mobile app development", 2500000], ["AI automation and workflow systems", 1500000], ["Data analysis and business intelligence", 1000000], ["Strategic research and professional writing", 500000]] as const) {
     assert.match(seeded, new RegExp(`'Studio services', '${name}', '[^']+', ${amount}, 'KES', 'and up'`), name);
   }
-  assert.deepEqual(REQUEST_TOPICS.map((topic) => topic.id), ["zaina_starter", "zaina_full", "zaina_system", "software", "automation", "data", "research", "other"]);
+  assert.deepEqual(REQUEST_TOPICS.map((topic) => topic.id), ["zaina_starter", "zaina_full", "zaina_system", "menu_plan", "software", "automation", "data", "research", "other"]);
 });
 
 test("a request needs a name, a way to reach the person, what they want and a few words about it", () => {

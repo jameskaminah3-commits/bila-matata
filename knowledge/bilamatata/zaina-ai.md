@@ -83,6 +83,10 @@ Hotels, lodges, villas and other places to stay are a key kind of business for Z
 
 Each plan has a monthly price and a one-off set-up fee. Use the price list for the current amounts.
 
+## The Menu plan (restaurants, bars and hotels)
+
+For a restaurant, bar or hotel that wants its menu first, without the chat: a branded menu page guests open by scanning the QR code on the table, in the business's own logo, colours and lettering, with every dish and price, and What's on (today's special, tonight's event) at the top. The team changes dishes, prices and photos themselves, live at once, with nothing to reprint. It includes the QR code, printable table cards and business cards. It has no Zaina: no chat on the page or website, and no WhatsApp replies. Moving up to Starter later adds Zaina on the same page, with nothing to redo. It is a monthly price with a one-off set-up fee that includes loading the menu; use the price list for the amounts.
+
 ## What set-up includes
 
 We load the business's catalogue, prices, opening hours and policies, tune Zaina's answers and tone with the owner, connect the business's own payment account and calendars where the plan includes them, and install the chat on the website. The website installation is one line of code and works on WordPress, Shopify, Wix and custom-built sites.

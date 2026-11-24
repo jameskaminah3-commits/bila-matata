@@ -11,11 +11,14 @@ export type Membership = {
   /** What the business works as on its plan (the sections follow it); kind is what it is. */
   businessType?: string;
   kind?: string;
-  tier?: "starter" | "full";
+  tier?: Tier;
   businessStatus?: "onboarding" | "active" | "paused";
   /** Why a paused business is paused: by the Zaina team, or for an unpaid invoice. */
   pauseReason?: "platform" | "billing" | null;
 };
+
+/** The plan tiers: Menu (the menu page alone, no Zaina), Starter (Zaina answers and takes leads) and Full (she also books). */
+export type Tier = "menu" | "starter" | "full";
 
 export type Me = {
   user: { id: string; email: string; name: string; is_platform_admin: boolean };
@@ -404,7 +407,7 @@ export type Plan = {
   status: "active" | "hidden";
   sort_order: number;
   /** What the plan includes, and its one-off set-up fee. */
-  tier: "starter" | "full";
+  tier: Tier;
   /** How many notification emails the plan lets a business add. */
   notification_emails: number;
   setup_fee_minor: number;
@@ -433,7 +436,7 @@ export type SubscriptionStatus = "incomplete" | "trialing" | "active" | "past_du
 
 export type Billing = {
   /** What the business gets now, and what kind of business it is. */
-  tier: "starter" | "full";
+  tier: Tier;
   kind: string;
   enabled: boolean;
   billed_by_team: boolean;

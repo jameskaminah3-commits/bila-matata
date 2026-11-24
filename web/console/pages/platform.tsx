@@ -24,7 +24,7 @@ import { PlatformSupport } from "./support.tsx";
 import { ReviewSection } from "./review.tsx";
 import { OnboardingTracker } from "./onboarding-tracker.tsx";
 
-type Tier = "starter" | "full";
+type Tier = "menu" | "starter" | "full";
 type Overview = {
   businesses: Array<{
     id: string;
@@ -54,7 +54,7 @@ type Business = Overview["businesses"][number];
 
 const TABS = ["overview", "businesses", "onboarding", "review", "billing", "invoices", "support"] as const;
 type Tab = (typeof TABS)[number];
-export const TIER_NAMES: Record<Tier, string> = { starter: "Starter", full: "Full" };
+export const TIER_NAMES: Record<Tier, string> = { menu: "Menu", starter: "Starter", full: "Full" };
 const KIND: Record<string, string> = { general: "General", guesthouse: "Rooms", salon: "Appointments", restaurant: "Tables", custom: "Custom" };
 
 export function PlatformPage(props: { tab: string | null; sub: string | null; onChanged?: () => void }) {
@@ -293,6 +293,7 @@ function BusinessesTab() {
 const planLine = (plan: Plan) => `${plan.name}: ${plan.price_text} · ${TIER_NAMES[plan.tier]}${plan.setup_fee_minor > 0 ? ` · set-up ${cents(plan.setup_fee_minor, plan.currency)}` : ""}`;
 
 const TIER_HELP: Record<Tier, string> = {
+  menu: "Menu: the branded menu page, its QR code and cards, and What's on. No Zaina: no chat and no WhatsApp. For restaurants, bars and hotels.",
   starter: "Starter: Zaina answers from the business's information, quotes its price list, takes leads and hands over to its team.",
   full: "Full: everything in Starter, plus live availability, exact totals, bookings, checkout and calendars.",
 };
@@ -329,6 +330,7 @@ function SetPlan(props: { business: Business; current: string | null; plans: Pla
         {!plan ? (
           <Field label="What it gets">
             <select value={tier} onChange={(event) => setTier(event.target.value as Tier)}>
+              <option value="menu">Menu (no Zaina)</option>
               <option value="starter">Starter</option>
               <option value="full">Full</option>
             </select>
@@ -413,6 +415,7 @@ function AddBusiness(props: { plans: Plan[]; onClose: () => void; onAdded: (mess
         {!plan ? (
           <Field label="What it gets" hint={props.plans.length ? undefined : "There are no plans yet (add them under Plans & billing): this business is billed by hand."}>
             <select value={form.tier} onChange={(event) => setForm({ ...form, tier: event.target.value as Tier })}>
+              <option value="menu">Menu (no Zaina)</option>
               <option value="starter">Starter</option>
               <option value="full">Full</option>
             </select>

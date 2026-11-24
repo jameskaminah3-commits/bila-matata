@@ -157,7 +157,7 @@ test("the home page carries the agreed offer: headline, navigation, both plans, 
   assert.equal([...html.matchAll(/<script(?![^>]*\bsrc=)([^>]*)>/g)].filter((match) => !match[1].includes("application/ld+json")).length, 0, "no inline scripts");
   assert.match(html, /<link rel="canonical" href="https:\/\/bilamatata\.com\/">/);
   const data = JSON.parse(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/.exec(html)![1]);
-  assert.deepEqual(data.makesOffer.map((offer: { price: number }) => offer.price), [6700, 11000]);
+  assert.deepEqual(data.makesOffer.map((offer: { price: number }) => offer.price), [6700, 11000, 4900]);
 });
 
 test("the home page says how Zaina works: only the business's own information, no invented prices, the up-to-date calendar, finding and booking", () => {

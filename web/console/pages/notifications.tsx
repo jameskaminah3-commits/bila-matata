@@ -13,7 +13,7 @@ import { atLeast, type Role } from "../types.ts";
 import { Button, Empty, ErrorLine, Field, Icon, Message, Toggle, useAction, useLoad } from "../ui.tsx";
 
 type Recipient = { id: string; email: string; label: string | null; alerts: boolean; transcripts: boolean; added_at: string };
-type Notifications = { recipients: Recipient[]; limit: number; used: number; plan: string | null; tier: "starter" | "full"; full_limit: number };
+type Notifications = { recipients: Recipient[]; limit: number; used: number; plan: string | null; tier: "menu" | "starter" | "full"; full_limit: number };
 
 export function NotificationEmails(props: { businessId: string; role: Role }) {
   const base = businessPath(props.businessId, "/notification-emails");
@@ -37,7 +37,7 @@ export function NotificationEmails(props: { businessId: string; role: Role }) {
           <div className="allowance">
             <div className="allowance-bar" role="img" aria-label={`${data.used} of ${data.limit} used`}><span style={{ width: `${data.limit ? Math.min(100, (data.used / data.limit) * 100) : 100}%` }} /></div>
             <p className="small">
-              <strong>{data.used} of {data.limit}</strong> used · {data.plan ?? (data.tier === "full" ? "Full" : "Starter")} plan
+              <strong>{data.used} of {data.limit}</strong> used · {data.plan ?? (data.tier === "full" ? "Full" : data.tier === "menu" ? "Menu" : "Starter")} plan
               {data.tier === "starter" && data.limit < data.full_limit ? <> · <button type="button" className="link" onClick={() => go({ businessId: props.businessId, page: "support" })}>The Full plan allows {data.full_limit}</button></> : null}
             </p>
           </div>

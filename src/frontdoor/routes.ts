@@ -45,7 +45,7 @@ import { whatsOnView } from "../whats-on/whats-on.ts";
 import { businessOrigin, canBeSubdomain, subdomainsOn } from "./subdomains.ts";
 import { qrSvg } from "./qr.ts";
 import { isOriginAllowed } from "../gateway/origin.ts";
-import type { QrDestination } from "../db/schema.ts";
+import { chatsOnTier, type QrDestination } from "../db/schema.ts";
 import { doorSource, doorStats, looksLikePerson, recordDoorVisit, type DoorSource } from "./stats.ts";
 
 const BUSINESS_ID = /^[a-z][a-z0-9-]{1,39}$/;
@@ -238,7 +238,9 @@ export function registerFrontDoorRoutes(app: Express, config: PlatformConfig): v
       if (!business || !settings || settings.frontDoor === false) return res.status(404).type("html").send(renderDoorClosed());
       // Served on the business's own address, its pictures come from that address too.
       const base = res.locals.businessHost === business.id ? `${req.protocol}://${req.get("host")}` : baseOf(req);
-      const [assets, number] = await Promise.all([brandAssetsOf(business.id), settings.widgetWhatsapp === false ? null : getNumber(business.id)]);
+      // The Menu plan's page is the menu alone: no chat, and no WhatsApp (nobody would answer it there).
+      const chat = chatsOnTier(business.tier);
+      const [assets, number] = await Promise.all([brandAssetsOf(business.id), settings.widgetWhatsapp === false || !chat ? null : getNumber(business.id)]);
       const via = doorSource(req.query.s);
       if (looksLikePerson(req.header("user-agent"))) void recordDoorVisit(business.id, via);
       const catalogue = await cachedDoorCatalogue(business, settings).catch(() => null);
@@ -264,6 +266,7 @@ export function registerFrontDoorRoutes(app: Express, config: PlatformConfig): v
         brandVersion: (settings.widgetColor ?? "0f766e").replace("#", ""),
         catalogue,
         spot: cleanSpot(req.query.spot),
+        chat,
       }));
     } catch (error) {
       next(error);

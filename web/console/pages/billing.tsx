@@ -71,6 +71,14 @@ export function BillingSettings(props: { businessId: string; outcome: string | n
   );
 }
 
+const MENU_INCLUDES = [
+  "Your branded menu page, in your colours, logo and lettering",
+  "Your QR code, printable table cards and business cards",
+  "What's on: today's special and tonight's event at the top of the menu",
+  "Change prices, items and photos any time, live at once",
+  "Scans and visits in this dashboard",
+  "Help from the Bila Matata team",
+];
 const STARTER_INCLUDES = [
   "Zaina answers customers day and night, only from your own information",
   "Quotes only the prices on your price list",
@@ -91,6 +99,19 @@ const FULL_ADDS = [
 /** What the business's tier includes, and what the other would add. */
 function Included(props: { data: Billing; businessId: string }) {
   const full = props.data.tier === "full";
+  if (props.data.tier === "menu") {
+    return (
+      <section className="card">
+        <h2>What your plan includes <span className="chip">Menu</span></h2>
+        <ul className="check-list">{MENU_INCLUDES.map((line) => <li key={line}><Icon name="check" size={14} /> {line}</li>)}</ul>
+        <div className="upgrade">
+          <strong>Starter adds Zaina, your host</strong>
+          <ul className="check-list muted">{STARTER_INCLUDES.slice(0, 5).map((line) => <li key={line}><Icon name="plus" size={14} /> {line}</li>)}</ul>
+          <Button small onClick={() => go({ businessId: props.businessId, page: "support" })}>Ask about upgrading</Button>
+        </div>
+      </section>
+    );
+  }
   return (
     <section className="card">
       <h2>What your plan includes <span className={`chip${full ? " ok" : ""}`}>{full ? "Full Booking & Quote Engine" : "Starter Sales Concierge"}</span></h2>

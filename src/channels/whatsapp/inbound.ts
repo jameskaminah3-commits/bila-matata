@@ -19,7 +19,7 @@
 import { businessById } from "../../businesses/registry.ts";
 import { getBusinessSettings } from "../../businesses/settings.ts";
 import { appendEvent } from "../../conversations/store.ts";
-import type { Business, ChatMedia } from "../../db/schema.ts";
+import { chatsOnTier, type Business, type ChatMedia } from "../../db/schema.ts";
 import { inBusiness, runForBusiness } from "../../db/tenant.ts";
 import { handleChatTurn } from "../../engine/agent.ts";
 import { texts, type MediaKind } from "../../engine/messages.ts";
@@ -127,6 +127,11 @@ export async function acceptDelivery(ctx: WhatsappContext, payload: unknown): Pr
     const business = businessId ? await businessById(businessId) : undefined;
     if (!business) {
       console.warn(`[whatsapp] a delivery for number ${delivery.phoneNumberId}, which no active business has connected; ignored`);
+      continue;
+    }
+    // The Menu plan has no WhatsApp: neither Zaina's replies nor the owner's assistant.
+    if (!chatsOnTier(business.tier)) {
+      if (delivery.messages.length) console.warn(`[whatsapp] a delivery for ${business.id}, which is on the Menu plan (no WhatsApp); ignored`);
       continue;
     }
     await runForBusiness(business.id, async () => {

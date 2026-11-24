@@ -9,7 +9,7 @@
 // and taking leads for its team (basic).
 
 import { businessBookingModules } from "../capabilities/of-business.ts";
-import type { Business } from "../db/schema.ts";
+import { booksOnTier, type Business } from "../db/schema.ts";
 import { platformConnectorFor } from "./platform/index.ts";
 import type { BusinessConnector } from "./types.ts";
 
@@ -35,6 +35,6 @@ export async function connectorFor(business: Pick<Business, "id" | "businessType
   if (connector) return connector;
   if (expected.has(business.id)) throw new Error(`The connector for "${business.id}" isn't configured on this server`);
   // On the Starter tier there are no booking tools: Zaina answers, quotes the price list and takes requests.
-  if (business.tier === "starter" || business.businessType === "custom") return platformConnectorFor({ rooms: false, slotKinds: [] });
+  if (!booksOnTier(business.tier) || business.businessType === "custom") return platformConnectorFor({ rooms: false, slotKinds: [] });
   return platformConnectorFor(await businessBookingModules({ id: business.id, businessType: business.businessType, tier: business.tier ?? "full" }));
 }

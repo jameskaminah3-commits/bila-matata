@@ -121,7 +121,7 @@ export function validatePlan(input: unknown, creating: boolean): { ok: true; val
     value.status = body.status;
   }
   if ("tier" in body) {
-    if (!businessTiers.includes(body.tier as BusinessTier)) return { ok: false, error: "tier is starter or full" };
+    if (!businessTiers.includes(body.tier as BusinessTier)) return { ok: false, error: "tier is menu, starter or full" };
     value.tier = body.tier as BusinessTier;
   }
   if ("notification_emails" in body) {

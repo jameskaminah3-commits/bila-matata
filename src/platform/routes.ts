@@ -106,7 +106,7 @@ export function registerPlatformRoutes(app: Express, config: PlatformConfig): vo
             if (!(error instanceof BillingError)) throw error;
           }
         } else {
-          if (!businessTiers.includes(tier as BusinessTier)) return res.status(400).json({ error: "invalid_tier", message: "tier is starter or full." });
+          if (!businessTiers.includes(tier as BusinessTier)) return res.status(400).json({ error: "invalid_tier", message: "tier is menu, starter or full." });
           await setBusinessTier(business.id, tier as BusinessTier);
         }
         if (req.body?.status === undefined) {
@@ -242,7 +242,7 @@ export function registerPlatformRoutes(app: Express, config: PlatformConfig): vo
       const plan = typeof req.body?.plan_id === "string" ? await planById(req.body.plan_id) : undefined;
       if (req.body?.plan_id !== undefined && !plan) return res.status(404).json({ error: "plan_not_found", message: "That plan doesn't exist." });
       const tier = (plan?.tier ?? req.body?.tier ?? "full") as BusinessTier;
-      if (!businessTiers.includes(tier)) return res.status(400).json({ error: "invalid_tier", message: "tier is starter or full." });
+      if (!businessTiers.includes(tier)) return res.status(400).json({ error: "invalid_tier", message: "tier is menu, starter or full." });
       if (!businessTypes.includes(businessType)) {
         return res.status(400).json({ error: "invalid_business_type", message: `business_type is one of ${businessTypes.join(", ")}.` });
       }

@@ -9,7 +9,7 @@ import { ownerPool } from "../db/platform-db.ts";
 import { inBusiness } from "../db/tenant.ts";
 import type { BusinessTier } from "../db/schema.ts";
 
-export const TIER_NOTIFICATION_EMAILS: Record<BusinessTier, number> = { starter: 2, full: 5 };
+export const TIER_NOTIFICATION_EMAILS: Record<BusinessTier, number> = { menu: 1, starter: 2, full: 5 };
 
 export type Recipient = { id: string; email: string; label: string | null; notifyAlerts: boolean; sendTranscripts: boolean; createdAt: Date };
 
@@ -58,7 +58,7 @@ export async function addRecipient(business: { id: string; tier: BusinessTier },
   if (existing.length >= limit) {
     throw new NotificationError(409, "plan_limit", limit === 0
       ? "Your plan doesn't include notification emails. Ask the Bila Matata team about upgrading."
-      : `${planName ?? (business.tier === "full" ? "Your plan" : "Your Starter plan")} includes ${limit} notification email${limit === 1 ? "" : "s"}, and you've added ${existing.length}. Remove one, or ask the Bila Matata team about a bigger plan.`);
+      : `${planName ?? (business.tier === "full" ? "Your plan" : business.tier === "menu" ? "Your Menu plan" : "Your Starter plan")} includes ${limit} notification email${limit === 1 ? "" : "s"}, and you've added ${existing.length}. Remove one, or ask the Bila Matata team about a bigger plan.`);
   }
   return inBusiness(async (_db, client) => (await client.query<Recipient>(
     `insert into notification_recipients (business_id, email, label, notify_alerts, send_transcripts, created_by)

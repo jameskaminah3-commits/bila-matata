@@ -32,16 +32,27 @@ export const bookingBusinessTypes: readonly BusinessType[] = ["guesthouse", "sal
 export const takesBookings = (type: BusinessType) => bookingBusinessTypes.includes(type);
 export const booksTime = (type: BusinessType) => type === "salon" || type === "restaurant";
 
-/** Plan tiers: Starter (answers from the business's information, quotes its price list, takes leads, hands over) and Full (those, plus availability, exact totals, bookings and checkout). */
-export const businessTiers = ["starter", "full"] as const;
+/**
+ * Plan tiers: Menu (the branded menu page, its QR code and cards, and What's
+ * on; no Zaina), Starter (Zaina answers from the business's information,
+ * quotes its price list, takes leads, hands over) and Full (those, plus
+ * availability, exact totals, bookings and checkout).
+ */
+export const businessTiers = ["menu", "starter", "full"] as const;
 export type BusinessTier = (typeof businessTiers)[number];
+/** Whether Zaina chats for the business (web and WhatsApp): every tier but Menu. A missing tier is Full's. */
+export const chatsOnTier = (tier?: BusinessTier | null): boolean => tier !== "menu";
+/** Who the Menu plan is for: restaurants, bars (a general business) and hotels; not salons or custom systems. */
+export const menuPlanFits = (type: BusinessType): boolean => type === "restaurant" || type === "guesthouse" || type === "general";
+/** Whether the business books and takes payments through Zaina: the Full tier's. A missing tier is Full's. */
+export const booksOnTier = (tier?: BusinessTier | null): boolean => tier !== "starter" && tier !== "menu";
 /**
  * What a business works as: its own type on the Full tier. On Starter, a
  * business that would take bookings works as a general one (answers, prices,
  * leads), whatever it sells: bookings are what Full adds.
  */
 export const workingType = (business: { businessType: BusinessType; tier?: BusinessTier | null }): BusinessType =>
-  business.tier === "starter" && takesBookings(business.businessType) ? "general" : business.businessType;
+  !booksOnTier(business.tier) && takesBookings(business.businessType) ? "general" : business.businessType;
 
 /** The languages Zaina answers in; fixed texts exist in each. */
 export const chatLanguages = ["en", "sw"] as const;
@@ -53,7 +64,7 @@ export const businesses = pgTable("businesses", {
   /** onboarding: signed up and setting up (the team works in the console; customers aren't answered yet). */
   status: text("status").$type<BusinessStatus>().notNull().default("active"),
   businessType: text("business_type").$type<BusinessType>().notNull().default("general"),
-  /** The plan tier Zaina and the dashboard obey (migration 0017): starter answers and takes leads; full also books. */
+  /** The plan tier Zaina and the dashboard obey (migrations 0017, 0045): menu is the page alone; starter answers and takes leads; full also books. */
   tier: text("tier").$type<BusinessTier>().notNull().default("full"),
   /** Whether this business may be paid through a subaccount of the platform's account (migration 0019). Off unless the studio turns it on: customers pay the business's own account. */
   platformPayments: boolean("platform_payments").notNull().default(false),

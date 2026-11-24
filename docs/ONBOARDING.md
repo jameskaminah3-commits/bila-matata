@@ -47,6 +47,17 @@ lowercase, e.g. `palm-cove`), name, type, website address if any, plan, and
 the owner's email. The owner gets an email to choose their own password.
 Then open Onboarding and set the path.
 
+**Menu plan (restaurants, bars and hotels, KES 4,900 a month + KES 5,000
+set-up).** Choose the Menu plan (or "Menu (no Zaina)" under What it gets).
+The business gets its branded menu page, QR code, table and business cards,
+and What's on; there is no chat and no WhatsApp, so skip the knowledge,
+interview, widget and WhatsApp steps. Its checklist is: profile, brand, the
+menu (Catalogue → paste or snap the menu), QR code scanned, walkthrough,
+printed, live. Don't move a business that has WhatsApp connected to Menu
+without disconnecting the number first (Settings → WhatsApp): on Menu its
+messages aren't answered. Moving up to Starter later switches Zaina on, on
+the same page, with nothing to redo.
+
 ## 3. Everything every path needs (one sitting with the owner, about an hour)
 
 Do this together, on the owner's phone if that's what they'll use.

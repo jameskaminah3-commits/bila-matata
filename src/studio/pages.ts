@@ -100,6 +100,14 @@ const ZAINA_EMBED = `<script src="/zaina.js" data-business="${STUDIO.businessId}
 
 // ── The home page ────────────────────────────────────────────────────────
 
+/** The Menu plan: the branded menu page alone, for restaurants, bars and hotels. Shown beside Zaina's plans, not as one of them. */
+const MENU_PLAN = {
+  name: "Menu",
+  monthlyMinor: 490_000,
+  setupMinor: 500_000,
+  for: "A branded QR menu for restaurants, bars and hotels, kept up to date by your team.",
+};
+
 const PLANS = [
   {
     name: "Starter Sales Concierge",
@@ -174,13 +182,16 @@ export function renderHome(page: SitePage): string {
     email: STUDIO.email,
     address: { "@type": "PostalAddress", addressLocality: "Mombasa", addressCountry: "KE" },
     areaServed: ["Kenya", "Worldwide"],
-    makesOffer: PLANS.map((plan) => ({
-      "@type": "Offer",
-      name: `Zaina AI: ${plan.name}`,
-      price: plan.monthlyMinor / 100,
-      priceCurrency: "KES",
-      description: plan.for,
-    })),
+    makesOffer: [
+      ...PLANS.map((plan) => ({
+        "@type": "Offer",
+        name: `Zaina AI: ${plan.name}`,
+        price: plan.monthlyMinor / 100,
+        priceCurrency: "KES",
+        description: plan.for,
+      })),
+      { "@type": "Offer", name: "Menu plan: branded QR menu", price: MENU_PLAN.monthlyMinor / 100, priceCurrency: "KES", description: MENU_PLAN.for },
+    ],
   };
   const projectLink = esc(whatsappLink(PROJECT_MESSAGE));
   return `${head({
@@ -284,6 +295,26 @@ ${renderCalculator({ starter: PLANS[0].monthlyMinor, full: PLANS[1].monthlyMinor
         <a class="plan-alt" href="${esc(whatsappLink(`${ZAINA_MESSAGE} I'm interested in the ${plan.name} plan.`))}" rel="noopener">or ask on WhatsApp</a>
       </article>`).join("\n      ")}
     </div>
+    <article class="plan-extra plan-menu" aria-labelledby="menu-plan-title">
+      <div>
+        <span class="tag">Restaurants, bars and hotels</span>
+        <h3 id="menu-plan-title">Just the menu, for now? The Menu plan</h3>
+        <p>A menu your guests open by scanning the code on the table: your logo, colours and lettering, every dish and price, and what's on tonight. Change a price and it's live at once, with nothing to reprint.</p>
+        <ul>
+          <li>Your own menu page in your brand, light or dark, on any phone</li>
+          <li>Your branded QR code, printable table cards and business cards</li>
+          <li>What's on: today's special and tonight's event at the top of the menu</li>
+          <li>Update dishes, prices and photos yourself, any time</li>
+        </ul>
+        <p class="plan-menu-note">No chat on this plan. For ${esc(formatMoney(PLANS[0].monthlyMinor - MENU_PLAN.monthlyMinor, "KES"))} more a month, Starter adds Zaina: she answers your guests day and night, recommends from your menu and hands every lead to your team.</p>
+      </div>
+      <div class="plan-extra-cta">
+        <p class="price">${esc(formatMoney(MENU_PLAN.monthlyMinor, "KES"))} <small>/ month</small></p>
+        <p class="setup">+ ${esc(formatMoney(MENU_PLAN.setupMinor, "KES"))} one-off set-up, menu loading included</p>
+        <a class="btn btn-ghost" href="/start?service=menu_plan">Get the Menu plan</a>
+        <a class="plan-alt" href="${esc(whatsappLink("Hello Bila Matata, I'd like the Menu plan (a branded QR menu) for my business."))}" rel="noopener">or ask on WhatsApp</a>
+      </div>
+    </article>
     <article class="plan-extra" aria-labelledby="system-title">
       <div>
         <span class="tag">Already have your own system?</span>

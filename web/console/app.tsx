@@ -340,6 +340,9 @@ const PAGES: Array<{ id: string; label: string; icon: string; minimum: Role; onl
 /** On a phone, how many sections sit in the bar at the bottom (the rest are under "More"). */
 const BAR_ITEMS = 4;
 
+/** The sections that are Zaina's (chats and what they bring in): not on the Menu plan, which is the menu page alone. */
+const ZAINA_PAGES = new Set(["setup", "inbox", "orders", "leads", "customers", "outreach", "knowledge"]);
+
 function Console(props: { me: Me; route: Route; reloadMe: () => Promise<void> }) {
   const { me, route } = props;
   const admin = me.user.is_platform_admin;
@@ -368,12 +371,14 @@ function Console(props: { me: Me; route: Route; reloadMe: () => Promise<void> })
   const page = route.page === "platform" ? "platform" : route.page;
   // The business's type decides some pages; a platform admin without a membership asks for it.
   const typeInfo = useLoad(
-    () => (membership?.businessType || !businessId || !role ? Promise.resolve(null) : api<{ business_type: string; status: string }>("GET", businessPath(businessId, "/operations"))),
+    () => (membership?.businessType || !businessId || !role ? Promise.resolve(null) : api<{ business_type: string; status: string; tier?: string }>("GET", businessPath(businessId, "/operations"))),
     [businessId, membership?.businessType, role],
   );
   const businessType = membership?.businessType ?? typeInfo.data?.business_type ?? null;
   // A business still setting up opens on its setup page.
   const businessStatus = membership?.businessStatus ?? typeInfo.data?.status ?? null;
+  // On the Menu plan there is no Zaina: the menu, its page, What's on and the brand.
+  const menuOnly = (membership?.tier ?? typeInfo.data?.tier) === "menu";
   // What it offers through Zaina decides its booking pages: until that loads, what its type always booked.
   const offer = useLoad(
     () => (businessId && role && businessType !== "custom" ? api<OfferView>("GET", businessPath(businessId, "/capabilities")).catch(() => null) : Promise.resolve(null)),
@@ -385,7 +390,7 @@ function Console(props: { me: Me; route: Route; reloadMe: () => Promise<void> })
   const shows = (needs?: "bookings" | "rooms" | "times" | "orders") => needs === "rooms" ? books.rooms : needs === "times" ? times : needs === "bookings" ? books.rooms || times : needs === "orders" ? takesOrders : true;
 
   useEffect(() => {
-    if (!route.businessId && businessId && route.page !== "platform") go({ businessId, page: businessStatus === "onboarding" ? "setup" : "inbox" });
+    if (!route.businessId && businessId && route.page !== "platform") go({ businessId, page: menuOnly ? "prices" : businessStatus === "onboarding" ? "setup" : "inbox" });
     if (!businessId && admin && route.page !== "platform") go({ businessId: null });
   }, [route.businessId, route.page, businessId, admin]);
 
@@ -426,7 +431,7 @@ function Console(props: { me: Me; route: Route; reloadMe: () => Promise<void> })
     );
   }
 
-  const visiblePages = role ? PAGES.filter((item) => atLeast(role, item.minimum) && (!item.only || item.only.includes(businessType ?? "")) && shows(item.needs) && (!item.status || item.status === businessStatus)) : [];
+  const visiblePages = role ? PAGES.filter((item) => !(menuOnly && ZAINA_PAGES.has(item.id)) && atLeast(role, item.minimum) && (!item.only || item.only.includes(businessType ?? "")) && shows(item.needs) && (!item.status || item.status === businessStatus)) : [];
   const navItems = [
     ...visiblePages.map((item) => ({
       id: item.id,
@@ -455,7 +460,7 @@ function Console(props: { me: Me; route: Route; reloadMe: () => Promise<void> })
   else if (page === "whats-on" && businessType !== "custom") content = <WhatsOnPage businessId={businessId} role={role} />;
   else if (page === "knowledge") content = <KnowledgePage businessId={businessId} role={role} />;
   else if (page === "reports" && atLeast(role, "manager")) content = <ReportsPage key={route.id ?? "reports"} businessId={businessId} month={route.id ?? null} />;
-  else if (page === "settings" && atLeast(role, "manager")) content = <SettingsPage key={route.id ?? "settings"} businessId={businessId} role={role} me={me} businessType={businessType} books={books} orders={takesOrders} tab={route.id} onBusinessChanged={() => void props.reloadMe()} onOfferChanged={() => void offer.reload()} />;
+  else if (page === "settings" && atLeast(role, "manager")) content = <SettingsPage key={route.id ?? "settings"} businessId={businessId} role={role} me={me} businessType={businessType} books={books} orders={takesOrders} menuOnly={menuOnly} tab={route.id} onBusinessChanged={() => void props.reloadMe()} onOfferChanged={() => void offer.reload()} />;
   else if (page === "team" && atLeast(role, "manager")) content = <TeamPage businessId={businessId} role={role} me={me} />;
   else if (page === "support") content = <SupportPage businessId={businessId} role={role} threadId={route.id} onChanged={() => void refreshCounts()} />;
   else content = <InboxPage businessId={businessId} role={role} me={me} chatId={route.page === "inbox" ? route.id : null} counts={counts} onChanged={refreshCounts} />;
@@ -473,7 +478,7 @@ function Console(props: { me: Me; route: Route; reloadMe: () => Promise<void> })
           </label>
         ) : null}
         <div className="topbar-spacer" />
-        {answersChats && businessId ? <Availability businessId={businessId} /> : null}
+        {answersChats && !menuOnly && businessId ? <Availability businessId={businessId} /> : null}
         <button type="button" className="icon-button" aria-label="Alerts on this device" title="Alerts on this device" onClick={() => setDialog("alerts")}>
           <Icon name="bell" />
         </button>

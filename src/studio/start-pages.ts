@@ -39,6 +39,7 @@ const field = (name: keyof ProjectRequest | "service", problems: RequestProblems
 function topicNote(topicId: string): string {
   const service = STUDIO_SERVICES.find((entry) => entry.id === topicId);
   if (service) return `${service.title} starts from ${formatMoney(service.fromMinor, "KES")}. Your exact price comes in a free written quote, before you pay anything.`;
+  if (topicId === "menu_plan") return "Send us your menu as it is today (a photo is fine). We'll set it in your brand and send you the QR code and table cards to print.";
   if (topicId === "zaina_starter" || topicId === "zaina_full") return "We'll ask a few questions about your business, show you Zaina on your own catalogue, and get you live.";
   return "Tell us what you need and we'll reply with a free written quote, before you pay anything.";
 }

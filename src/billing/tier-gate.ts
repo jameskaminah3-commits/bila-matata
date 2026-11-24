@@ -8,6 +8,7 @@
 
 import type { NextFunction, Request, Response } from "express";
 import { anyBusinessById } from "../businesses/registry.ts";
+import { booksOnTier } from "../db/schema.ts";
 
 /** The staff API's sections that belong to the Full tier. */
 export const FULL_TIER_SECTIONS = new Set([
@@ -23,7 +24,7 @@ export async function fullTierOnly(req: Request, res: Response, next: NextFuncti
     const section = req.path.split("/")[1] ?? "";
     if (!FULL_TIER_SECTIONS.has(section)) return next();
     const business = await anyBusinessById(String(req.params.businessId ?? ""));
-    if (business?.tier === "starter") {
+    if (business && !booksOnTier(business.tier)) {
       res.status(402).json({ error: "plan_required", message: FULL_TIER_MESSAGE });
       return;
     }
