@@ -299,12 +299,15 @@ ${renderCalculator({ starter: PLANS[0].monthlyMinor, full: PLANS[1].monthlyMinor
       <div>
         <span class="tag">Restaurants, bars and hotels</span>
         <h3 id="menu-plan-title">Just the menu, for now? The Menu plan</h3>
-        <p>A menu your guests open by scanning the code on the table: your logo, colours and lettering, every dish and price, and what's on tonight. Change a price and it's live at once, with nothing to reprint.</p>
+        <p>Not a file your guests pinch and zoom, and not a template with your name typed on it. A menu that opens in a moment on any phone, set in your own logo, colours and lettering, so it feels like your place before the first plate arrives.</p>
+        <p class="plan-menu-why">What it does for your business</p>
         <ul>
-          <li>Your own menu page in your brand, light or dark, on any phone</li>
-          <li>Your branded QR code, printable table cards and business cards</li>
-          <li>What's on: today's special and tonight's event at the top of the menu</li>
-          <li>Update dishes, prices and photos yourself, any time</li>
+          <li><strong>Sells, not just shows.</strong> Today's special and tonight's event sit at the top, where every guest looks first.</li>
+          <li><strong>One change, everywhere at once.</strong> A new price or a dish that's finished is live in seconds, and the code on the table never changes, so nothing is reprinted.</li>
+          <li><strong>Guests find it fast.</strong> Search by name or jump to a section; no app to download and no waiting for a waiter to bring the menu.</li>
+          <li><strong>You see it working.</strong> Count how many guests scan and open your menu, in your dashboard.</li>
+          <li><strong>Done for you.</strong> Send a photo of your menu as it is; we set it in your brand and send your QR code and table cards ready to print.</li>
+          <li><strong>Ready to grow.</strong> Move up to Starter and Zaina answers guests on the same page, from the same printed code.</li>
         </ul>
         <p class="plan-menu-note">No chat on this plan. For ${esc(formatMoney(PLANS[0].monthlyMinor - MENU_PLAN.monthlyMinor, "KES"))} more a month, Starter adds Zaina: she answers your guests day and night, recommends from your menu and hands every lead to your team.</p>
       </div>

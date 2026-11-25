@@ -187,6 +187,9 @@ table.compare { width: 100%; min-width: 640px; border-collapse: collapse; font-s
 .plan-extra .setup { margin: 4px 0 16px; }
 .plan-extra .price small { font-size: 0.9rem; font-weight: 600; color: var(--muted); letter-spacing: 0; }
 .plan-extra-cta .plan-alt { display: block; margin-top: 10px; text-align: left; }
+.plan-menu .plan-menu-why { margin-top: 18px; font-size: 0.74rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--ink); }
+.plan-menu .plan-menu-why + ul { margin-top: 10px; }
+.plan-menu li strong { color: var(--ink); }
 .plan-menu .plan-menu-note { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); font-size: 0.95rem; }
 @media (max-width: 760px) { .plan-extra { grid-template-columns: minmax(0, 1fr); } }
 .plan .for { margin-top: 14px; color: var(--muted); font-size: 0.98rem; }
