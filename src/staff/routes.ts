@@ -294,7 +294,11 @@ export function registerStaffAccountRoutes(app: Express, config: PlatformConfig)
     try {
       const checked = validateSettingsPatch(req.body ?? {});
       if (!checked.ok) return res.status(400).json({ error: "invalid_settings", message: checked.error });
-      const { business, user } = staffOf(req);
+      const { business, user, role } = staffOf(req);
+      // Where guests send money is the owner's to set: a manager can't change it.
+      if ("venuePayment" in checked.patch && role !== "owner") {
+        return res.status(403).json({ error: "owner_only", message: "Only the owner can change how guests pay." });
+      }
       res.json({ settings: await updateBusinessSettings(business!.id, checked.patch, user.id) });
     } catch (error) {
       next(error);

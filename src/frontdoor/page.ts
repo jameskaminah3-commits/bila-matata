@@ -9,6 +9,7 @@
 // business's colours from /c/<business>/brand.css; the chat is the same
 // widget every website uses, filling the page instead of floating.
 
+import type { VenuePayment } from "../db/schema.ts";
 import { createHash } from "node:crypto";
 import { readableOn } from "../brand/assets.ts";
 import type { DoorCatalogue } from "./catalogue.ts";
@@ -47,7 +48,22 @@ export type DoorView = {
   spot?: string | null;
   /** False on the Menu plan: the menu and What's on alone, with no chat and no "Ask Zaina" anywhere. */
   chat?: boolean;
+  /** How guests pay at the place, as the owner set it: an M-Pesa till, or a Paybill and account. */
+  pay?: VenuePayment | null;
 };
+
+/** "Pay with M-Pesa": the till, or the Paybill and its account, each to copy, and the name M-Pesa shows so guests can check. */
+export function renderPay(pay: VenuePayment | null | undefined): string {
+  if (!pay || (!pay.till && !pay.paybill)) return "";
+  const way = (label: string, value: string, copy: string) =>
+    `<div class="door-pay-way"><span class="door-pay-label">${label}</span><span class="door-pay-number">${esc(value)}</span><button type="button" class="door-pay-copy" data-copy="${esc(value)}" aria-label="Copy the ${copy}" hidden>Copy</button></div>`;
+  const ways = [
+    pay.till ? way("Buy Goods till", pay.till, "till number") : "",
+    pay.paybill ? way("Paybill", pay.paybill, "Paybill number") : "",
+    pay.paybill && pay.account ? way("Account", pay.account, "account") : "",
+  ].join("");
+  return `<div class="door-pay" role="group" aria-label="Pay with M-Pesa"><p class="door-pay-title">${ICONS.pay}<span>Pay with M-Pesa</span></p>${ways}${pay.name ? `<p class="door-pay-name">M-Pesa shows <b>${esc(pay.name)}</b>: check it before you send.</p>` : ""}</div>`;
+}
 
 /** The quiet line at the foot of every page and printed card. */
 export const POWERED_BY = { text: "Powered by Bila Matata", href: "https://bilamatata.com" };
@@ -65,6 +81,7 @@ const ICONS = {
   list: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg>',
   chat: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg>',
   pin: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>',
+  pay: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M10.5 18.5h3"/></svg>',
   shield: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3z"/><path d="M9 12l2 2 4-4"/></svg>',
 };
 
@@ -195,6 +212,7 @@ ${view.logoUrl ? `<meta property="og:image" content="${esc(view.logoUrl)}">\n<li
     ${spot}
     <p class="door-intro">${esc(view.assistant)} is our ${esc(view.role)}. Ask anything, any time: she answers from our own information, and our team is right behind her.</p>
     ${contact ? `<div class="door-actions">${contact}</div>` : ""}
+    ${renderPay(view.pay)}
     <p class="door-trust">${ICONS.shield}<span>You pay ${esc(view.name)} directly. ${esc(view.assistant)} never asks for card numbers or PINs.</span></p>
   </header>
   ${view.catalogue ? `<div class="door-main">${view.menuStyle === "backdrop" ? backdropLayer(view) : ""}
@@ -209,7 +227,7 @@ ${view.logoUrl ? `<meta property="og:image" content="${esc(view.logoUrl)}">\n<li
   </main>${view.catalogue ? "\n  </div>" : ""}
   <footer class="door-foot"><a href="${POWERED_BY.href}" target="_blank" rel="noopener">${POWERED_BY.text}</a></footer>
 </div>
-${view.catalogue ? `<script src="/c-assets/door.js?v=${DOOR_ASSETS_VERSION}" defer></script>\n` : ""}<script src="${widget}" data-business="${esc(view.businessId)}" data-mode="page" data-mount="#zaina-chat" data-via="${view.via}"${view.spot ? ` data-spot="${esc(view.spot)}"` : ""} async></script>
+${view.catalogue || view.pay ? `<script src="/c-assets/door.js?v=${DOOR_ASSETS_VERSION}" defer></script>\n` : ""}<script src="${widget}" data-business="${esc(view.businessId)}" data-mode="page" data-mount="#zaina-chat" data-via="${view.via}"${view.spot ? ` data-spot="${esc(view.spot)}"` : ""} async></script>
 </body>
 </html>`;
 }
@@ -261,13 +279,14 @@ ${view.logoUrl ? `<meta property="og:image" content="${esc(view.logoUrl)}">\n<li
     </div>
     ${spot}
     ${contact ? `<div class="door-actions">${contact}</div>` : ""}
+    ${renderPay(view.pay)}
   </header>
   ${view.catalogue ? `<div class="door-main">${view.menuStyle === "backdrop" ? backdropLayer(view) : ""}
   ${renderCatalogue(view.catalogue, view)}
   </div>` : `<main class="door-chat"><p class="door-loading">Our ${esc(tab.toLowerCase())} is on its way.${view.phoneDisplay ? ` Call us on ${esc(view.phoneDisplay)} in the meantime.` : ""}</p></main>`}
   <footer class="door-foot"><a href="${POWERED_BY.href}" target="_blank" rel="noopener">${POWERED_BY.text}</a></footer>
 </div>
-${view.catalogue ? `<script src="/c-assets/door.js?v=${DOOR_ASSETS_VERSION}" defer></script>\n` : ""}</body>
+${view.catalogue || view.pay ? `<script src="/c-assets/door.js?v=${DOOR_ASSETS_VERSION}" defer></script>\n` : ""}</body>
 </html>`;
 }
 
@@ -346,6 +365,16 @@ body { font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; 
 .door-spot svg { color: var(--mark); flex: none; }
 .door-intro { margin: 0; max-width: 46ch; color: var(--muted); font-size: 1.02rem; }
 .door-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.door-pay { display: grid; gap: 4px; padding: 12px 14px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line); max-width: 46ch; text-align: left; }
+.door-pay-title { margin: 0 0 2px; display: flex; align-items: center; gap: 6px; font-size: .7rem; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
+.door-pay-title svg { color: var(--mark); flex: none; }
+.door-pay-way { display: flex; align-items: center; gap: 10px; min-height: 36px; }
+.door-pay-label { font-size: .86rem; color: var(--muted); }
+.door-pay-number { font-size: 1.12rem; font-weight: 700; letter-spacing: .05em; font-variant-numeric: tabular-nums; -webkit-user-select: all; user-select: all; overflow-wrap: anywhere; }
+.door-pay-copy { margin-left: auto; flex: none; min-height: 32px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line); background: transparent; color: inherit; font: inherit; font-size: .8rem; font-weight: 600; cursor: pointer; }
+.door-pay-copy.done { border-color: var(--mark); }
+.door-pay-name { margin: 2px 0 0; font-size: .8rem; color: var(--muted); }
+.door-pay-name b { color: inherit; font-weight: 700; }
 .door-btn { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 16px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface);
   color: var(--ink); text-decoration: none; font-weight: 600; font-size: .95rem; transition: border-color .15s ease, transform .15s ease; }
 .door-btn:hover { border-color: var(--brand); transform: translateY(-1px); }
@@ -536,6 +565,10 @@ body { font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; 
   .has-catalogue .door-spot svg { color: currentColor; }
   .has-catalogue .door-actions { justify-content: center; margin-top: 14px; }
   .has-catalogue .door-btn { flex: none; background: var(--hero-veil); color: var(--hero-ink); border-color: var(--hero-edge); }
+  .has-catalogue .door-pay { align-self: center; width: 100%; max-width: 340px; margin-top: 14px; background: var(--hero-veil); border-color: var(--hero-edge); color: var(--hero-ink); }
+  .has-catalogue .door-pay-title, .has-catalogue .door-pay-label, .has-catalogue .door-pay-name { color: var(--hero-soft); }
+  .has-catalogue .door-pay-title svg { color: currentColor; }
+  .has-catalogue .door-pay-copy { border-color: var(--hero-edge); }
   .has-catalogue.has-cover .door-cover { z-index: -1; opacity: 1; }
   .has-catalogue.has-cover .door-head::after { content: ""; position: absolute; inset: 0; z-index: -1; background: linear-gradient(180deg, rgba(0, 0, 0, .42), rgba(0, 0, 0, .74)); }
   .has-catalogue .door-main { --sheet: var(--bg); display: block; height: auto; min-height: 0; overflow: visible; border: 0; border-radius: 0; box-shadow: none; }
@@ -557,6 +590,17 @@ body { font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; 
  */
 export const DOOR_JS = String.raw`(function () {
   "use strict";
+  // The till or Paybill, copied in one tap (where the phone allows it; the number can always be selected).
+  if (navigator.clipboard) document.querySelectorAll("[data-copy]").forEach(function (button) {
+    button.hidden = false;
+    button.addEventListener("click", function () {
+      navigator.clipboard.writeText(button.getAttribute("data-copy") || "").then(function () {
+        button.textContent = "Copied";
+        button.classList.add("done");
+        setTimeout(function () { button.textContent = "Copy"; button.classList.remove("done"); }, 1800);
+      }, function () { /* not allowed: the number stays selectable */ });
+    });
+  });
   var tabs = Array.prototype.slice.call(document.querySelectorAll("[data-tab]"));
   var panels = { catalogue: document.getElementById("door-catalogue"), chat: document.getElementById("zaina-chat") };
   var main = document.querySelector(".door-main");

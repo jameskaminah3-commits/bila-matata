@@ -8,7 +8,7 @@
 
 import { getBusinessSettings } from "../businesses/settings.ts";
 import { capabilitiesOf } from "../capabilities/catalog.ts";
-import type { Business, BusinessSettings } from "../db/schema.ts";
+import type { Business, BusinessSettings, VenuePayment } from "../db/schema.ts";
 import { addExtras } from "../engine/extras.ts";
 import { cachedDoorCatalogue, type DoorItem } from "../frontdoor/catalogue.ts";
 import { whatsOnPrompt, whatsOnView } from "./whats-on.ts";
@@ -62,13 +62,27 @@ ${full
 
 /** Registered once at start-up: every chat's instructions get the menu and what's on. */
 let registered = false;
+/**
+ * How guests pay the bill at the place (the owner's till or Paybill), for
+ * when a guest asks. Bookings and orders made in the chat keep their own
+ * payment link: this is only for paying at the place.
+ */
+export function payingPrompt(pay: VenuePayment | null): string {
+  if (!pay || (!pay.till && !pay.paybill)) return "";
+  const ways = [
+    pay.till ? `M-Pesa Buy Goods, till number ${pay.till}` : null,
+    pay.paybill ? `M-Pesa Paybill ${pay.paybill}${pay.account ? `, account ${pay.account}` : ""}` : null,
+  ].filter(Boolean).join("; or ");
+  return `\n<paying_at_the_place>\nGuests pay their bill at the place by ${ways}.${pay.name ? ` M-Pesa shows the name "${pay.name}".` : ""} Give this only when a guest asks how to pay at the place. For a booking or an order made in this chat, use its own payment link, never this.\n</paying_at_the_place>\n`;
+}
+
 export function registerPlaceKnowledge(): void {
   if (registered) return;
   registered = true;
   addExtras(async (business: Business) => {
     const settings = await getBusinessSettings(business.id);
     const [menu, whatsOn] = await Promise.all([menuPrompt(business), whatsOnPrompt(business, settings?.displayName ?? business.name)]);
-    return { prompt: menu + whatsOn };
+    return { prompt: menu + whatsOn + payingPrompt(settings?.venuePayment ?? null) };
   });
 }
 

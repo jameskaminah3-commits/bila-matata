@@ -29,6 +29,7 @@ export type Door = {
     whatsapp: { number: string | null; problem?: string };
   };
   card: CardDetails | null;
+  pay: { till: string | null; paybill: string | null; account: string | null; name: string | null } | null;
   contact: { phone: string | null; email: string | null; website: string | null };
   open: boolean;
   live: boolean;
@@ -265,6 +266,19 @@ export function callFor(browse: string | null): string {
   return browse ? "Scan to browse & connect" : "Scan to chat with us";
 }
 
+/** "Pay with M-Pesa · Till 5123456", or the Paybill and its account, for the printed table cards and poster. */
+function PrintPay(props: { pay: Door["pay"] }) {
+  const pay = props.pay;
+  if (!pay || (!pay.till && !pay.paybill)) return null;
+  return (
+    <p className="print-pay">
+      <span className="print-pay-label">Pay with M-Pesa</span>
+      {pay.till ? <span>Buy Goods till <b>{pay.till}</b></span> : <span>Paybill <b>{pay.paybill}</b>{pay.account ? <> · Account <b>{pay.account}</b></> : null}</span>}
+      {pay.name ? <span className="print-pay-name">{pay.name}</span> : null}
+    </p>
+  );
+}
+
 function PrintSheet(props: { door: Door; sheet: Sheet; numbered?: Array<{ spot: string; svg: string }> | null }) {
   const { door, sheet } = props;
   const qr = <img className="print-qr premium" src={svgUri(door.qr_svg)} alt="" />;
@@ -282,6 +296,7 @@ function PrintSheet(props: { door: Door; sheet: Sheet; numbered?: Array<{ spot: 
           {numbered ? <p className="print-spot">{numbered.spot}</p> : null}
           <p className="print-call">{call}</p>
           <ol className="print-steps-row"><li><b>1</b>Scan</li><li><b>2</b>{door.browse ?? `Ask ${door.assistant}`}</li><li><b>3</b>Enjoy</li></ol>
+          <PrintPay pay={door.pay} />
         </div>
         <div className="print-frame"><img className="print-qr premium" src={svgUri(numbered ? numbered.svg : door.qr_svg)} alt="" /><span>Scan me</span></div>
       </div>
@@ -299,6 +314,7 @@ function PrintSheet(props: { door: Door; sheet: Sheet; numbered?: Array<{ spot: 
           <p className="print-sub">Ask a question, check what's available or book: {door.assistant}, our {door.role}, answers day and night.</p>
           {qr}
           <p className="print-steps">1. Open your phone's camera&nbsp;&nbsp;·&nbsp;&nbsp;2. Point it at the code&nbsp;&nbsp;·&nbsp;&nbsp;3. Tap the link</p>
+          <PrintPay pay={door.pay} />
           <p className="print-address">{address}</p>
           <p className="print-powered">{POWERED}</p>
         </div>

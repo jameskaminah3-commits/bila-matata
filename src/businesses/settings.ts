@@ -6,7 +6,7 @@
 // security) and cached briefly.
 
 import { eq } from "drizzle-orm";
-import { businessSettings, cardDesigns, qrDestinations, type BusinessSettings, type CardDesign, type CardDetails, type QrDestination } from "../db/schema.ts";
+import { businessSettings, cardDesigns, qrDestinations, type BusinessSettings, type CardDesign, type CardDetails, type QrDestination, type VenuePayment } from "../db/schema.ts";
 import { inBusiness } from "../db/tenant.ts";
 
 const CACHE_MS = Number(process.env.BUSINESS_CACHE_MS ?? "") || 30_000;
@@ -22,7 +22,7 @@ export async function getBusinessSettings(businessId: string): Promise<BusinessS
 
 export type SettingsPatch = Partial<Pick<BusinessSettings,
   | "displayName" | "assistantName" | "about" | "contactPhone" | "contactPhoneDisplay" | "websiteUrl" | "supportEmail"
-  | "allowedLinkHosts" | "allowedLinkHostSuffixes" | "defaultCurrency" | "widgetColor" | "widgetPosition" | "widgetGreeting" | "widgetWhatsapp" | "personaRole" | "brandTagline" | "menuStyle" | "logoHasName" | "titleFont" | "chatAvatar" | "frontDoor" | "qrDestination" | "cardDetails" | "industry" | "interview" | "websiteSync" | "capabilities" | "widgetSeen" | "catalogueFeed" | "orderSettings" | "customerRecognition" | "outreach">>;
+  | "allowedLinkHosts" | "allowedLinkHostSuffixes" | "defaultCurrency" | "widgetColor" | "widgetPosition" | "widgetGreeting" | "widgetWhatsapp" | "personaRole" | "brandTagline" | "menuStyle" | "logoHasName" | "titleFont" | "venuePayment" | "chatAvatar" | "frontDoor" | "qrDestination" | "cardDetails" | "industry" | "interview" | "websiteSync" | "capabilities" | "widgetSeen" | "catalogueFeed" | "orderSettings" | "customerRecognition" | "outreach">>;
 
 const TEXT_FIELDS = ["displayName", "assistantName", "about", "contactPhone", "contactPhoneDisplay", "websiteUrl", "supportEmail"] as const;
 const HOST_PATTERN = /^(?:[a-z0-9-]+\.)+[a-z]{2,}$/;
@@ -98,6 +98,11 @@ export function validateSettingsPatch(input: Record<string, unknown>): { ok: tru
   if ("titleFont" in input) {
     if (!["classic", "roman", "elegant", "modern"].includes(input.titleFont as string)) return { ok: false, error: "titleFont is classic, roman, elegant or modern" };
     patch.titleFont = input.titleFont as "classic" | "roman" | "elegant" | "modern";
+  }
+  if ("venuePayment" in input) {
+    const checked = checkVenuePayment(input.venuePayment);
+    if (!checked.ok) return { ok: false, error: checked.error };
+    patch.venuePayment = checked.value;
   }
   if ("logoHasName" in input) {
     if (typeof input.logoHasName !== "boolean") return { ok: false, error: "logoHasName is true or false" };
@@ -183,4 +188,37 @@ export function replyRulesFor(settings: BusinessSettings | null): { allowedHosts
     allowedHostSuffixes: settings?.allowedLinkHostSuffixes ?? [],
     officialPhones: settings?.contactPhone ? [settings.contactPhone] : [],
   };
+}
+
+/**
+ * How guests pay at the place: a till (5 to 8 digits), or a Paybill (5 to 7
+ * digits) with its account, and the name M-Pesa shows. Spaces are dropped
+ * from the numbers; nothing at all clears it.
+ */
+export function checkVenuePayment(input: unknown): { ok: true; value: VenuePayment | null } | { ok: false; error: string } {
+  if (input === null) return { ok: true, value: null };
+  if (!input || typeof input !== "object" || Array.isArray(input)) return { ok: false, error: "venuePayment is { till, paybill, account, name } or null" };
+  const body = input as Record<string, unknown>;
+  const text = (key: string, max: number): string | null | false => {
+    const value = body[key];
+    if (value === undefined || value === null) return null;
+    if (typeof value !== "string") return false;
+    const clean = value.replace(/\s+/g, " ").trim();
+    return clean.length > max ? false : clean || null;
+  };
+  const digits = (key: string) => {
+    const value = text(key, 20);
+    return value === false || value === null ? value : value.replace(/[\s-]/g, "");
+  };
+  const till = digits("till");
+  const paybill = digits("paybill");
+  const account = text("account", 30);
+  const name = text("name", 50);
+  if (till === false || (till && !/^\d{5,8}$/.test(till))) return { ok: false, error: "The till number is 5 to 8 digits." };
+  if (paybill === false || (paybill && !/^\d{5,7}$/.test(paybill))) return { ok: false, error: "The Paybill number is 5 to 7 digits." };
+  if (account === false) return { ok: false, error: "The account is at most 30 characters." };
+  if (name === false) return { ok: false, error: "The name is at most 50 characters." };
+  if (account && !paybill) return { ok: false, error: "An account goes with a Paybill number." };
+  if (!till && !paybill) return { ok: true, value: null };
+  return { ok: true, value: { till: till || null, paybill: paybill || null, account: account || null, name: name || null } };
 }

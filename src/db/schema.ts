@@ -42,6 +42,9 @@ export const businessTiers = ["menu", "starter", "full"] as const;
 export type BusinessTier = (typeof businessTiers)[number];
 /** Whether Zaina chats for the business (web and WhatsApp): every tier but Menu. A missing tier is Full's. */
 export const chatsOnTier = (tier?: BusinessTier | null): boolean => tier !== "menu";
+/** How guests pay at the business's place: an M-Pesa Buy Goods till, or a Paybill and its account, and the name M-Pesa shows. */
+export type VenuePayment = { till: string | null; paybill: string | null; account: string | null; name: string | null };
+
 /** Who the Menu plan is for: restaurants, bars (a general business) and hotels; not salons or custom systems. */
 export const menuPlanFits = (type: BusinessType): boolean => type === "restaurant" || type === "guesthouse" || type === "general";
 /** Whether the business books and takes payments through Zaina: the Full tier's. A missing tier is Full's. */
@@ -276,6 +279,8 @@ export const businessSettings = pgTable("business_settings", {
   logoHasName: boolean("logo_has_name").notNull().default(false),
   /** The lettering of the name and the menu's section titles (frontdoor/title-fonts.ts). */
   titleFont: text("title_font").$type<"classic" | "roman" | "elegant" | "modern">().notNull().default("classic"),
+  /** How guests pay at the business's place (migration 0046): shown on its page and table cards. Only the owner sets it. */
+  venuePayment: jsonb("venue_payment").$type<VenuePayment>(),
   /** Whose picture the chat shows: Zaina's face, or the business's logo. */
   chatAvatar: text("chat_avatar").$type<"zaina" | "logo">().notNull().default("zaina"),
   /** Whether the business's own page on this service (/c/<business>, behind its QR code) is open. */

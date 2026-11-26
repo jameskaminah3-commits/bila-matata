@@ -267,6 +267,7 @@ export function registerFrontDoorRoutes(app: Express, config: PlatformConfig): v
         catalogue,
         spot: cleanSpot(req.query.spot),
         chat,
+        pay: settings.venuePayment ?? null,
       }));
     } catch (error) {
       next(error);
@@ -332,6 +333,8 @@ export function registerFrontDoorRoutes(app: Express, config: PlatformConfig): v
           whatsapp: whatsapp ? { number: number!.displayPhoneNumber } : { number: null, problem: "Connect your WhatsApp number to Zaina under WhatsApp." },
         },
         card: settings?.cardDetails ?? null,
+        // How guests pay at the place, for the printed table cards and poster.
+        pay: settings?.venuePayment ?? null,
         contact: { phone: settings?.contactPhoneDisplay ?? settings?.contactPhone ?? null, email: settings?.supportEmail ?? null, website: settings?.websiteUrl ?? null },
         open: settings?.frontDoor !== false,
         // Customers reach it once the business is live.

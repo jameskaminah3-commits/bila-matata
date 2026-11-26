@@ -5,9 +5,11 @@
 
 import assert from "node:assert/strict";
 import test from "node:test";
+import { checkVenuePayment } from "../../src/businesses/settings.ts";
+import { renderPay } from "../../src/frontdoor/page.ts";
 import { refusedThinking, thinkingConfigFor } from "../../src/engine/agent.ts";
 import type { DoorItem } from "../../src/frontdoor/catalogue.ts";
-import { menuAtAGlance } from "../../src/whats-on/knowledge.ts";
+import { menuAtAGlance, payingPrompt } from "../../src/whats-on/knowledge.ts";
 import { checkWhatsOn, happensOn, whenOf } from "../../src/whats-on/whats-on.ts";
 
 test("what the team may post: today by default, a day ahead, a run of days, or every week", () => {
@@ -53,4 +55,22 @@ test("she thinks briefly: each model family takes the setting its own way, and o
   assert.equal(refusedThinking("gemini-3-test", Object.assign(new Error("Bad request"), { status: 400 }), true), false, "another problem");
   assert.equal(refusedThinking("gemini-3-test", refusal, true), true);
   assert.equal(thinkingConfigFor("gemini-3-test", "low"), null, "from then on, without");
+});
+
+test("how guests pay at the place: checked, shown with a Copy button, and told to Zaina only for paying there", () => {
+  assert.deepEqual(checkVenuePayment({ till: " 512 3456 ", name: "  BISTRO  LTD " }), { ok: true, value: { till: "5123456", paybill: null, account: null, name: "BISTRO LTD" } });
+  assert.deepEqual(checkVenuePayment({ paybill: "247-247", account: "TABLE" }), { ok: true, value: { till: null, paybill: "247247", account: "TABLE", name: null } });
+  assert.deepEqual(checkVenuePayment({ till: "", paybill: "" }), { ok: true, value: null }, "nothing at all clears it");
+  assert.deepEqual(checkVenuePayment(null), { ok: true, value: null });
+  for (const bad of [{ till: "1234" }, { till: "123456789" }, { till: "51a3456" }, { paybill: "12345678" }, { account: "TABLE" }, { till: 5123456 }, [], "5123456"]) {
+    assert.equal(checkVenuePayment(bad).ok, false, JSON.stringify(bad));
+  }
+  assert.equal(renderPay(null), "");
+  const html = renderPay({ till: "5123456", paybill: null, account: null, name: "BISTRO <LTD>" });
+  assert.match(html, /data-copy="5123456"/);
+  assert.match(html, /M-Pesa shows <b>BISTRO &lt;LTD&gt;<\/b>/, "escaped");
+  assert.equal(payingPrompt(null), "");
+  const prompt = payingPrompt({ till: null, paybill: "247247", account: "TABLE", name: "BISTRO LTD" });
+  assert.match(prompt, /M-Pesa Paybill 247247, account TABLE/);
+  assert.match(prompt, /For a booking or an order made in this chat, use its own payment link, never this\./);
 });

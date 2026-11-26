@@ -7,6 +7,8 @@
 //                                                             manager  add one
 //   PATCH  …/price-list/:itemId { … }                         manager  change one
 //   DELETE …/price-list/:itemId                               manager  remove one
+//   PUT    …/price-list/order { ids: [ … ] }                  manager  the menu's order: sections and items
+//                                                                      as the team arranged them
 //   POST   …/price-list/parse { text, currency? }             manager  a pasted list read into items and
 //                                                                      problems, to check (nothing is saved)
 //   POST   …/price-list/import { items: [ … ], replace? }     manager  many at once: an item with the same
@@ -40,6 +42,7 @@ import type { EngineOptions } from "../engine/agent.ts";
 import {
   createPriceItem,
   deletePriceItem,
+  orderPriceItems,
   getPriceItem,
   importPriceItems,
   listPriceItems,
@@ -271,6 +274,16 @@ export function registerPriceListRoutes(app: Express, secret: string, engine?: E
       if (error instanceof PriceListFull) return res.status(409).json({ error: "too_many", message: error.message });
       throw error;
     }
+  }));
+
+  app.put(`${base}/order`, priceListBody, staff, requireBusinessRole("manager"), handle(async (req, res, businessId) => {
+    const ids = req.body?.ids;
+    const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!Array.isArray(ids) || ids.length === 0 || ids.length > MAX_PRICE_ITEMS || !ids.every((id) => typeof id === "string" && uuid.test(id)) || new Set(ids).size !== ids.length) {
+      return res.status(400).json({ error: "invalid_order", message: "Send the items' ids, each once, in the order to show them." });
+    }
+    await orderPriceItems(businessId, ids);
+    res.json({ items: (await listPriceItems(businessId)).map(publicPriceItem) });
   }));
 
   app.patch(`${base}/:itemId`, priceListBody, staff, requireBusinessRole("manager"), handle(async (req, res, businessId, userId) => {

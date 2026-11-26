@@ -118,7 +118,12 @@ export type Report = {
   daily: Array<{ day: string; chats: number; handoffs: number; bookings: number }>;
 };
 
+/** How guests pay at the place: an M-Pesa Buy Goods till, or a Paybill and its account, and the name M-Pesa shows. */
+export type VenuePayment = { till: string | null; paybill: string | null; account: string | null; name: string | null };
+
 export type Settings = {
+  /** Shown on the business's page and printed table cards; only the owner changes it. */
+  venuePayment?: VenuePayment | null;
   displayName: string;
   assistantName: string;
   /** Her role on the team; empty means one that fits the business. */

@@ -200,7 +200,13 @@ export function parsePriceList(text: string, fallback: BookingCurrency = "KES"):
 export async function listPriceItems(businessId: string, options: { activeOnly?: boolean } = {}): Promise<PriceItem[]> {
   return inBusiness((db) => db.select().from(priceItems)
     .where(options.activeOnly ? and(eq(priceItems.businessId, businessId), eq(priceItems.status, "active")) : eq(priceItems.businessId, businessId))
-    .orderBy(asc(priceItems.sortOrder), sql`lower(coalesce(${priceItems.section}, ''))`, asc(priceItems.name)), businessId);
+    // Each section together, where its first item is; then its items in order.
+    .orderBy(
+      sql`min(${priceItems.sortOrder}) over (partition by lower(btrim(coalesce(${priceItems.section}, ''))))`,
+      sql`lower(btrim(coalesce(${priceItems.section}, '')))`,
+      asc(priceItems.sortOrder),
+      asc(priceItems.name),
+    ), businessId);
 }
 
 export async function getPriceItem(businessId: string, id: string): Promise<PriceItem | undefined> {
@@ -217,9 +223,16 @@ const isNameTaken = (error: unknown) => {
 export async function createPriceItem(businessId: string, value: PriceItemValues, userId: string | null): Promise<PriceItem | "name_taken" | "too_many"> {
   try {
     return await inBusiness(async (db) => {
-      const [{ count }] = await db.select({ count: sql<number>`count(*)::int` }).from(priceItems).where(eq(priceItems.businessId, businessId));
+      const section = (value.section ?? "").trim().toLowerCase();
+      const [{ count, sectionEnd, listEnd }] = await db.select({
+        count: sql<number>`count(*)::int`,
+        sectionEnd: sql<number | null>`max(${priceItems.sortOrder}) filter (where lower(btrim(coalesce(${priceItems.section}, ''))) = ${section})`,
+        listEnd: sql<number | null>`max(${priceItems.sortOrder})`,
+      }).from(priceItems).where(eq(priceItems.businessId, businessId));
       if (count >= MAX_PRICE_ITEMS) return "too_many" as const;
-      const [row] = await db.insert(priceItems).values({ businessId, ...value, updatedBy: userId }).returning();
+      // With no place given, a new item goes at the end of its section (or a new section at the end of the menu), never to the top.
+      const sortOrder = value.sortOrder || (sectionEnd ?? listEnd ?? 0) + 1;
+      const [row] = await db.insert(priceItems).values({ businessId, ...value, sortOrder, updatedBy: userId }).returning();
       return row;
     }, businessId);
   } catch (error) {
@@ -239,6 +252,29 @@ export async function updatePriceItem(businessId: string, id: string, value: Pri
   }
 }
 
+/**
+ * Puts the menu in the team's order: these items first, in this order (a
+ * section shows where its first item is); any not named keep their order
+ * after them.
+ */
+export async function orderPriceItems(businessId: string, ids: string[]): Promise<void> {
+  await inBusiness(async (_db, client) => {
+    await client.query(
+      `update price_items p set sort_order = o.position * 10
+         from unnest($2::uuid[]) with ordinality as o(id, position)
+        where p.business_id = $1 and p.id = o.id`,
+      [businessId, ids],
+    );
+    await client.query(
+      `with rest as (
+         select id, row_number() over (order by sort_order, lower(coalesce(section, '')), name) as n
+           from price_items where business_id = $1 and not (id = any($2::uuid[])))
+       update price_items p set sort_order = ($3 + rest.n) * 10 from rest where p.business_id = $1 and p.id = rest.id`,
+      [businessId, ids, ids.length],
+    );
+  }, businessId);
+}
+
 export async function deletePriceItem(businessId: string, id: string): Promise<boolean> {
   if (!/^[0-9a-f-]{36}$/i.test(id)) return false;
   const rows = await inBusiness((db) => db.delete(priceItems).where(and(eq(priceItems.businessId, businessId), eq(priceItems.id, id))).returning({ id: priceItems.id }), businessId);
@@ -255,7 +291,7 @@ export async function importPriceItems(businessId: string, values: PriceItemValu
     let removed = 0;
     // Replacing the list replaces what the team typed; items from the business's own feed stay.
     if (options.replace) removed = (await db.delete(priceItems).where(and(eq(priceItems.businessId, businessId), eq(priceItems.source, "manual"))).returning({ id: priceItems.id })).length;
-    const { rows: [{ count }] } = await client.query<{ count: number }>("select count(*)::int as count from price_items");
+    const { rows: [{ count, top }] } = await client.query<{ count: number; top: number }>("select count(*)::int as count, coalesce(max(sort_order), 0)::int as top from price_items");
     let added = 0;
     let updated = 0;
     for (const [index, value] of values.entries()) {
@@ -266,7 +302,7 @@ export async function importPriceItems(businessId: string, values: PriceItemValu
          do update set price_minor = excluded.price_minor, price_max_minor = excluded.price_max_minor, currency = excluded.currency,
            unit = excluded.unit, description = coalesce(excluded.description, price_items.description), updated_by = excluded.updated_by, updated_at = now()
          returning (xmax = 0) as inserted`,
-        [businessId, value.section, value.name, value.description, value.priceMinor, value.priceMaxMinor, value.currency, value.unit, value.status, value.sortOrder || index, options.userId, value.available, value.url],
+        [businessId, value.section, value.name, value.description, value.priceMinor, value.priceMaxMinor, value.currency, value.unit, value.status, value.sortOrder || top + 1 + index, options.userId, value.available, value.url],
       );
       if (rows[0]?.inserted) added += 1;
       else updated += 1;

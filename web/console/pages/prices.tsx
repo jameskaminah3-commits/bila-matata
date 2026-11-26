@@ -23,12 +23,13 @@ type PriceItem = {
 type Feed = { url: string; daily: boolean; last_read_at: string | null; last_items: number; last_skipped: number; last_error: string | null };
 type Parsed = { items: Array<{ section: string | null; name: string; description: string | null; price: string; price_max: string | null; currency: "KES" | "USD"; unit: string | null }>; problems: Array<{ line: number; text: string; reason: string }> };
 
-export function PricesPage(props: { businessId: string; role: Role; businessType: string | null }) {
+export function PricesPage(props: { businessId: string; role: Role; businessType: string | null; menuOnly?: boolean }) {
   const list = useLoad(() => api<{ items: PriceItem[] }>("GET", businessPath(props.businessId, "/price-list")), [props.businessId]);
   // Each section's banner picture on the business's page (src/prices/section-images.ts).
   const banners = useLoad(() => api<{ pictures: Record<string, string> }>("GET", businessPath(props.businessId, "/catalogue-sections")), [props.businessId]);
   const [editing, setEditing] = useState<PriceItem | "new" | null>(null);
   const [pasting, setPasting] = useState<"text" | "photo" | null>(null);
+  const [arranging, setArranging] = useState(false);
   const action = useAction();
   const manager = atLeast(props.role, "manager");
   const items = list.data?.items ?? [];
@@ -39,8 +40,10 @@ export function PricesPage(props: { businessId: string; role: Role; businessType
       <div className="page-head">
         <h1>Catalogue &amp; prices</h1>
         <p className="muted">
-          What you sell and charge for {booked ? `that isn't ${booked} booked here: extras, transfers, meals, products` : "that customers ask about: your products, services and packages"}.
-          Zaina quotes these exactly, says what's out of stock, and never takes a price from your documents.
+          {props.menuOnly
+            ? "Your menu, exactly as guests see it on your page: sections, dishes, prices and photos. A change here is live at once."
+            : <>What you sell and charge for {booked ? `that isn't ${booked} booked here: extras, transfers, meals, products` : "that customers ask about: your products, services and packages"}.
+              {" "}Zaina quotes these exactly, says what's out of stock, and never takes a price from your documents.</>}
         </p>
       </div>
       {manager ? (
@@ -48,9 +51,10 @@ export function PricesPage(props: { businessId: string; role: Role; businessType
           <Button kind="primary" onClick={() => setEditing("new")}><Icon name="plus" size={15} /> Add an item</Button>
           <Button onClick={() => setPasting("photo")}>Snap your price list</Button>
           <Button kind="ghost" onClick={() => setPasting("text")}>Paste a list</Button>
+          {items.length > 1 ? <Button kind="ghost" onClick={() => setArranging(true)}><Icon name="up" size={15} /> Arrange the order</Button> : null}
         </div>
       ) : null}
-      {manager ? <FeedCard businessId={props.businessId} onChanged={() => void list.reload()} /> : null}
+      {manager && !props.menuOnly ? <FeedCard businessId={props.businessId} onChanged={() => void list.reload()} /> : null}
       <ErrorLine error={list.error} />
       <Message message={action.message} />
       {list.data && items.length === 0 ? (
@@ -58,7 +62,16 @@ export function PricesPage(props: { businessId: string; role: Role; businessType
           <p>Add what you sell with a photo and a price, or take a photo of your price board or menu and Zaina reads it for you. Until then, Zaina says she isn't sure of a price and offers the team.</p>
         </Empty>
       ) : null}
-      {sections.map((section) => (
+      {arranging ? (
+        <ArrangeMenu
+          businessId={props.businessId}
+          zaina={!props.menuOnly}
+          items={items}
+          onCancel={() => setArranging(false)}
+          onSaved={async () => { setArranging(false); await list.reload(); }}
+        />
+      ) : null}
+      {!arranging && sections.map((section) => (
         <section key={section || "none"} className="stack-tight">
           {section ? (
             <div className="section-head">
@@ -417,6 +430,87 @@ function FeedCard(props: { businessId: string; onChanged: () => void }) {
         </form>
       )}
       <Message message={action.message} />
+    </section>
+  );
+}
+
+/**
+ * The menu's order, as the team wants guests to read it: sections up or down,
+ * and each dish up or down within its section (or A to Z). Items without a
+ * section always come first on the page, so they stay first here.
+ */
+function ArrangeMenu(props: { businessId: string; zaina: boolean; items: PriceItem[]; onCancel: () => void; onSaved: () => Promise<void> }) {
+  const byId = new Map(props.items.map((item) => [item.id, item]));
+  const [groups, setGroups] = useState(() => {
+    const order: Array<{ section: string; ids: string[] }> = [];
+    for (const item of props.items) {
+      const section = item.section ?? "";
+      const group = order.find((entry) => entry.section === section) ?? order[order.push({ section, ids: [] }) - 1];
+      group.ids.push(item.id);
+    }
+    // Unsectioned items lead the page; keep them first.
+    return [...order.filter((group) => !group.section), ...order.filter((group) => group.section)];
+  });
+  const action = useAction();
+  const fromFeed = props.items.some((item) => item.source === "feed");
+  const shift = <T,>(list: T[], from: number, to: number): T[] => {
+    const next = list.slice();
+    const [moved] = next.splice(from, 1);
+    next.splice(to, 0, moved);
+    return next;
+  };
+  const firstMovable = groups[0] && !groups[0].section ? 1 : 0;
+  const moveSection = (index: number, by: number) => setGroups((current) => shift(current, index, index + by));
+  const moveItem = (index: number, at: number, by: number) => setGroups((current) => current.map((group, g) => (g === index ? { ...group, ids: shift(group.ids, at, at + by) } : group)));
+  const alphabetical = (index: number) => setGroups((current) => current.map((group, g) => (g === index ? { ...group, ids: group.ids.slice().sort((a, b) => (byId.get(a)?.name ?? "").localeCompare(byId.get(b)?.name ?? "")) } : group)));
+  const Arrow = (arrow: { dir: "up" | "down"; label: string; disabled: boolean; onClick: () => void }) => (
+    <button type="button" className="arrange-move" aria-label={arrow.label} title={arrow.label} disabled={arrow.disabled} onClick={arrow.onClick}><Icon name={arrow.dir} size={16} /></button>
+  );
+  return (
+    <section className="card stack-tight arrange">
+      <div>
+        <h2>Arrange your menu</h2>
+        <p className="muted small">Put sections and dishes in the order guests should read them: starters before mains, your signature dish first. {props.zaina ? "Your page and Zaina follow" : "Your page follows"} it as soon as you save.</p>
+        {fromFeed ? <p className="muted small">Items from your own system take your system's order again each time it's read.</p> : null}
+      </div>
+      <Message message={action.message} />
+      <ol className="arrange-sections">
+        {groups.map((group, g) => (
+          <li key={group.section || "none"} className="arrange-section">
+            <div className="arrange-row arrange-section-row">
+              <span className="arrange-name"><strong>{group.section || "Before the first section"}</strong><span className="muted small">{group.ids.length} item{group.ids.length === 1 ? "" : "s"}</span></span>
+              {group.ids.length > 2 ? <button type="button" className="link small" onClick={() => alphabetical(g)}>A to Z</button> : null}
+              {group.section ? (
+                <span className="arrange-moves">
+                  <Arrow dir="up" label={`Move ${group.section} up`} disabled={g <= firstMovable} onClick={() => moveSection(g, -1)} />
+                  <Arrow dir="down" label={`Move ${group.section} down`} disabled={g === groups.length - 1} onClick={() => moveSection(g, 1)} />
+                </span>
+              ) : null}
+            </div>
+            <ol className="arrange-items">
+              {group.ids.map((id, at) => {
+                const item = byId.get(id)!;
+                return (
+                  <li key={id} className="arrange-row">
+                    <span className="arrange-name"><span>{item.name}</span><span className="muted small">{item.price_display}</span></span>
+                    <span className="arrange-moves">
+                      <Arrow dir="up" label={`Move ${item.name} up`} disabled={at === 0} onClick={() => moveItem(g, at, -1)} />
+                      <Arrow dir="down" label={`Move ${item.name} down`} disabled={at === group.ids.length - 1} onClick={() => moveItem(g, at, 1)} />
+                    </span>
+                  </li>
+                );
+              })}
+            </ol>
+          </li>
+        ))}
+      </ol>
+      <div className="actions">
+        <Button onClick={props.onCancel}>Cancel</Button>
+        <Button kind="primary" busy={action.busy} onClick={() => void action.run(async () => {
+          await api("PUT", businessPath(props.businessId, "/price-list/order"), { ids: groups.flatMap((group) => group.ids) });
+          await props.onSaved();
+        })}>Save this order</Button>
+      </div>
     </section>
   );
 }

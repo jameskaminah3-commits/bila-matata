@@ -71,7 +71,7 @@ export function SettingsPage(props: { businessId: string; role: Role; me: Me; bu
       {tab === "payments" && payments ? <BookingSettings businessId={props.businessId} role={props.role} admin={props.me.user.is_platform_admin} paymentsOnly /> : null}
       {tab === "calendars" && stays ? <Calendars businessId={props.businessId} role={props.role} businessType={props.businessType ?? null} rooms={books.rooms} outcome={initial.tab === "calendars" ? initial.outcome : null} /> : null}
       {tab === "offer" && !ownSystem ? <OfferSetup businessId={props.businessId} role={props.role} onChanged={props.onOfferChanged} /> : null}
-      {tab === "profile" ? <Profile businessId={props.businessId} /> : null}
+      {tab === "profile" ? <div className="stack"><Profile businessId={props.businessId} /><GuestsPay businessId={props.businessId} role={props.role} /></div> : null}
       {tab === "owner" && !ownSystem ? <OwnerWhatsapp businessId={props.businessId} role={props.role} /> : null}
       {tab === "brand" ? <Brand businessId={props.businessId} role={props.role} /> : null}
       {tab === "door" ? <FrontDoor businessId={props.businessId} role={props.role} /> : null}
@@ -88,6 +88,65 @@ export function SettingsPage(props: { businessId: string; role: Role; me: Me; bu
 
 function useSettings(businessId: string) {
   return useLoad(() => api<{ settings: Settings }>("GET", businessPath(businessId, "/settings")).then((result) => result.settings), [businessId]);
+}
+
+/**
+ * How guests pay at the place: the M-Pesa till, or a Paybill and account,
+ * shown on the business's page (with a Copy button) and its printed table
+ * cards, and told to guests who ask. Money goes straight to the business.
+ * Only the owner changes it: it decides where guests' money goes.
+ */
+function GuestsPay(props: { businessId: string; role: Role }) {
+  const loaded = useSettings(props.businessId);
+  const owner = props.role === "owner";
+  const empty = { till: "", paybill: "", account: "", name: "" };
+  const [form, setForm] = useState(empty);
+  const [way, setWay] = useState<"till" | "paybill">("till");
+  const action = useAction();
+  useEffect(() => {
+    const pay = loaded.data?.venuePayment;
+    setForm({ till: pay?.till ?? "", paybill: pay?.paybill ?? "", account: pay?.account ?? "", name: pay?.name ?? "" });
+    setWay(pay?.paybill && !pay.till ? "paybill" : "till");
+  }, [loaded.data]);
+  if (!loaded.data) return <ErrorLine error={loaded.error} />;
+  const saved = loaded.data.venuePayment ?? null;
+  const set = (key: keyof typeof empty, value: string) => setForm({ ...form, [key]: value });
+  const save = (value: typeof empty | null) => action.run(async () => {
+    await api("PATCH", businessPath(props.businessId, "/settings"), {
+      venuePayment: value && { till: way === "till" ? value.till : null, paybill: way === "paybill" ? value.paybill : null, account: way === "paybill" ? value.account : null, name: value.name },
+    });
+    await loaded.reload();
+  }, value ? "Saved. Your page and table cards show it now; reprint the cards to include it." : "Removed from your page and table cards.");
+  return (
+    <form className="form card" onSubmit={(event) => { event.preventDefault(); void save(form); }}>
+      <div>
+        <h2>How guests pay at your place</h2>
+        <p className="muted small">Your M-Pesa till or Paybill, on your menu page with a Copy button and on your printed table cards. Guests pay you directly: the money never passes through us.</p>
+      </div>
+      {!owner ? <p className="message">{saved ? `Guests see ${saved.till ? `till ${saved.till}` : `Paybill ${saved.paybill}${saved.account ? `, account ${saved.account}` : ""}`}.` : "Nothing is shown yet."} Only the owner can change how guests pay.</p> : (
+        <>
+          <div><div className="segmented" role="group" aria-label="How guests pay">
+            <button type="button" aria-pressed={way === "till"} onClick={() => setWay("till")}>Buy Goods till</button>
+            <button type="button" aria-pressed={way === "paybill"} onClick={() => setWay("paybill")}>Paybill</button>
+          </div></div>
+          {way === "till" ? (
+            <Field label="Till number" hint="5 to 8 digits, as on your M-Pesa till sticker."><input inputMode="numeric" autoComplete="off" value={form.till} onChange={(event) => set("till", event.target.value)} placeholder="e.g. 5123456" /></Field>
+          ) : (
+            <div className="form-row">
+              <Field label="Paybill (business number)" hint="5 to 7 digits."><input inputMode="numeric" autoComplete="off" value={form.paybill} onChange={(event) => set("paybill", event.target.value)} /></Field>
+              <Field label="Account" hint={'What guests type as the account, e.g. "TABLE" or your business name. Optional.'}><input value={form.account} maxLength={30} onChange={(event) => set("account", event.target.value)} /></Field>
+            </div>
+          )}
+          <Field label="Name M-Pesa shows (optional)" hint="Exactly as M-Pesa shows it when someone pays you, so guests can check they're paying the right place."><input value={form.name} maxLength={50} onChange={(event) => set("name", event.target.value)} placeholder="e.g. TAPAS GOLD LTD" /></Field>
+          <Message message={action.message} />
+          <div className="actions start">
+            <Button type="submit" kind="primary" busy={action.busy}>Save</Button>
+            {saved ? <Button kind="ghost" busy={action.busy} onClick={() => void save(null)}>Remove</Button> : null}
+          </div>
+        </>
+      )}
+    </form>
+  );
 }
 
 function Profile(props: { businessId: string }) {

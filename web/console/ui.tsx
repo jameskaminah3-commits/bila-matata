@@ -197,6 +197,8 @@ const PATHS: Record<string, string> = {
   logout: "M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9",
   close: "M6 6l12 12M18 6L6 18",
   back: "M15 18l-6-6 6-6",
+  up: "M6 15l6-6 6 6",
+  down: "M6 9l6 6 6-6",
   send: "M4 12l16-8-6 16-2-7z",
   photo: "M4 5h16v14H4zM4 15l4-4 5 5M14 13l2-2 4 4M15 8.5a1 1 0 1 0 0 .01",
   check: "M5 12l5 5L20 7",
