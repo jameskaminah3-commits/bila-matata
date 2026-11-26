@@ -52,17 +52,33 @@ export type DoorView = {
   pay?: VenuePayment | null;
 };
 
-/** "Pay with M-Pesa": the till, or the Paybill and its account, each to copy, and the name M-Pesa shows so guests can check. */
+/**
+ * One slim line under the name: where the guest is (from the table's code)
+ * and how to reach the team (call, WhatsApp). On a phone the call shows as
+ * "Call" alone, the number kept for screen readers, so the line stays one.
+ */
+function utilityLine(view: DoorView, orders: boolean): string {
+  const spot = view.catalogue && view.spot
+    ? `<p class="door-spot">${ICONS.pin}<span>You're at <strong>${esc(view.spot)}</strong>${orders ? '<span class="door-spot-more">. Anything you order here is brought to you.</span>' : ""}</span></p>`
+    : "";
+  const contact = [
+    view.phone && view.phoneDisplay ? `<a class="door-btn" href="tel:${esc(view.phone)}" aria-label="Call ${esc(view.phoneDisplay)}">${ICONS.phone}<span>Call<span class="door-btn-detail"> ${esc(view.phoneDisplay)}</span></span></a>` : "",
+    view.whatsapp ? `<a class="door-btn" href="${esc(view.whatsapp)}" target="_blank" rel="noopener noreferrer">${ICONS.whatsapp}<span>WhatsApp</span></a>` : "",
+  ].join("");
+  return spot || contact ? `<div class="door-utility">${spot}${contact}</div>` : "";
+}
+
+/**
+ * "Pay with M-Pesa" as one slim strip: the till (or the Paybill and its
+ * account) with a Copy pill, and the name M-Pesa shows in small type under it.
+ */
 export function renderPay(pay: VenuePayment | null | undefined): string {
   if (!pay || (!pay.till && !pay.paybill)) return "";
-  const way = (label: string, value: string, copy: string) =>
-    `<div class="door-pay-way"><span class="door-pay-label">${label}</span><span class="door-pay-number">${esc(value)}</span><button type="button" class="door-pay-copy" data-copy="${esc(value)}" aria-label="Copy the ${copy}" hidden>Copy</button></div>`;
-  const ways = [
-    pay.till ? way("Buy Goods till", pay.till, "till number") : "",
-    pay.paybill ? way("Paybill", pay.paybill, "Paybill number") : "",
-    pay.paybill && pay.account ? way("Account", pay.account, "account") : "",
-  ].join("");
-  return `<div class="door-pay" role="group" aria-label="Pay with M-Pesa"><p class="door-pay-title">${ICONS.pay}<span>Pay with M-Pesa</span></p>${ways}${pay.name ? `<p class="door-pay-name">M-Pesa shows <b>${esc(pay.name)}</b>: check it before you send.</p>` : ""}</div>`;
+  const number = (pay.till ?? pay.paybill)!;
+  const what = pay.till ? "M-Pesa till" : "M-Pesa paybill";
+  // Under the number, small: the Paybill's account, and the name M-Pesa shows so guests can check it.
+  const below = [!pay.till && pay.account ? `Account <b>${esc(pay.account)}</b>` : "", pay.name ? `M-Pesa shows ${esc(pay.name)}` : ""].filter(Boolean).join(" · ");
+  return `<div class="door-pay" role="group" aria-label="Pay with M-Pesa"><div class="door-pay-row"><span class="door-pay-what">${ICONS.pay}<span>${what}</span></span><span class="door-pay-number">${esc(number)}</span><button type="button" class="door-pay-copy" data-copy="${esc(number)}" aria-label="Copy the ${pay.till ? "till" : "Paybill"} number" hidden>Copy</button></div>${below ? `<p class="door-pay-name">${below}</p>` : ""}</div>`;
 }
 
 /** The quiet line at the foot of every page and printed card. */
@@ -169,16 +185,12 @@ export function renderFrontDoor(view: DoorView): string {
   const title = `${view.name} · Chat with ${view.assistant}`;
   const description = `Chat with ${view.assistant}, the ${view.role} at ${view.name}: ask a question, check what's available, or leave your details for the team.`;
   const id = encodeURIComponent(view.businessId);
-  const contact = [
-    view.phone && view.phoneDisplay ? `<a class="door-btn" href="tel:${esc(view.phone)}">${ICONS.phone}<span>Call ${esc(view.phoneDisplay)}</span></a>` : "",
-    view.whatsapp ? `<a class="door-btn" href="${esc(view.whatsapp)}" target="_blank" rel="noopener noreferrer">${ICONS.whatsapp}<span>WhatsApp</span></a>` : "",
-  ].filter(Boolean).join("");
   const orders = view.catalogue?.items.some((item) => item.order?.verb === "order") ?? false;
   const wordmark = Boolean(view.logoHasName && view.logoUrl);
   // The chat's script and its settings start loading with the page, not after it.
   const widget = `/zaina.js${widgetVersion() ? `?v=${widgetVersion()}` : ""}`;
   const font: TitleFont = view.titleFont && TITLE_FONT_KEYS.includes(view.titleFont) ? view.titleFont : "classic";
-  const spot = view.catalogue && view.spot ? `<p class="door-spot">${ICONS.pin}<span>You're at <strong>${esc(view.spot)}</strong>.${orders ? " Anything you order here is brought to you." : ""}</span></p>` : "";
+  const utility = utilityLine(view, orders);
   return `<!doctype html>
 <html lang="en"${view.menuStyle && view.menuStyle !== "auto" ? ` data-menu="${view.menuStyle}"` : ""}${font === "classic" ? "" : ` data-title="${font}"`}>
 <head>
@@ -209,9 +221,8 @@ ${view.logoUrl ? `<meta property="og:image" content="${esc(view.logoUrl)}">\n<li
         ${view.tagline ? `<p>${esc(view.tagline)}</p>` : ""}
       </div>
     </div>
-    ${spot}
+    ${utility}
     <p class="door-intro">${esc(view.assistant)} is our ${esc(view.role)}. Ask anything, any time: she answers from our own information, and our team is right behind her.</p>
-    ${contact ? `<div class="door-actions">${contact}</div>` : ""}
     ${renderPay(view.pay)}
     <p class="door-trust">${ICONS.shield}<span>You pay ${esc(view.name)} directly. ${esc(view.assistant)} never asks for card numbers or PINs.</span></p>
   </header>
@@ -242,13 +253,9 @@ function renderMenuDoor(view: DoorView): string {
   const title = `${view.name} · ${tab}`;
   const description = `The ${tab.toLowerCase()} at ${view.name}${view.tagline ? `: ${view.tagline}` : ""}.`;
   const id = encodeURIComponent(view.businessId);
-  const contact = [
-    view.phone && view.phoneDisplay ? `<a class="door-btn" href="tel:${esc(view.phone)}">${ICONS.phone}<span>Call ${esc(view.phoneDisplay)}</span></a>` : "",
-    view.whatsapp ? `<a class="door-btn" href="${esc(view.whatsapp)}" target="_blank" rel="noopener noreferrer">${ICONS.whatsapp}<span>WhatsApp</span></a>` : "",
-  ].filter(Boolean).join("");
   const wordmark = Boolean(view.logoHasName && view.logoUrl);
   const font: TitleFont = view.titleFont && TITLE_FONT_KEYS.includes(view.titleFont) ? view.titleFont : "classic";
-  const spot = view.catalogue && view.spot ? `<p class="door-spot">${ICONS.pin}<span>You're at <strong>${esc(view.spot)}</strong>.</span></p>` : "";
+  const utility = utilityLine(view, false);
   return `<!doctype html>
 <html lang="en"${view.menuStyle && view.menuStyle !== "auto" ? ` data-menu="${view.menuStyle}"` : ""}${font === "classic" ? "" : ` data-title="${font}"`}>
 <head>
@@ -277,8 +284,7 @@ ${view.logoUrl ? `<meta property="og:image" content="${esc(view.logoUrl)}">\n<li
         ${view.tagline ? `<p>${esc(view.tagline)}</p>` : ""}
       </div>
     </div>
-    ${spot}
-    ${contact ? `<div class="door-actions">${contact}</div>` : ""}
+    ${utility}
     ${renderPay(view.pay)}
   </header>
   ${view.catalogue ? `<div class="door-main">${view.menuStyle === "backdrop" ? backdropLayer(view) : ""}
@@ -365,16 +371,17 @@ body { font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; 
 .door-spot svg { color: var(--mark); flex: none; }
 .door-intro { margin: 0; max-width: 46ch; color: var(--muted); font-size: 1.02rem; }
 .door-actions { display: flex; flex-wrap: wrap; gap: 10px; }
-.door-pay { display: grid; gap: 4px; padding: 12px 14px; border-radius: 16px; background: var(--surface); border: 1px solid var(--line); max-width: 46ch; text-align: left; }
-.door-pay-title { margin: 0 0 2px; display: flex; align-items: center; gap: 6px; font-size: .7rem; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
-.door-pay-title svg { color: var(--mark); flex: none; }
-.door-pay-way { display: flex; align-items: center; gap: 10px; min-height: 36px; }
-.door-pay-label { font-size: .86rem; color: var(--muted); }
-.door-pay-number { font-size: 1.12rem; font-weight: 700; letter-spacing: .05em; font-variant-numeric: tabular-nums; -webkit-user-select: all; user-select: all; overflow-wrap: anywhere; }
-.door-pay-copy { margin-left: auto; flex: none; min-height: 32px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--line); background: transparent; color: inherit; font: inherit; font-size: .8rem; font-weight: 600; cursor: pointer; }
-.door-pay-copy.done { border-color: var(--mark); }
-.door-pay-name { margin: 2px 0 0; font-size: .8rem; color: var(--muted); }
-.door-pay-name b { color: inherit; font-weight: 700; }
+.door-utility { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.door-utility .door-spot { align-self: center; }
+.door-pay { display: grid; gap: 1px; padding: 5px 5px 5px 14px; border-radius: 14px; border: 1px solid color-mix(in srgb, var(--mark) 55%, transparent); max-width: 46ch; text-align: left; }
+.door-pay-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; min-height: 36px; min-width: 0; }
+.door-pay-what { display: inline-flex; align-items: center; gap: 6px; flex: none; font-size: .66rem; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: var(--mark); }
+.door-pay-what svg { flex: none; }
+.door-pay-number { font-size: 1.06rem; font-weight: 700; letter-spacing: .06em; font-variant-numeric: tabular-nums; -webkit-user-select: all; user-select: all; }
+.door-pay-name b { font-weight: 700; letter-spacing: .04em; }
+.door-pay-copy { margin-left: auto; flex: none; min-height: 30px; padding: 0 14px; border-radius: 999px; border: 1px solid var(--mark); background: transparent; color: var(--mark); font: inherit; font-size: .76rem; font-weight: 700; letter-spacing: .04em; cursor: pointer; }
+.door-pay-copy.done { background: var(--mark); color: var(--sheet); }
+.door-pay-name { margin: 0 0 3px; font-size: 11px; letter-spacing: .02em; color: var(--muted); overflow-wrap: anywhere; }
 .door-btn { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 16px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface);
   color: var(--ink); text-decoration: none; font-weight: 600; font-size: .95rem; transition: border-color .15s ease, transform .15s ease; }
 .door-btn:hover { border-color: var(--brand); transform: translateY(-1px); }
@@ -545,7 +552,7 @@ body { font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; 
   /* With a catalogue the whole page scrolls, like a menu in the hand: the name and photo pass by, the bar stays on top. */
   body:has(.has-catalogue) { background: var(--bg); }
   .door.has-catalogue { display: block; height: auto; min-height: 100%; background: var(--bg); }
-  .has-catalogue .door-head { z-index: 3; align-items: center; text-align: center; padding: calc(26px + env(safe-area-inset-top, 0px)) 20px 22px; color: var(--hero-ink); overflow: hidden; isolation: isolate;
+  .has-catalogue .door-head { z-index: 3; align-items: center; text-align: center; padding: calc(20px + env(safe-area-inset-top, 0px)) 18px 16px; color: var(--hero-ink); overflow: hidden; isolation: isolate;
     background: radial-gradient(130% 95% at 50% 0%, var(--hero-glow), var(--hero) 72%); border-bottom: 1px solid var(--line); }
   /* Over the business's cover photo the header is always dark, so its name reads. */
   .has-catalogue.has-cover .door-head { --hero-ink: #ffffff; --hero-soft: rgba(255, 255, 255, .8); --hero-veil: rgba(255, 255, 255, .12); --hero-edge: rgba(255, 255, 255, .2);
@@ -558,17 +565,22 @@ body { font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; 
   /* A fine line in the business's colour, inset like the edge of a menu's cover. */
   .has-catalogue .door-head::before { content: ""; position: absolute; inset: calc(10px + env(safe-area-inset-top, 0px)) 10px 10px; border: 1px solid color-mix(in srgb, var(--brand) 42%, transparent); border-radius: 18px; pointer-events: none; }
   .has-catalogue.has-wordmark .door-brand { flex-direction: column; }
-  .has-catalogue.has-wordmark .door-logo { width: min(136px, 38vw); height: auto; aspect-ratio: 1 / 1; border-radius: 24px; box-shadow: 0 22px 44px -24px rgba(0, 0, 0, .6); }
-  .has-catalogue .door-name p { color: var(--hero-soft); white-space: normal; font-size: .74rem; font-weight: 600; letter-spacing: .22em; text-transform: uppercase; margin-top: 10px; }
-  .has-catalogue .door-name::after { content: ""; display: block; width: 36px; height: 2px; margin: 14px auto 0; border-radius: 2px; background: var(--hero-rule); }
-  .has-catalogue .door-spot { align-self: center; margin-top: 14px; padding: 8px 16px; border-radius: 999px; background: var(--hero-veil); border: 1px solid var(--hero-edge); color: var(--hero-ink); text-align: left; font-size: .9rem; }
+  .has-catalogue.has-wordmark .door-logo { width: min(112px, 31vw); height: auto; aspect-ratio: 1 / 1; border-radius: 24px; box-shadow: 0 22px 44px -24px rgba(0, 0, 0, .6); }
+  .has-catalogue .door-name p { color: var(--hero-soft); white-space: normal; font-size: .74rem; font-weight: 600; letter-spacing: .22em; text-transform: uppercase; margin-top: 8px; }
+  .has-catalogue .door-name::after { content: ""; display: block; width: 36px; height: 2px; margin: 10px auto 0; border-radius: 2px; background: var(--hero-rule); }
+  /* One slim line: the table and the call, side by side. */
+  .has-catalogue .door-utility { justify-content: center; margin-top: 12px; }
+  .has-catalogue .door-spot { margin: 0; min-height: 36px; padding: 0 14px; border-radius: 999px; background: var(--hero-veil); border: 1px solid var(--hero-edge); color: var(--hero-ink); text-align: left; font-size: .86rem; max-width: 100%; }
   .has-catalogue .door-spot svg { color: currentColor; }
-  .has-catalogue .door-actions { justify-content: center; margin-top: 14px; }
-  .has-catalogue .door-btn { flex: none; background: var(--hero-veil); color: var(--hero-ink); border-color: var(--hero-edge); }
-  .has-catalogue .door-pay { align-self: center; width: 100%; max-width: 340px; margin-top: 14px; background: var(--hero-veil); border-color: var(--hero-edge); color: var(--hero-ink); }
-  .has-catalogue .door-pay-title, .has-catalogue .door-pay-label, .has-catalogue .door-pay-name { color: var(--hero-soft); }
-  .has-catalogue .door-pay-title svg { color: currentColor; }
-  .has-catalogue .door-pay-copy { border-color: var(--hero-edge); }
+  .has-catalogue .door-spot-more { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  .has-catalogue .door-btn { flex: none; min-height: 36px; padding: 0 14px; font-size: .86rem; background: var(--hero-veil); color: var(--hero-ink); border-color: var(--hero-edge); }
+  .has-catalogue .door-btn-detail { display: none; }
+  /* M-Pesa: a hairline strip in the brand's colour, not a box. */
+  .has-catalogue .door-pay { align-self: center; width: 100%; max-width: 340px; margin-top: 10px; border-color: color-mix(in srgb, var(--hero-rule) 60%, transparent); color: var(--hero-ink); }
+  .has-catalogue .door-pay-what, .has-catalogue .door-pay-copy { color: var(--hero-rule); }
+  .has-catalogue .door-pay-copy { border-color: var(--hero-rule); }
+  .has-catalogue .door-pay-copy.done { background: var(--hero-rule); color: var(--hero); }
+  .has-catalogue .door-pay-name { color: var(--hero-soft); }
   .has-catalogue.has-cover .door-cover { z-index: -1; opacity: 1; }
   .has-catalogue.has-cover .door-head::after { content: ""; position: absolute; inset: 0; z-index: -1; background: linear-gradient(180deg, rgba(0, 0, 0, .42), rgba(0, 0, 0, .74)); }
   .has-catalogue .door-main { --sheet: var(--bg); display: block; height: auto; min-height: 0; overflow: visible; border: 0; border-radius: 0; box-shadow: none; }
@@ -576,6 +588,14 @@ body { font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; 
   .has-catalogue .door-chat { height: calc(100dvh - var(--tabs-h)); min-height: 380px; }
   .has-catalogue .cat-tools { top: env(safe-area-inset-top, 0px); }
   .has-catalogue .door-foot { padding: 24px 0 calc(28px + env(safe-area-inset-bottom, 0px)); background: transparent; border: 0; }
+  /* What's on and the first section, sooner: the food starts on the first screen. */
+  .has-catalogue .whats-on { margin: 14px 16px 0; padding: 12px 16px; }
+  .has-catalogue .whats-on-title { margin-bottom: 6px; }
+  .has-catalogue .whats-on ul { gap: 4px; }
+  .has-catalogue .whats-on-today li { font-size: calc(1.05rem * var(--title-scale)); }
+  .has-catalogue .whats-on-today + .whats-on-soon { margin-top: 8px; padding-top: 8px; }
+  .has-catalogue .cat-heading { padding-top: 24px; }
+  .has-catalogue .cat-heading h2::after { margin-top: 10px; }
   /* "Dark, over your photos" on a phone: the photo stays put behind the menu as it scrolls. */
   [data-menu="backdrop"] .has-catalogue .cat-backdrop { position: fixed; }
   [data-menu="backdrop"] .has-catalogue .door-foot { position: relative; z-index: 1; }

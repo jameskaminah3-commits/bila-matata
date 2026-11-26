@@ -68,7 +68,7 @@ test("how guests pay at the place: checked, shown with a Copy button, and told t
   assert.equal(renderPay(null), "");
   const html = renderPay({ till: "5123456", paybill: null, account: null, name: "BISTRO <LTD>" });
   assert.match(html, /data-copy="5123456"/);
-  assert.match(html, /M-Pesa shows <b>BISTRO &lt;LTD&gt;<\/b>/, "escaped");
+  assert.match(html, /M-Pesa shows BISTRO &lt;LTD&gt;<\/p>/, "escaped");
   assert.equal(payingPrompt(null), "");
   const prompt = payingPrompt({ till: null, paybill: "247247", account: "TABLE", name: "BISTRO LTD" });
   assert.match(prompt, /M-Pesa Paybill 247247, account TABLE/);

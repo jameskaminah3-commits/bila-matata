@@ -123,7 +123,7 @@ test("with a catalogue, the page opens on it, set like a printed menu: lines ope
   assert.doesNotMatch(html, /<script>alert|<img src=x/);
   assert.match(html, /Sly&quot;&gt;&lt;script&gt;/);
   // Where the customer is, under the business's name and for the chat; and the optional pill.
-  assert.match(html, /<\/div>\n    <p class="door-spot">.*You're at <strong>Table 5<\/strong>\. Anything you order here is brought to you\./);
+  assert.match(html, /<div class="door-utility"><p class="door-spot">.*You're at <strong>Table 5<\/strong><span class="door-spot-more">\. Anything you order here is brought to you\.<\/span>/);
   assert.match(html, /data-via="qr" data-spot="Table 5" async><\/script>/);
   assert.match(html, /<div class="cat-nudge" id="cat-nudge"><button type="button" class="cat-nudge-go" data-tab-to="chat" title="Need a recommendation\? Ask Zaina"><svg[^>]*>.*?<\/svg><span>Ask Zaina<\/span><\/button><button type="button" class="cat-nudge-x" id="cat-nudge-x" aria-label="Hide this">×<\/button><\/div>/);
   // Only the service's own scripts, styles and type, and nothing inline; each address carries its version.
@@ -143,7 +143,7 @@ test("with a catalogue, the page opens on it, set like a printed menu: lines ope
   // A business that doesn't take orders online: no order button, and the spot line says only where they are.
   const quiet = renderFrontDoor(view({ catalogue: { ...menu, items: menu.items.map((entry) => ({ ...entry, order: null })) }, spot: "Table 5" }));
   assert.doesNotMatch(quiet, /cat-zaina main|Order via/);
-  assert.match(quiet, /You're at <strong>Table 5<\/strong>\.<\/span>/);
+  assert.match(quiet, /You're at <strong>Table 5<\/strong><\/span>/);
   // Many sections: a one-tap jump as well as the pills.
   const big = renderFrontDoor(view({ catalogue: { ...menu, sections: ["Food", "Gins", "Wines", "Beers", "Shots"] } }));
   assert.match(big, /<select id="cat-jump"><option value="">Jump to…<\/option><option value="Food">Food<\/option>/);
@@ -198,7 +198,7 @@ test("a logo that spells the name is the heading: large, the name kept for scree
   assert.match(wordmark, /<span class="door-logo"><img src="[^"]+" alt="" width="240" height="240"><\/span>\n      <div class="door-name">\n        <h1 class="visually-hidden">Kibanda Lounge<\/h1>/);
   // Without a logo there's nothing to stand in for the name.
   assert.doesNotMatch(renderFrontDoor(view({ catalogue: menu, logoHasName: true })), /has-wordmark|visually-hidden">Kibanda/);
-  assert.match(DOOR_CSS, /\.has-catalogue\.has-wordmark \.door-logo \{ width: min\(136px, 38vw\)/);
+  assert.match(DOOR_CSS, /\.has-catalogue\.has-wordmark \.door-logo \{ width: min\(112px, 31vw\)/);
 });
 
 test("the logo-as-heading setting takes only true or false", async () => {

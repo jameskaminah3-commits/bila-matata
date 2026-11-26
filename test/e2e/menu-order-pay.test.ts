@@ -84,8 +84,8 @@ test("only the owner sets how guests pay; the numbers are checked", async () => 
 test("guests see the till on the page with a Copy button, and it's on the printed table cards", async () => {
   const page = await (await fetch(`${BASE}/c/bistro`)).text();
   assert.match(page, /<div class="door-pay" role="group" aria-label="Pay with M-Pesa">/);
-  assert.match(page, /<span class="door-pay-label">Buy Goods till<\/span><span class="door-pay-number">5123456<\/span><button type="button" class="door-pay-copy" data-copy="5123456" aria-label="Copy the till number" hidden>Copy<\/button>/);
-  assert.match(page, /M-Pesa shows <b>BISTRO LTD<\/b>/);
+  assert.match(page, /<span>M-Pesa till<\/span><\/span><span class="door-pay-number">5123456<\/span><button type="button" class="door-pay-copy" data-copy="5123456" aria-label="Copy the till number" hidden>Copy<\/button>/);
+  assert.match(page, /<p class="door-pay-name">M-Pesa shows BISTRO LTD<\/p>/);
   const script = await (await fetch(`${BASE}/c-assets/door.js`)).text();
   assert.match(script, /navigator\.clipboard\.writeText/);
   const door = (await staff("GET", "/front-door")).body;
@@ -93,8 +93,8 @@ test("guests see the till on the page with a Copy button, and it's on the printe
 
   await staff("PATCH", "/settings", { venuePayment: { paybill: "247247", account: "TABLE" } });
   const paybill = await (await fetch(`${BASE}/c/bistro`)).text();
-  assert.match(paybill, /Paybill<\/span><span class="door-pay-number">247247<\/span>/);
-  assert.match(paybill, /Account<\/span><span class="door-pay-number">TABLE<\/span>/);
+  assert.match(paybill, /M-Pesa paybill<\/span><\/span><span class="door-pay-number">247247<\/span>/);
+  assert.match(paybill, /<p class="door-pay-name">Account <b>TABLE<\/b><\/p>/);
 
   assert.equal((await staff("PATCH", "/settings", { venuePayment: null })).status, 200);
   assert.doesNotMatch(await (await fetch(`${BASE}/c/bistro`)).text(), /door-pay/, "removed, it's gone from the page");
