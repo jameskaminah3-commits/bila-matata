@@ -6,19 +6,25 @@
 // exact changes, each before → after, to apply or leave. Nothing changes
 // until they apply, and every apply comes with its undo.
 //
-// The model sees the menu with short refs (i1, i2…), never the item ids, and
-// answers in a fixed shape; every change it proposes is checked against the
-// menu as it is now, and again when it's applied. Items from the business's
-// own system (a product feed) are left out: the feed would undo the change.
+// The model only reads the request: it names dishes and sections in words and
+// says how a price moves (a new price, a percentage or an amount). This file
+// does the rest, so a long menu doesn't trip it up: it finds each dish by its
+// name (loosely: "the tilapia", "mojitos", a typo), spreads a section-wide
+// change over every dish in it, and works out and rounds the new prices. What
+// it can't find is said plainly, never guessed. The model never sees an item's
+// id. Items from the business's own system (a product feed) are left out: the
+// feed would undo the change.
 
 import { Type, type Schema } from "@google/genai";
 import { formatMoney } from "../booking/money.ts";
 import { inBusiness } from "../db/tenant.ts";
 import type { PriceItem } from "../db/schema.ts";
-import { createPriceItem, deletePriceItem, getPriceItem, listPriceItems, orderPriceItems, updatePriceItem, validatePriceItem } from "./price-list.ts";
+import { createPriceItem, deletePriceItem, getPriceItem, listPriceItems, MAX_PRICE_ITEMS, orderPriceItems, updatePriceItem, validatePriceItem } from "./price-list.ts";
 
 export const ASSISTANT_MAX_CHARS = 1500;
-const MAX_CHANGES = 120;
+/** Enough for one change to every dish on the fullest menu. */
+export const MAX_CHANGES = MAX_PRICE_ITEMS;
+const MAX_MODEL_CHANGES = 150;
 
 /**
  * One change, by the item's real id. "delete" only ever comes from an undo
@@ -42,26 +48,32 @@ export type MenuChange =
 /** A change as the team sees it before applying: what, before, after. */
 export type MenuChangePreview = { change: MenuChange; kind: string; label: string; before: string | null; after: string };
 
+const nullable = (type: Type, description: string): Schema => ({ type, nullable: true, description });
+
 export const MENU_ASSISTANT_SCHEMA: Schema = {
   type: Type.OBJECT,
   properties: {
-    summary: { type: Type.STRING, description: "One short line: what will change, e.g. \"Raise 8 cocktails by 10%\"." },
-    question: { type: Type.STRING, nullable: true, description: "Only when the request is unclear or needs a fact you don't have: one short question, and no changes." },
+    summary: { type: Type.STRING, description: "One short line: what will change, e.g. \"Raise Cocktails by 10% and mark Tilapia finished\"." },
+    question: nullable(Type.STRING, "Only when a part can't be done at all without a fact you don't have (a new dish with no price): one short question about that part. Never to confirm."),
     changes: {
       type: Type.ARRAY,
       items: {
         type: Type.OBJECT,
         properties: {
           op: { type: Type.STRING, enum: ["price", "stock", "rename", "describe", "move", "hide", "show", "add", "rename_section", "order_sections"] },
-          item: { type: Type.STRING, nullable: true, description: "The item's ref, like i12 (not for add, rename_section or order_sections)." },
-          price: { type: Type.NUMBER, nullable: true },
-          available: { type: Type.BOOLEAN, nullable: true },
-          name: { type: Type.STRING, nullable: true },
-          description: { type: Type.STRING, nullable: true },
-          section: { type: Type.STRING, nullable: true },
-          from: { type: Type.STRING, nullable: true },
-          to: { type: Type.STRING, nullable: true },
-          sections: { type: Type.ARRAY, items: { type: Type.STRING }, nullable: true },
+          dish: nullable(Type.STRING, "The dish, by its name on the menu. Empty for a change to a whole section."),
+          section: nullable(Type.STRING, "The section: the one a whole-section change is for (\"all\" for the whole menu), the one a new dish goes in, or the one that tells two dishes of the same name apart."),
+          price: nullable(Type.NUMBER, "A new price."),
+          percent: nullable(Type.NUMBER, "A price change by a percentage: 10 for +10%, -15 for -15%."),
+          amount: nullable(Type.NUMBER, "A price change by an amount: 50 for +50, -100 for -100."),
+          round_to: nullable(Type.NUMBER, "Only when the team says how to round, e.g. 50."),
+          available: nullable(Type.BOOLEAN, "stock: false when finished or sold out, true when back."),
+          name: nullable(Type.STRING, "rename: the dish's new name. add: the new dish's name."),
+          description: nullable(Type.STRING, "describe or add: the description."),
+          to_section: nullable(Type.STRING, "move: the section the dish goes to."),
+          from: nullable(Type.STRING, "rename_section: the section's name now."),
+          to: nullable(Type.STRING, "rename_section: its new name."),
+          sections: { type: Type.ARRAY, items: { type: Type.STRING }, nullable: true, description: "order_sections: the sections in their new order (the ones named first are enough)." },
         },
         required: ["op"],
       },
@@ -80,37 +92,36 @@ const sectionsOf = (items: PriceItem[]) => {
 };
 const major = (minor: number) => (minor % 100 === 0 ? String(minor / 100) : (minor / 100).toFixed(2));
 
-/** What the model is told: the rules, and the menu with short refs. */
+/** What the model is told: the rules, and the menu by section, in words. */
 export function assistantInstructions(businessName: string, items: PriceItem[]): string {
   const currency = items[0]?.currency ?? "KES";
-  const lines = items.map((item, index) => [
-    `i${index + 1}`,
-    item.section ?? "(no section)",
-    item.name,
-    major(item.priceMinor),
-    item.available ? "in stock" : "out of stock",
-    item.status === "hidden" ? "hidden" : "shown",
-    (item.description ?? "").replace(/\s+/g, " ").slice(0, 140),
-  ].join(" | "));
-  return `You manage the menu of ${businessName} for its team. The team writes what to change; you reply with the exact changes, in the JSON shape given.
+  const groups = [...sectionsOf(items).map((name) => [name, items.filter((item) => item.section === name)] as const)];
+  const loose = items.filter((item) => !item.section);
+  if (loose.length) groups.unshift(["(no section)", loose]);
+  const menu = groups.map(([name, list]) => `## ${name}\n${list.map((item) => {
+    const notes = [!item.available && "finished", item.status === "hidden" && "hidden from the page"].filter(Boolean).join(", ");
+    const description = (item.description ?? "").replace(/\s+/g, " ").slice(0, 120);
+    return `- ${item.name}: ${major(item.priceMinor)}${notes ? ` (${notes})` : ""}${description ? ` | ${description}` : ""}`;
+  }).join("\n")}`).join("\n\n");
+  return `You manage the menu of ${businessName} for its team. The team tells you what to change; you turn every part of it into changes, in the JSON shape given. The team sees each change before anything is saved and applies the ones it wants, so carry the request out: never ask them to confirm, and never ask what they plainly said.
 
-Rules:
-- Change only items on the menu below, by their ref (i1, i2…). Never invent a dish, a price or a fact.
-- Prices are whole ${currency} amounts. A change by a percentage or an amount applies to each item it names; round to the nearest 10 unless the team says otherwise. "price" is the new price.
-- "finished", "sold out", "out of stock", "not available tonight" → stock with available false; "back", "available again" → stock with available true.
-- "remove", "take off the menu" → hide (it stays in the dashboard, off the page). "put back on the menu" → show.
-- A new dish (add) needs a name and a price from the team; put it in the section the team names or the one it plainly belongs to. With no price given, ask.
-- move puts a dish in another section (an existing one, or a new one the team names).
-- rename_section renames a whole section: from (its name now) and to.
-- order_sections lists sections in their new order, the ones named first (e.g. "put Burgers first" → ["Burgers"]).
-- describe writes one appetising sentence of under 140 characters from what the dish's name and current description say. Never add an origin, award, "organic", health or spice claim the team didn't give. British English.
-- If the request is unclear, or needs a fact you don't have, return no changes and one short question.
-- summary is one short line of what will change.
+How to write the changes:
+- Name dishes and sections as the menu below writes them. When the team's words plainly mean a dish on it ("the tilapia", "mojitos", a misspelling), use the menu's name. If nothing on the menu fits, give the change with the team's words anyway: the system says it wasn't found. Never invent a dish, a price or a fact.
+- A change to a whole section ("the cocktails", "all the burgers", "everything in Mains") is ONE change with section set and no dish. The whole menu is section "all". Don't list the dishes one by one.
+- Prices are in ${currency}. A new price goes in price. A change by a percentage goes in percent (10 for +10%, -15 for 15% off); by an amount in amount (50 for 50 more, -100 for 100 less). Don't work out the new prices yourself: the system does, and rounds them. Set round_to only when the team says how to round.
+- "finished", "sold out", "out of stock", "not available", "86" → stock with available false. "back", "available again", "in stock" → stock with available true.
+- "remove", "take off the menu", "delete" → hide: it leaves the page and stays in the dashboard. "put back on the menu" → show.
+- add is a new dish: name, price, and section (the one the team names, or the one it plainly belongs to). A description only if the team gave one or asked you to write one.
+- move puts a dish (or, with section and no dish, a whole section's dishes) in to_section: an existing section or a new one the team names.
+- rename gives a dish a new name. rename_section: from (the section's name now) and to.
+- order_sections: the sections in their new order; the ones named first are enough ("put Burgers first" → ["Burgers"]).
+- describe: one change per dish, one appetising sentence of under 140 characters from the dish's name and current description. Never add an origin, award, "organic", health or spice claim the team didn't give. British English.
+- question: only when a part can't be done at all without a fact you don't have, like a new dish with no price. Still do every other part, and ask one short question about the missing one. A section, "all" or "everything" is never a reason to ask.
+- summary: one short line of what will change.
+- When an earlier request and your question come before the team's words, those words answer it: carry out the earlier request in full with that answer.
 
-Menu (ref | section | name | price | stock | shown on the page | description):
-${lines.join("\n")}
-
-Sections, in order: ${sectionsOf(items).join(", ") || "(none)"}`;
+The menu (dish: price${currency === "KES" ? " in KES" : ""} | description):
+${menu || "(empty)"}`;
 }
 
 const text = (value: unknown, max: number): string | null => {
@@ -122,46 +133,220 @@ const amount = (value: unknown): number | null => {
   const number = typeof value === "number" ? value : typeof value === "string" ? Number(value.replace(/[,\s]/g, "")) : NaN;
   return Number.isFinite(number) && number > 0 && number <= 10_000_000 ? Math.round(number * 100) / 100 : null;
 };
+const signed = (value: unknown): number | null => {
+  const number = typeof value === "number" ? value : typeof value === "string" ? Number(value.replace(/[,\s%+]/g, "")) : NaN;
+  return Number.isFinite(number) && number !== 0 ? number : null;
+};
 
-/** The model's answer, its refs turned into the items' ids; what doesn't fit the menu is dropped. */
-export function resolveModelChanges(raw: unknown, items: PriceItem[]): { summary: string; question: string | null; changes: MenuChange[]; dropped: number } {
+// ── Finding dishes and sections by name ──────────────────────────────────────
+
+const STOP = new Set(["the", "a", "an", "our", "all", "of"]);
+const singular = (word: string) =>
+  word.length <= 3 || word.endsWith("ss") ? word
+  : word.endsWith("ies") ? `${word.slice(0, -3)}y`
+  : /(ch|sh|x|o)es$/.test(word) ? word.slice(0, -2)
+  : word.endsWith("s") ? word.slice(0, -1)
+  : word;
+/** A name as it's matched: lower case, no accents or punctuation, "the" and plurals don't matter. */
+export const nameKey = (value: string) =>
+  value.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/['’`]/g, "").replace(/&/g, " and ").replace(/[^a-z0-9]+/g, " ")
+    .split(" ").filter((word) => word && !STOP.has(word)).map(singular).join(" ");
+const pairs = (key: string) => {
+  const flat = key.replace(/ /g, "");
+  const out: string[] = [];
+  for (let at = 0; at < flat.length - 1; at += 1) out.push(flat.slice(at, at + 2));
+  return out;
+};
+/** How alike two names are, 0 to 1 (letter pairs in common): catches a typo, not a different dish. */
+const likeness = (a: string, b: string) => {
+  const left = pairs(a);
+  const right = pairs(b);
+  if (!left.length || !right.length) return a === b ? 1 : 0;
+  const pool = [...right];
+  let common = 0;
+  for (const pair of left) {
+    const at = pool.indexOf(pair);
+    if (at >= 0) { common += 1; pool.splice(at, 1); }
+  }
+  return (2 * common) / (left.length + right.length);
+};
+
+/**
+ * The one name among candidates that the words mean: the same name; else the
+ * only one holding all their words ("tilapia" → "Whole Tilapia"); else the
+ * longest one they hold ("dawa cocktail" → "Dawa"); else one clearly closest
+ * (a typo). "ambiguous" lists the names it could be.
+ */
+function pickName(words: string, names: string[]): { name: string } | { ambiguous: string[] } | null {
+  const want = nameKey(words);
+  if (!want) return null;
+  const keyed = [...new Set(names)].map((name) => ({ name, key: nameKey(name) })).filter((entry) => entry.key);
+  const same = keyed.find((entry) => entry.key === want);
+  if (same) return { name: same.name };
+  const wanted = want.split(" ");
+  const holding = keyed.filter((entry) => wanted.every((word) => entry.key.split(" ").includes(word)));
+  if (holding.length === 1) return { name: holding[0].name };
+  if (holding.length > 1) return { ambiguous: holding.map((entry) => entry.name) };
+  const held = keyed.filter((entry) => entry.key.split(" ").every((word) => wanted.includes(word))).sort((a, b) => b.key.length - a.key.length);
+  if (held.length && (held.length === 1 || held[0].key.length > held[1].key.length)) return { name: held[0].name };
+  const scored = keyed.map((entry) => ({ ...entry, score: likeness(entry.key, want) })).sort((a, b) => b.score - a.score);
+  if (scored[0] && scored[0].score >= 0.72 && (!scored[1] || scored[0].score - scored[1].score >= 0.1)) return { name: scored[0].name };
+  return null;
+}
+
+const ALL_KEYS = new Set(["", "everything", "menu", "whole menu", "entire menu", "full menu", "everything on menu", "every dish", "every item", "dish", "item"]);
+/** A section by the team's words: its name on the menu, "all" for the whole menu, or null. */
+export function findSection(words: string, items: PriceItem[]): string | "all" | null {
+  if (ALL_KEYS.has(nameKey(words))) return "all";
+  const found = pickName(words, sectionsOf(items));
+  return found && "name" in found ? found.name : null;
+}
+const isPlural = (words: string) => {
+  const last = nameKey(words).split(" ").at(-1) ?? "";
+  const raw = words.toLowerCase().replace(/['’`]/g, "").replace(/[^a-z0-9]+/g, " ").trim().split(" ").at(-1) ?? "";
+  return Boolean(last) && raw !== last && raw.endsWith("s");
+};
+/**
+ * The dishes the words mean: every dish of that name (in the section given,
+ * when there's one); for plural words ("the burgers"), every dish they fit.
+ * "ambiguous" lists the dishes a singular word could be.
+ */
+export function findDishes(words: string, items: PriceItem[], section?: string | null): { items: PriceItem[] } | { ambiguous: string[] } | null {
+  const inSection = section ? findSection(section, items) : null;
+  const scopes = inSection && inSection !== "all" ? [items.filter((item) => item.section === inSection), items] : [items];
+  for (const scope of scopes) {
+    const found = pickName(words, scope.map((item) => item.name));
+    if (!found) continue;
+    if ("name" in found) return { items: scope.filter((item) => item.name === found.name) };
+    if (isPlural(words)) return { items: scope.filter((item) => found.ambiguous.includes(item.name)) };
+    return found;
+  }
+  return null;
+}
+
+/** The step a computed price rounds to: tens from 100 shillings up, whole shillings below; whole units or halves elsewhere. */
+const stepFor = (currency: string, price: number) => (currency === "KES" ? (price >= 100 ? 10 : 1) : price >= 20 ? 1 : 0.5);
+const CONFIRMING = /\b(confirm|proceed|go ahead|shall i|should i|would you like|do you want|are you sure|is that (right|correct|ok))\b/i;
+
+const SPREADS = new Set(["price", "stock", "hide", "show", "move"]);
+
+/**
+ * The model's answer, as changes by item id: each dish found by its name, a
+ * section-wide change spread over its dishes, new prices worked out. What
+ * can't be found or doesn't fit is said in notes, never guessed.
+ */
+export function resolveModelChanges(raw: unknown, items: PriceItem[]): { summary: string; question: string | null; changes: MenuChange[]; notes: string[]; dropped: number } {
   const body = (raw && typeof raw === "object" ? raw : {}) as Record<string, unknown>;
-  const list = Array.isArray(body.changes) ? body.changes.slice(0, MAX_CHANGES) : [];
-  const byRef = (ref: unknown) => {
-    const match = typeof ref === "string" ? /^i(\d+)$/.exec(ref.trim()) : null;
-    return match ? items[Number(match[1]) - 1] : undefined;
-  };
+  const list = Array.isArray(body.changes) ? body.changes.slice(0, MAX_MODEL_CHANGES) : [];
   const changes: MenuChange[] = [];
+  const notes: string[] = [];
+  const asks: string[] = [];
   let dropped = 0;
+  const note = (line: string) => { if (!notes.includes(line)) notes.push(line); };
+
   for (const entry of list) {
     const c = (entry && typeof entry === "object" ? entry : {}) as Record<string, unknown>;
-    const item = byRef(c.item);
-    let change: MenuChange | null = null;
-    switch (c.op) {
-      case "price": { const price = amount(c.price); if (item && price !== null) change = { op: "price", item_id: item.id, price }; break; }
-      case "stock": if (item && typeof c.available === "boolean") change = { op: "stock", item_id: item.id, available: c.available }; break;
-      case "rename": { const name = text(c.name, 120); if (item && name) change = { op: "rename", item_id: item.id, name }; break; }
-      case "describe": { const description = text(c.description, 300); if (item && description) change = { op: "describe", item_id: item.id, description }; break; }
-      case "move": { const section = text(c.section, 80); if (item && section) change = { op: "move", item_id: item.id, section }; break; }
-      case "hide": if (item) change = { op: "hide", item_id: item.id }; break;
-      case "show": if (item) change = { op: "show", item_id: item.id }; break;
-      case "add": {
-        const name = text(c.name, 120);
-        const price = amount(c.price);
-        if (name && price !== null) change = { op: "add", name, price, section: text(c.section, 80), description: text(c.description, 300) };
-        break;
+    const op = typeof c.op === "string" ? c.op : "";
+    const dishWords = text(c.dish ?? c.item, 160);
+    const sectionWords = text(c.section, 80);
+
+    if (op === "add") {
+      const name = text(c.name, 120) ?? dishWords;
+      if (!name) { dropped += 1; continue; }
+      const price = amount(c.price);
+      if (price === null) { asks.push(`What price for ${name}?`); continue; }
+      const section = sectionWords ? (findSection(sectionWords, items) ?? sectionWords) : null;
+      changes.push({ op: "add", name, price, section: section === "all" ? null : section, description: text(c.description, 300) });
+      continue;
+    }
+    if (op === "rename_section") {
+      const from = text(c.from, 80) ?? sectionWords;
+      const to = text(c.to, 80);
+      if (!from || !to) { dropped += 1; continue; }
+      const found = findSection(from, items);
+      if (!found || found === "all") { note(`There's no section called "${from}"`); continue; }
+      changes.push({ op: "rename_section", from: found, to });
+      continue;
+    }
+    if (op === "order_sections") {
+      const named = Array.isArray(c.sections) ? c.sections.map((s) => text(s, 80)).filter((s): s is string => Boolean(s)) : [];
+      const sections: string[] = [];
+      for (const words of named) {
+        const found = findSection(words, items);
+        if (found && found !== "all") { if (!sections.includes(found)) sections.push(found); } else note(`There's no section called "${words}"`);
       }
-      case "rename_section": { const from = text(c.from, 80); const to = text(c.to, 80); if (from && to) change = { op: "rename_section", from, to }; break; }
-      case "order_sections": {
-        const sections = Array.isArray(c.sections) ? c.sections.map((s) => text(s, 80)).filter((s): s is string => Boolean(s)) : [];
-        if (sections.length) change = { op: "order_sections", sections };
-        break;
+      if (sections.length) changes.push({ op: "order_sections", sections });
+      else if (!named.length) dropped += 1;
+      continue;
+    }
+    if (!["price", "stock", "rename", "describe", "move", "hide", "show"].includes(op)) { dropped += 1; continue; }
+
+    // Which dishes: by name, or every dish in a section ("the cocktails", "all").
+    let targets: PriceItem[] = [];
+    // "the burgers", "cocktails": a section's own name, in the plural, means all of it.
+    const wholeSection = dishWords && SPREADS.has(op) && isPlural(dishWords) ? sectionsOf(items).find((name) => nameKey(name) === nameKey(dishWords)) : undefined;
+    if (wholeSection) targets = items.filter((item) => item.section === wholeSection);
+    else if (dishWords) {
+      const found = findDishes(dishWords, items, sectionWords);
+      // A section named as if it were a dish ("raise Cocktails by 10%").
+      const section = !found && SPREADS.has(op) ? findSection(dishWords, items) : null;
+      if (found && "items" in found) targets = found.items;
+      else if (section) targets = section === "all" ? items : items.filter((item) => item.section === section);
+      else if (found) { note(`"${dishWords}" could be ${found.ambiguous.slice(0, 4).join(", ")}${found.ambiguous.length > 4 ? "…" : ""}: say which`); continue; }
+      else { note(`Couldn't find "${dishWords}" on your menu`); continue; }
+      if ((op === "rename" || op === "describe") && new Set(targets.map((item) => item.name)).size > 1) {
+        note(`"${dishWords}" could be ${[...new Set(targets.map((item) => item.name))].slice(0, 4).join(", ")}: say which`);
+        continue;
+      }
+    } else if (sectionWords && SPREADS.has(op)) {
+      const section = findSection(sectionWords, items);
+      if (!section) { note(`There's no section called "${sectionWords}"`); continue; }
+      targets = section === "all" ? items : items.filter((item) => item.section === section);
+    } else { dropped += 1; continue; }
+
+    for (const item of targets) {
+      switch (op) {
+        case "price": {
+          const exact = amount(c.price);
+          let percent = signed(c.percent);
+          if (percent !== null && Math.abs(percent) < 1) percent *= 100; // 0.1 meant 10%
+          const by = signed(c.amount);
+          const now = item.priceMinor / 100;
+          const raw = exact ?? (percent !== null && percent > -90 && percent <= 500 ? now * (1 + percent / 100) : by !== null ? now + by : null);
+          if (raw === null) { dropped += 1; break; }
+          const step = amount(c.round_to) ?? (exact !== null || by !== null ? 0.01 : stepFor(item.currency, raw));
+          const price = Math.round(Math.round(raw / step) * step * 100) / 100;
+          if (price <= 0) { note(`${item.name} can't go below nothing`); break; }
+          changes.push({ op: "price", item_id: item.id, price });
+          break;
+        }
+        case "stock": {
+          const available = typeof c.available === "boolean" ? c.available : null;
+          if (available === null) dropped += 1;
+          else changes.push({ op: "stock", item_id: item.id, available });
+          break;
+        }
+        case "rename": { const name = text(c.name, 120); if (name) changes.push({ op: "rename", item_id: item.id, name }); else dropped += 1; break; }
+        case "describe": { const description = text(c.description, 300); if (description) changes.push({ op: "describe", item_id: item.id, description }); else dropped += 1; break; }
+        case "move": {
+          const words = text(c.to_section, 80) ?? (dishWords ? sectionWords : null);
+          if (!words) { dropped += 1; break; }
+          const section = findSection(words, items);
+          changes.push({ op: "move", item_id: item.id, section: section && section !== "all" ? section : words });
+          break;
+        }
+        case "hide": changes.push({ op: "hide", item_id: item.id }); break;
+        case "show": changes.push({ op: "show", item_id: item.id }); break;
       }
     }
-    if (change) changes.push(change);
-    else dropped += 1;
   }
-  return { summary: text(body.summary, 200) ?? "", question: text(body.question, 300), changes, dropped };
+  // One change per dish and kind: the last word on it stands.
+  const seen = new Map<string, number>();
+  changes.forEach((change, index) => { if ("item_id" in change) seen.set(`${change.op}:${change.item_id}`, index); });
+  const unique = changes.filter((change, index) => !("item_id" in change) || seen.get(`${change.op}:${change.item_id}`) === index);
+  const asked = text(body.question, 300);
+  const question = asks.length ? asks.join(" ") : asked && !CONFIRMING.test(asked) ? asked : null;
+  return { summary: text(body.summary, 200) ?? "", question, changes: unique.slice(0, MAX_CHANGES), notes, dropped };
 }
 
 /**
@@ -357,6 +542,5 @@ export function assistantIdeas(items: PriceItem[]): string[] {
   if (bare) ideas.push(`Write descriptions for ${bare}`);
   const last = sections.at(-1);
   if (last && sections.length > 2) ideas.push(`Put ${last} first`);
-  if (sections[0]) ideas.push(`Add a new dish to ${sections[0]}`);
   return ideas.slice(0, 4);
 }

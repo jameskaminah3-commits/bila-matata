@@ -43,7 +43,7 @@ import { readSectionPicture, removeSectionPicture, saveSectionPicture, sectionPi
 import { sniffImage } from "../brand/assets.ts";
 import { refusedThinking, thinkingConfigFor, type EngineOptions } from "../engine/agent.ts";
 import { rateLimited } from "../gateway/rate-limit.ts";
-import { applyChanges, ASSISTANT_MAX_CHARS, assistantIdeas, assistantInstructions, editableItems, MENU_ASSISTANT_SCHEMA, previewChanges, readChange, resolveModelChanges } from "./assistant.ts";
+import { applyChanges, ASSISTANT_MAX_CHARS, assistantIdeas, assistantInstructions, editableItems, MAX_CHANGES, MENU_ASSISTANT_SCHEMA, previewChanges, readChange, resolveModelChanges } from "./assistant.ts";
 import {
   createPriceItem,
   deletePriceItem,
@@ -291,26 +291,36 @@ export function registerPriceListRoutes(app: Express, secret: string, engine?: E
   app.post(`${base}/assistant`, priceListBody, staff, requireBusinessRole("manager"), assistantLimit, handle(async (req, res, businessId) => {
     if (!engine) return res.status(503).json({ error: "not_available", message: "The menu assistant isn't available here." });
     const ask = typeof req.body?.text === "string" ? req.body.text.replace(/\s+/g, " ").trim() : "";
-    if (ask.length < 3) return res.status(400).json({ error: "text_required", message: "Say what to change, like \"Raise the cocktails by 10%\"." });
+    const answering = Boolean(req.body?.earlier?.request && req.body?.earlier?.question);
+    if (ask.length < (answering ? 1 : 3)) return res.status(400).json({ error: "text_required", message: "Say what to change, like \"Raise the cocktails by 10%\"." });
     if (ask.length > ASSISTANT_MAX_CHARS) return res.status(400).json({ error: "text_too_long", message: `Keep it under ${ASSISTANT_MAX_CHARS} characters, one change or a few at a time.` });
     const items = editableItems(await listPriceItems(businessId));
     if (!items.length) return res.status(409).json({ error: "empty_menu", message: "Add your menu first (snap it or paste it): then tell me what to change." });
     const name = (await getBusinessSettings(businessId))?.displayName ?? staffOf(req).business!.name;
+    // An answer to the assistant's question carries the request it was asked about.
+    const clip = (value: unknown, max: number) => (typeof value === "string" ? value.replace(/\s+/g, " ").trim().slice(0, max) : "");
+    const earlier = clip(req.body?.earlier?.request, ASSISTANT_MAX_CHARS * 2);
+    const asked = clip(req.body?.earlier?.question, 300);
+    const words = earlier && asked
+      ? `<earlier_request>\n${earlier}\n</earlier_request>\n<your_question>\n${asked}\n</your_question>\n<team_answer>\n${ask}\n</team_answer>`
+      : `<team_request>\n${ask}\n</team_request>`;
+    // Medium thinking: a menu change has to be right more than it has to be instant.
+    const level = engine.thinking === "off" ? null : "medium";
     const call = (thinking: boolean) => engine.ai.models.generateContent({
       model: engine.model,
-      contents: [{ role: "user", parts: [{ text: `<team_request>\n${ask}\n</team_request>` }] }],
+      contents: [{ role: "user", parts: [{ text: words }] }],
       config: {
         systemInstruction: assistantInstructions(name, items),
         responseMimeType: "application/json",
         responseSchema: MENU_ASSISTANT_SCHEMA,
         temperature: 0,
-        abortSignal: AbortSignal.timeout(30_000),
-        ...(thinking ? thinkingConfigFor(engine.model, engine.thinking ?? "low") ?? {} : {}),
+        abortSignal: AbortSignal.timeout(45_000),
+        ...(thinking ? thinkingConfigFor(engine.model, level) ?? {} : {}),
       },
     });
     let raw: unknown;
     try {
-      const thinking = Boolean(thinkingConfigFor(engine.model, engine.thinking ?? "low"));
+      const thinking = Boolean(thinkingConfigFor(engine.model, level));
       let response;
       try {
         response = await call(thinking);
@@ -325,12 +335,13 @@ export function registerPriceListRoutes(app: Express, secret: string, engine?: E
     }
     const resolved = resolveModelChanges(raw, items);
     const { previews, skipped } = previewChanges(resolved.changes, items);
-    res.json({ summary: resolved.summary, question: previews.length ? null : resolved.question, previews, skipped, dropped: resolved.dropped });
+    // The plan and, beside it, the one thing still needed (if any) and what was left out.
+    res.json({ summary: resolved.summary, question: resolved.question, previews, skipped: [...resolved.notes, ...skipped], dropped: resolved.dropped });
   }));
 
   app.post(`${base}/assistant/apply`, priceListBody, staff, requireBusinessRole("manager"), handle(async (req, res, businessId, userId) => {
     const list = Array.isArray(req.body?.changes) ? req.body.changes : null;
-    if (!list || !list.length || list.length > 120) return res.status(400).json({ error: "changes_required", message: "Choose the changes to apply." });
+    if (!list || !list.length || list.length > MAX_CHANGES + 20) return res.status(400).json({ error: "changes_required", message: "Choose the changes to apply." });
     const changes = list.map(readChange);
     if (changes.some((change: unknown) => !change)) return res.status(400).json({ error: "invalid_change", message: "One of those changes isn't one the assistant makes." });
     const result = await applyChanges(businessId, changes, userId);

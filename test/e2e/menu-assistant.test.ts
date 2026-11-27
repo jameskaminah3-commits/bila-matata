@@ -2,7 +2,9 @@
 //
 // The menu assistant: plain words in, the exact changes out (before → after),
 // applied only when the team says so, and undone in one step. The scripted
-// model stands in for the real one: it answers with the plan given to it.
+// model stands in for the real one: it answers with the plan given to it, in
+// words (dish and section names), and the platform finds the dishes and works
+// out the prices.
 
 import assert from "node:assert/strict";
 import { mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
@@ -48,7 +50,7 @@ test("it offers ideas from the business's own menu, to managers only", async () 
   const info = await staff("lounge", "GET", "/price-list/assistant");
   assert.equal(info.status, 200);
   assert.equal(info.body.available, true);
-  assert.deepEqual(info.body.ideas, ["Mojito is finished tonight", "Raise Cocktails by 10%", "Write descriptions for Cocktails", "Add a new dish to Cocktails"]);
+  assert.deepEqual(info.body.ideas, ["Mojito is finished tonight", "Raise Cocktails by 10%", "Write descriptions for Cocktails"], "only things it can do at once");
   assert.equal((await staff("lounge", "GET", "/price-list/assistant", undefined, tokens.agent)).status, 403);
   assert.equal((await staff("lounge", "POST", "/price-list/assistant", { text: "Raise everything" }, tokens.agent)).status, 403);
 });
@@ -59,27 +61,27 @@ test("plain words come back as exact changes, before → after, and nothing is s
   const answer = await staff("lounge", "POST", "/price-list/assistant", { text: plan({
     summary: "Raise the cocktails by 10%, mark the tilapia finished, add Chicken Tikka and put Mains first",
     changes: [
-      { op: "price", item: "i1", price: 715 },
-      { op: "price", item: "i2", price: 660 },
-      { op: "stock", item: "i3", available: false },
-      { op: "add", name: "Chicken Tikka", price: 950, section: "Mains" },
-      { op: "describe", item: "i4", description: "Half a kilo of flame-grilled beef with kachumbari." },
-      { op: "price", item: "i99", price: 5 },
-      { op: "price", item: "i1", price: 650 },
+      { op: "price", section: "the cocktails", percent: 10 },
+      { op: "stock", dish: "tilapia", available: false },
+      { op: "add", name: "Chicken Tikka", price: 950, section: "mains" },
+      { op: "describe", dish: "nyama choma", description: "Half a kilo of flame-grilled beef with kachumbari." },
+      { op: "price", dish: "Margarita", price: 5 },
+      { op: "show", dish: "Dawa" },
       { op: "order_sections", sections: ["Mains"] },
     ],
   }) });
   assert.equal(answer.status, 200, JSON.stringify(answer.body));
   previews = answer.body.previews;
-  assert.equal(answer.body.dropped, 1, "a dish that isn't on the menu is never touched");
+  assert.deepEqual(answer.body.skipped, ["Couldn't find \"Margarita\" on your menu"], "a dish that isn't on the menu is said, never guessed");
+  assert.equal(answer.body.question, null, "a clear request gets no question");
   assert.deepEqual(previews.map((p) => [p.kind, p.label, p.before, p.after]), [
-    ["Price", "Mojito", "KSh 650", "KSh 715"],
+    ["Price", "Mojito", "KSh 650", "KSh 720"],
     ["Price", "Dawa", "KSh 600", "KSh 660"],
     ["Stock", "Tilapia", "In stock", "Out of stock"],
     ["New dish", "Chicken Tikka", null, "KSh 950 · Mains"],
     ["Description", "Nyama Choma", null, "Half a kilo of flame-grilled beef with kachumbari."],
     ["Order", "Sections", "Cocktails · Mains", "Mains · Cocktails"],
-  ], "a change that changes nothing (Mojito back to 650) is left out");
+  ], "the whole section by 10%, rounded to the nearest 10; a change that changes nothing (Dawa is already shown) is left out");
   assert.equal((await menu("lounge")).find((item) => item.name === "Mojito")!.price, 650, "nothing saved yet");
 });
 
@@ -90,7 +92,7 @@ test("applying changes the menu and the page at once; undo puts every bit back",
   assert.deepEqual(applied.body.skipped, []);
   const items = await menu("lounge");
   const by = (name: string) => items.find((item) => item.name === name)!;
-  assert.equal(by("Mojito").price, 715);
+  assert.equal(by("Mojito").price, 720);
   assert.equal(by("Dawa").price, 660);
   assert.equal(by("Tilapia").available, false);
   assert.equal(by("Chicken Tikka").section, "Mains");
@@ -110,10 +112,19 @@ test("applying changes the menu and the page at once; undo puts every bit back",
   assert.deepEqual([...new Set(back.map((item) => item.section))], ["Cocktails", "Mains"]);
 });
 
-test("an unclear request gets one question and no changes; bad changes are refused", async () => {
-  const asked = await staff("lounge", "POST", "/price-list/assistant", { text: plan({ summary: "", question: "What price should the Chicken Tikka be?", changes: [] }) });
+test("a missing fact gets one question beside the rest of the plan, and the answer carries the request", async () => {
+  const request = plan({ summary: "Add Chicken Tikka and mark Dawa finished", question: "Shall I go ahead?", changes: [{ op: "add", name: "Chicken Tikka", section: "Mains" }, { op: "stock", dish: "dawa", available: false }] });
+  const asked = await staff("lounge", "POST", "/price-list/assistant", { text: request });
   assert.equal(asked.status, 200);
-  assert.deepEqual([asked.body.question, asked.body.previews], ["What price should the Chicken Tikka be?", []]);
+  assert.equal(asked.body.question, "What price for Chicken Tikka?", "only the missing price, never \"shall I go ahead\"");
+  assert.deepEqual(asked.body.previews.map((p: any) => [p.label, p.after]), [["Dawa", "Out of stock"]], "the rest is ready at once");
+
+  const answered = await staff("lounge", "POST", "/price-list/assistant", { text: `950 ${plan({ summary: "Add Chicken Tikka at 950", changes: [{ op: "add", name: "Chicken Tikka", price: 950, section: "Mains" }] }).split("\n")[1]}`, earlier: { request: "Add Chicken Tikka to Mains", question: asked.body.question } });
+  assert.equal(answered.status, 200, JSON.stringify(answered.body));
+  assert.deepEqual(answered.body.previews.map((p: any) => [p.label, p.after]), [["Chicken Tikka", "KSh 950 · Mains"]]);
+  const latest = readdirSync(DUMP).sort().at(-1)!;
+  const sent = JSON.stringify(JSON.parse(readFileSync(path.join(DUMP, latest), "utf8")));
+  assert.match(sent, /<earlier_request>\\nAdd Chicken Tikka to Mains\\n<\/earlier_request>\\n<your_question>\\nWhat price for Chicken Tikka\?/, "the model gets the request its question was about");
   assert.equal((await staff("lounge", "POST", "/price-list/assistant", { text: "x" })).status, 400);
   assert.equal((await staff("lounge", "POST", "/price-list/assistant/apply", { changes: [{ op: "price", item_id: "not-an-id", price: 5 }] })).status, 400);
   assert.equal((await staff("lounge", "POST", "/price-list/assistant/apply", { changes: [{ op: "drop_table" }] })).status, 400);
@@ -125,9 +136,11 @@ test("one business's assistant can't touch another's menu, and the Menu plan has
   assert.equal(tried.status, 200);
   assert.equal(tried.body.applied, 0);
   assert.equal((await menu("corner"))[0].price, theirs.price, "untouched");
-  const menuPlan = await staff("corner", "POST", "/price-list/assistant", { text: plan({ summary: "Mark Dawa finished", changes: [{ op: "stock", item: "i2", available: false }] }) });
+  const menuPlan = await staff("corner", "POST", "/price-list/assistant", { text: plan({ summary: "Mark Dawa finished", changes: [{ op: "stock", dish: "Dawa", available: false }] }) });
   assert.equal(menuPlan.status, 200);
   assert.deepEqual(menuPlan.body.previews.map((p: any) => [p.label, p.after]), [["Dawa", "Out of stock"]]);
+  const theirDish = await staff("lounge", "POST", "/price-list/assistant", { text: plan({ summary: "Hide the curry", changes: [{ op: "hide", dish: "Corner Secret Curry" }, { op: "hide", section: "Mains", dish: "Secret Curry" }] }) });
+  assert.deepEqual([theirDish.body.previews, theirDish.body.skipped], [[], ["Couldn't find \"Corner Secret Curry\" on your menu", "Couldn't find \"Secret Curry\" on your menu"]], "another business's dish is never found");
 });
 
 test("only signed-in managers of this business reach it, and the model sees this business's menu alone", async () => {
@@ -151,7 +164,7 @@ test("only signed-in managers of this business reach it, and the model sees this
 });
 
 test("a change made meanwhile, on WhatsApp or by a colleague, is never written over", async () => {
-  const answer = await staff("lounge", "POST", "/price-list/assistant", { text: plan({ summary: "Dawa to 700", changes: [{ op: "price", item: "i2", price: 700 }] }) });
+  const answer = await staff("lounge", "POST", "/price-list/assistant", { text: plan({ summary: "Dawa to 700", changes: [{ op: "price", dish: "Dawa", price: 700 }] }) });
   const dawa = (await menu("lounge")).find((item) => item.name === "Dawa")!;
   // Meanwhile the owner changes it another way.
   assert.equal((await staff("lounge", "PATCH", `/price-list/${dawa.id}`, { price: "650" })).status, 200);

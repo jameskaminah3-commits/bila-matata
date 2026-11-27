@@ -533,6 +533,8 @@ function MenuAssistant(props: { businessId: string; menu: boolean; onChanged: ()
   const [undo, setUndo] = useState<{ changes: AssistantChange[]; note: string } | null>(null);
   const [state, setState] = useState<"idle" | "thinking" | "applying">("idle");
   const [error, setError] = useState<string | null>(null);
+  // The request the assistant asked about: the next words answer it.
+  const [earlier, setEarlier] = useState<{ request: string; question: string } | null>(null);
   const input = useRef<HTMLInputElement>(null);
   useEffect(() => { if (plan?.question) input.current?.focus(); }, [plan]);
   if (!info.data?.available) return null;
@@ -540,14 +542,17 @@ function MenuAssistant(props: { businessId: string; menu: boolean; onChanged: ()
 
   const ask = async (words: string) => {
     const request = words.replace(/\s+/g, " ").trim();
-    if (request.length < 3 || state !== "idle") return;
+    if (!request || (request.length < 3 && !earlier) || state !== "idle") return;
     setText(request);
     setState("thinking");
     setError(null);
     setUndo(null);
     setPlan(null);
     try {
-      const result = await api<AssistantPlan>("POST", businessPath(props.businessId, "/price-list/assistant"), { text: request });
+      const result = await api<AssistantPlan>("POST", businessPath(props.businessId, "/price-list/assistant"), { text: request, ...(earlier ? { earlier } : {}) });
+      const asked = result.question ? { request: earlier ? `${earlier.request} (${earlier.question} ${request})` : request, question: result.question } : null;
+      setEarlier(asked);
+      if (asked) setText("");
       setPlan(result);
       setChosen(result.previews.map(() => true));
     } catch (problem) {
@@ -564,6 +569,7 @@ function MenuAssistant(props: { businessId: string; menu: boolean; onChanged: ()
       const result = await api<{ applied: number; skipped: string[]; undo: AssistantChange[] }>("POST", businessPath(props.businessId, "/price-list/assistant/apply"), { changes });
       props.onChanged();
       setPlan(null);
+      setEarlier(null);
       if (undoing) {
         setUndo(null);
         setText("");
@@ -591,8 +597,8 @@ function MenuAssistant(props: { businessId: string; menu: boolean; onChanged: ()
         </div>
       </div>
       <form className="menu-ai-ask" onSubmit={(event) => { event.preventDefault(); void ask(text); }}>
-        <input ref={input} value={text} maxLength={1500} onChange={(event) => setText(event.target.value)} placeholder={props.menu ? "e.g. Raise the cocktails by 10%, or: the tilapia is finished tonight" : "e.g. Raise everything in Extras by 10%"} aria-label={`Tell the ${name.toLowerCase()} what to change`} disabled={state !== "idle"} />
-        <button type="submit" className="menu-ai-go" disabled={state !== "idle" || text.trim().length < 3}>{state === "thinking" ? "Preparing…" : "Prepare changes"}</button>
+        <input ref={input} value={text} maxLength={1500} onChange={(event) => setText(event.target.value)} placeholder={earlier ? "Your answer" : props.menu ? "e.g. Raise the cocktails by 10%, or: the tilapia is finished tonight" : "e.g. Raise everything in Extras by 10%"} aria-label={earlier ? earlier.question : `Tell the ${name.toLowerCase()} what to change`} disabled={state !== "idle"} />
+        <button type="submit" className="menu-ai-go" disabled={state !== "idle" || !text.trim() || (text.trim().length < 3 && !earlier)}>{state === "thinking" ? "Preparing…" : earlier ? "Answer" : "Prepare changes"}</button>
       </form>
       {!plan && !undo && state === "idle" && info.data.ideas.length ? (
         <div className="menu-ai-ideas" role="group" aria-label="Ideas">
@@ -603,13 +609,18 @@ function MenuAssistant(props: { businessId: string; menu: boolean; onChanged: ()
       {error ? <p className="menu-ai-error" role="alert">{error}</p> : null}
       {plan && plan.previews.length === 0 ? (
         <div className="menu-ai-note" role="status">
-          <p>{plan.question ? <><span className="menu-ai-label">A question first</span>{plan.question}</> : "Nothing to change there: everything already reads that way."}</p>
-          {plan.skipped.length ? <p className="menu-ai-skipped">{plan.skipped.join(" · ")}</p> : null}
+          <p>{plan.question ? <><span className="menu-ai-label">One thing I need</span>{plan.question}</>
+            : plan.skipped.length ? <><span className="menu-ai-label">Nothing changed</span>{plan.skipped.join(" · ")}</>
+            : plan.dropped ? "I couldn't turn that into a change. Name the dish or section and what to do, like \"Dawa to 650\" or \"Cocktails up 10%\"."
+            : "Nothing to change there: everything already reads that way."}</p>
+          {plan.question && plan.skipped.length ? <p className="menu-ai-skipped">{plan.skipped.join(" · ")}</p> : null}
+          {plan.question ? <button type="button" className="menu-ai-quiet menu-ai-never" onClick={() => { setPlan(null); setEarlier(null); }}>Never mind</button> : null}
         </div>
       ) : null}
       {plan && plan.previews.length > 0 ? (
         <div className="menu-ai-plan">
           {plan.summary ? <p className="menu-ai-summary">{plan.summary}</p> : null}
+          {plan.question ? <p className="menu-ai-need"><span className="menu-ai-label">One thing I need</span>{plan.question} Answer above, or apply these now.</p> : null}
           <ul className="menu-ai-changes">
             {plan.previews.map((preview, index) => (
               <li key={index} className={chosen[index] ? "" : "off"}>
@@ -629,7 +640,7 @@ function MenuAssistant(props: { businessId: string; menu: boolean; onChanged: ()
           {plan.skipped.length ? <p className="menu-ai-skipped">Left out: {plan.skipped.join(" · ")}</p> : null}
           <div className="menu-ai-actions">
             <button type="button" className="menu-ai-go" disabled={!picked.length || state !== "idle"} onClick={() => void apply(picked, false)}>{state === "applying" ? "Applying…" : `Apply ${picked.length} change${picked.length === 1 ? "" : "s"}`}</button>
-            <button type="button" className="menu-ai-quiet" disabled={state !== "idle"} onClick={() => setPlan(null)}>Discard</button>
+            <button type="button" className="menu-ai-quiet" disabled={state !== "idle"} onClick={() => { setPlan(null); setEarlier(null); }}>Discard</button>
           </div>
         </div>
       ) : null}
