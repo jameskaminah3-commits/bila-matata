@@ -296,3 +296,40 @@ test("a business's booking payment pages still answer at /pay/<token>", async ()
   assert.match(await unknown.text(), /Booking not found/);
   assert.equal((await page("/pay-assets/pay.css")).status, 200);
 });
+
+test("Businesses powered by Zaina: only businesses the studio turns on in /admin, live and on a plan with Zaina", async () => {
+  const add = async (id: string, tier: string) => assert.equal((await api("POST", "/v1/platform/businesses", { id, name: id === "amani" ? "Amani Hair Studio" : "Corner Menu", tier, business_type: "salon", allowed_origins: [BASE], owner: { email: `${id}@example.com`, name: "Owner", password: PASSWORD } }, admin)).status, 201);
+  await add("amani", "starter");
+  await add("cornermenu", "menu");
+  const listed = (await api("GET", "/v1/platform/businesses", undefined, admin)).body.businesses.find((business: any) => business.id === "amani");
+  assert.equal(listed.featured_on_studio, false, "off until the studio turns it on");
+  assert.doesNotMatch(await (await page("/")).text(), /Businesses powered by Zaina/);
+  assert.equal((await api("PATCH", "/v1/platform/businesses/amani", { featured_on_studio: true }, agent)).status, 403, "a business's staff can't feature it");
+  assert.equal((await api("PATCH", "/v1/platform/businesses/amani", { featured_on_studio: "yes" }, admin)).status, 400);
+  for (const id of ["amani", "cornermenu"]) assert.equal((await api("PATCH", `/v1/platform/businesses/${id}`, { featured_on_studio: true }, admin)).status, 200);
+  const home = await (await page("/")).text();
+  assert.match(home, /<p class="powered-label">Businesses powered by Zaina<\/p>/);
+  assert.match(home, /<strong>Amani Hair Studio<\/strong>/);
+  assert.doesNotMatch(home, /Corner Menu/, "a Menu plan business has no Zaina to be powered by");
+  assert.equal((await api("PATCH", "/v1/platform/businesses/amani", { featured_on_studio: false }, admin)).status, 200);
+  assert.doesNotMatch(await (await page("/")).text(), /Businesses powered by Zaina/, "turned off: gone at once");
+});
+
+test("the blog is served for search engines: articles, a feed, the sitemap, and a 404 for what isn't there", async () => {
+  const index = await page("/blog");
+  assert.equal(index.status, 200);
+  assert.equal(index.headers.get("x-robots-tag"), null, "indexable");
+  assert.match(index.headers.get("content-security-policy") ?? "", /script-src 'self'/);
+  const html = await index.text();
+  assert.match(html, /<h1>Guides for growing your business<\/h1>/);
+  const article = await page("/blog/business-website-cost-kenya");
+  assert.equal(article.status, 200);
+  assert.match(await article.text(), /"@type":"BlogPosting"/);
+  assert.equal((await page("/blog/no-such-article")).status, 404);
+  const feed = await page("/blog/feed.xml");
+  assert.match(feed.headers.get("content-type") ?? "", /application\/rss\+xml/);
+  assert.match(await feed.text(), /<link>[^<]+\/blog\/business-website-cost-kenya<\/link>/);
+  const sitemap = await (await page("/sitemap.xml")).text();
+  assert.match(sitemap, /<loc>[^<]+\/blog<\/loc><lastmod>\d{4}-\d{2}-\d{2}<\/lastmod>/);
+  assert.match(sitemap, /<loc>[^<]+\/blog\/qr-code-menu-restaurants-kenya<\/loc><lastmod>2026-11-27<\/lastmod>/);
+});

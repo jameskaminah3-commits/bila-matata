@@ -12,6 +12,7 @@
 
 import { formatMoney, STUDIO, STUDIO_SUGGESTIONS, whatsappLink } from "./brand.ts";
 import FAQ from "../../knowledge/bilamatata/frequently-asked-questions.json" with { type: "json" };
+import type { FeaturedBusiness } from "./featured.ts";
 
 const esc = (value: unknown) => String(value ?? "").replace(/[&<>"']/g, (char) => (
   { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char] as string
@@ -264,7 +265,7 @@ export const HOME_CSS = String.raw`
 .hero-card { background: var(--surface); border: 1px solid var(--line); border-radius: 28px; box-shadow: var(--shadow); padding: 28px 24px 24px; display: grid; justify-items: center; text-align: center; gap: 6px; min-width: 0; position: relative; overflow: hidden; }
 .hero-card::before { content: ""; position: absolute; inset: 0 0 auto; height: 120px; background: linear-gradient(180deg, var(--accent-soft), transparent); pointer-events: none; }
 .hero-face { position: relative; width: 176px; height: 176px; }
-.hero-face img { width: 100%; height: 100%; border-radius: 50%; display: block; border: 5px solid var(--surface); box-shadow: 0 10px 30px -10px rgba(15, 118, 110, 0.55); animation: zaina-breathe 5s ease-in-out infinite; }
+.hero-face img { width: 100%; height: 100%; border-radius: 50%; display: block; border: 5px solid var(--surface); box-shadow: 0 10px 30px -10px rgba(74, 58, 224, 0.45); animation: zaina-breathe 5s ease-in-out infinite; }
 .online { position: absolute; left: 50%; bottom: -10px; transform: translateX(-50%); display: inline-flex; align-items: center; gap: 7px; padding: 5px 12px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); font-size: 0.78rem; font-weight: 700; color: var(--ok); white-space: nowrap; box-shadow: 0 4px 12px -6px rgba(0,0,0,.3); }
 .online i { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); animation: zaina-pulse 2s ease-in-out infinite; }
 .hero-name { margin-top: 14px; font-size: 1.15rem; }
@@ -288,7 +289,7 @@ export const HOME_CSS = String.raw`
 .meet { display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); gap: clamp(28px, 5vw, 72px); align-items: center; }
 @media (max-width: 860px) { .meet { grid-template-columns: minmax(0, 1fr); } }
 .meet-portrait { position: relative; justify-self: center; width: min(100%, 360px); aspect-ratio: 1; }
-.meet-ring { width: 100%; height: 100%; border-radius: 50%; padding: 10px; background: conic-gradient(from 200deg, var(--accent), #f59e0b, #fb7d62, var(--accent)); box-shadow: 0 24px 60px -24px rgba(15, 118, 110, .6); }
+.meet-ring { width: 100%; height: 100%; border-radius: 50%; padding: 10px; background: conic-gradient(from 200deg, var(--accent), #f59e0b, #fb7d62, var(--accent)); box-shadow: 0 24px 60px -24px rgba(74, 58, 224, .45); }
 .meet-ring img { width: 100%; height: 100%; display: block; border-radius: 50%; border: 6px solid var(--surface); background: var(--surface); }
 .meet-tag { position: absolute; display: inline-flex; align-items: center; gap: 8px; padding: 9px 14px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow); font-size: 0.86rem; font-weight: 650; animation: zaina-breathe 6s ease-in-out infinite; }
 .meet-tag svg { width: 18px; height: 18px; color: var(--accent); flex: none; }
@@ -337,12 +338,12 @@ export const HOME_CSS = String.raw`
 .money-input:focus-within { border-color: var(--accent); }
 .calc-label { font-size: 0.76rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; opacity: .7; }
 .calc-big { margin-top: 10px; font-size: 1.15rem; }
-.calc-big strong { font-size: clamp(2.6rem, 6vw, 3.6rem); letter-spacing: -0.03em; font-variant-numeric: tabular-nums; line-height: 1; color: #5eead4; margin-right: 6px; }
+.calc-big strong { font-size: clamp(2.6rem, 6vw, 3.6rem); letter-spacing: -0.03em; font-variant-numeric: tabular-nums; line-height: 1; color: #b9b2ff; margin-right: 6px; }
 .calc-sub { margin-top: 6px; font-size: 1.05rem; opacity: .9; }
 .calc-sub strong { font-variant-numeric: tabular-nums; }
 .calc-plans { list-style: none; margin: 20px 0 0; padding: 0; display: grid; gap: 8px; }
 .calc-plans li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 14px; padding: 12px 14px; border-radius: 14px; background: rgba(255,255,255,.08); font-size: 0.93rem; }
-.calc-plans li.us { background: rgba(94, 234, 212, .16); }
+.calc-plans li.us { background: rgba(159, 149, 255, .18); }
 .calc-times { margin-top: 14px; font-size: 0.95rem; }
 .calc-results .fine { color: inherit; opacity: .72; }
 .calc-results .btn { margin-top: 18px; width: 100%; background: var(--bg); color: var(--ink); }
@@ -408,6 +409,28 @@ export const HOME_CSS = String.raw`
 .faq-item > p { padding: 0 20px 18px; color: var(--muted); }
 .faq-item[open] { border-color: color-mix(in srgb, var(--accent) 35%, var(--line)); }
 @media (prefers-reduced-motion: reduce) { .hero-ask-chip, .faq-item > summary::after { transition: none; } }
+
+/* ── Selected work: set like the service cards ──────────────────────── */
+.card.work { display: flex; flex-direction: column; }
+.work-mark { font-family: var(--display); font-weight: 600; font-size: 0.95rem; letter-spacing: 0.02em; }
+.work-tag { margin: 0 0 8px; font-size: 0.72rem !important; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
+.card.work p:not(.work-tag) { flex: 1; }
+.work-link { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); display: flex; align-items: center; gap: 6px; font-weight: 650; font-size: 0.88rem; color: var(--accent); text-decoration: none; min-width: 0; }
+.work-link .work-host { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.work-link:hover { color: var(--accent-strong); text-decoration: underline; }
+.work-link svg { flex: none; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.powered { margin-top: 36px; padding-top: 26px; border-top: 1px solid var(--line); }
+.powered-label { font-size: 0.74rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+.powered-list { list-style: none; margin: 14px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
+.powered-list a { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 14px; border: 1px solid var(--line); background: var(--bg); color: var(--ink); text-decoration: none; min-width: 0; }
+.powered-list a:hover { border-color: var(--accent); }
+.powered-list img, .powered-mark { width: 40px; height: 40px; border-radius: 10px; flex: none; object-fit: contain; background: var(--surface); }
+.powered-mark { display: grid; place-items: center; background: var(--accent-soft); color: var(--accent); font-weight: 700; font-size: 0.85rem; }
+.powered-list span { display: grid; min-width: 0; }
+.powered-list strong { font-size: 0.95rem; overflow-wrap: anywhere; }
+.powered-list small { font-size: 0.82rem; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.band.alt .faq-item { background: var(--bg); }
 `;
 
 // ── Script ───────────────────────────────────────────────────────────────
@@ -556,7 +579,7 @@ export function renderReach(): string {
 
 /** Questions asked often, answered exactly as Zaina answers them; anything else, ask her. */
 export function renderFaq(): string {
-  return `<section class="band" id="faq" aria-labelledby="faq-title">
+  return `<section class="band alt" id="faq" aria-labelledby="faq-title">
   <div class="wrap faq-grid">
     <div class="section-head">
       <p class="eyebrow">Questions</p>
@@ -567,6 +590,73 @@ export function renderFaq(): string {
     <div class="faq-list">
       ${homeFaq().map((entry) => `<details class="faq-item"><summary>${esc(entry.question)}</summary><p>${esc(entry.answer)}</p></details>`).join("\n      ")}
     </div>
+  </div>
+</section>`;
+}
+
+/** Live work the studio designed and built: real sites, each a click away. */
+export const STUDIO_WORK = [
+  {
+    name: "Happyfine Wholesalers",
+    url: "https://happyfinewholesalers.co.ke",
+    tag: "Wholesale & Retail E-Commerce · Kenya",
+    summary: "Full-featured online wholesale storefront offering bulk and single-unit pricing across household and commercial goods in Kenya, engineered for fast mobile browsing and streamlined ordering.",
+  },
+  {
+    name: "Channah Cake House",
+    url: "https://channahcakes.co.ke",
+    tag: "Bakery & Custom Orders · Mombasa",
+    summary: "Branded showcase and custom order website for a Mombasa cake house, highlighting signature cakes, celebration galleries, and direct customer inquiry flows.",
+  },
+  {
+    name: "EWAMA Properties Ltd",
+    url: "https://ewamaproperties.com",
+    tag: "Real Estate & Property · Kenya",
+    summary: "High-trust corporate real estate website (\u201cFoundation of Trust\u201d) designed to present property listings, build buyer credibility, and capture qualified investor and tenant leads.",
+  },
+  {
+    name: "Tembea Bila Matata",
+    url: "https://tembeabilamatata.com",
+    tag: "Travel, Stays & Local Concierge · Kenyan Coast",
+    summary: "Multi-vendor coastal hospitality and travel platform connecting guests with verified Nyali and Diani stays, SGR transfers, car hire, and local experiences.",
+  },
+];
+
+const monogram = (name: string) => name.replace(/[^A-Za-z ]/g, " ").split(/\s+/).filter(Boolean).slice(0, 2).map((word) => word[0].toUpperCase()).join("");
+const ARROW = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7M8 7h9v9"/></svg>';
+
+/**
+ * "Selected work built by our studio": the live projects, set like the
+ * service cards; under them, only when the studio has turned some on in
+ * /admin, the businesses that run on Zaina.
+ */
+export function renderWork(featured: FeaturedBusiness[] = []): string {
+  const host = (url: string) => new URL(url).hostname.replace(/^www\./, "");
+  const powered = featured.length
+    ? `<div class="powered">
+      <p class="powered-label">Businesses powered by Zaina</p>
+      <ul class="powered-list">
+        ${featured.map((business) => `<li><a href="${esc(business.url)}" target="_blank" rel="noopener">${business.logoUrl ? `<img src="${esc(business.logoUrl)}" alt="" width="40" height="40" loading="lazy">` : `<span class="powered-mark" aria-hidden="true">${esc(monogram(business.name))}</span>`}<span><strong>${esc(business.name)}</strong>${business.tagline ? `<small>${esc(business.tagline)}</small>` : ""}</span></a></li>`).join("\n        ")}
+      </ul>
+    </div>`
+    : "";
+  return `<section class="band alt" id="work" aria-labelledby="work-title">
+  <div class="wrap">
+    <div class="section-head">
+      <p class="eyebrow">Our work</p>
+      <h2 id="work-title">Selected work built by our studio</h2>
+      <p>Live websites and platforms we designed and built for businesses in Kenya. Open any of them: they're working sites, not mock-ups.</p>
+    </div>
+    <div class="grid four work-grid">
+      ${STUDIO_WORK.map((project) => `<article class="card work">
+        <div class="icon work-mark" aria-hidden="true">${esc(monogram(project.name))}</div>
+        <p class="work-tag">${esc(project.tag).replace(/-/g, "\u2011")}</p>
+        <h3>${esc(project.name)}</h3>
+        <p>${esc(project.summary)}</p>
+        <a class="work-link" href="${esc(project.url)}" target="_blank" rel="noopener"><span class="work-host">${esc(host(project.url))}</span>${ARROW}<span class="visually-hidden"> (opens ${esc(project.name)} in a new tab)</span></a>
+      </article>`).join("\n      ")}
+    </div>
+    ${powered}
   </div>
 </section>`;
 }

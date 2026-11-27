@@ -21,6 +21,17 @@ Bila Matata ("without the hassle" in Swahili) is a Kenyan AI, software developme
 
 Small and medium businesses, organisations and founders across Kenya, and clients abroad. Zaina suits any business that gets many enquiries: hotels, lodges and villas; restaurants, bars and cafés; salons, spas and barbers; clinics, dental and physiotherapy practices; shops and online sellers; schools and training centres; property managers; consultants and professional firms.
 
+## Work we've built
+
+Live websites and platforms the studio designed and built, which anyone can open:
+
+- **Happyfine Wholesalers** (https://happyfinewholesalers.co.ke): an online wholesale and retail shop with bulk and single-unit prices across household and commercial goods, built for fast ordering on a phone.
+- **Channah Cake House** (https://channahcakes.co.ke): a branded showcase and custom order website for a cake house, with signature cakes, celebration galleries and direct enquiries.
+- **EWAMA Properties Ltd** (https://ewamaproperties.com): a corporate real estate website that presents property listings, builds buyer trust and captures investor and tenant leads.
+- **Tembea Bila Matata** (https://tembeabilamatata.com): a multi-vendor platform for verified stays and local services on the Kenyan coast.
+
+They're shown on the home page under "Selected work built by our studio". Our guides for business owners (answering customers after hours, QR menus, website costs, WhatsApp bookings and M-Pesa, and AI receptionists compared with chatbots) are on the blog at https://bilamatata.com/blog.
+
 ## Where we work
 
 Everywhere in Kenya, and online worldwide. Most set-ups are done remotely: a call, your price list or menu and your logo, and we do the rest, so it makes no difference whether your business is in Nairobi, on the coast, in the Rift Valley, in Western Kenya or abroad. Printed QR codes and table cards come as print-ready files for any local printer; we can also print and deliver them as a separate service.

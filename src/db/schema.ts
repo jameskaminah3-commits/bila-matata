@@ -71,6 +71,8 @@ export const businesses = pgTable("businesses", {
   tier: text("tier").$type<BusinessTier>().notNull().default("full"),
   /** Whether this business may be paid through a subaccount of the platform's account (migration 0019). Off unless the studio turns it on: customers pay the business's own account. */
   platformPayments: boolean("platform_payments").notNull().default(false),
+  /** Shown on bilamatata.com under "Businesses powered by Zaina" (migration 0047). Off until the studio turns it on, with the business's agreement. */
+  featuredOnStudio: boolean("featured_on_studio").notNull().default(false),
   publicKey: text("public_key").notNull(),
   allowedOrigins: text("allowed_origins").array().notNull().default([]),
   timeZone: text("time_zone").notNull().default("Africa/Nairobi"),

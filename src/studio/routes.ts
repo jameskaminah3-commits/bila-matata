@@ -7,6 +7,7 @@
 //   GET  /privacy, /data-deletion  the privacy section of /terms (the addresses Meta's app settings ask for)
 //   GET  /site/site.css, /site/site.js, /site/favicon.svg, /site/og.png, /site/og-zaina.png
 //   GET  /robots.txt, /sitemap.xml
+//   GET  /blog, /blog/<slug>, /blog/feed.xml   the articles
 //
 //   GET  /pay                      find an invoice by its reference
 //   GET  /pay/find?ref=…           → the invoice's page
@@ -62,6 +63,9 @@ import { requestTopic } from "./services.ts";
 import { renderStart, renderStartThanks } from "./start-pages.ts";
 import { ZAINA_FACE_SVG } from "../brand/zaina-face.ts";
 import { SITE_SCRIPT, SITE_STYLES } from "./site-css.ts";
+import { featuredBusinesses } from "./featured.ts";
+import { articleBySlug } from "./blog/articles.ts";
+import { articlesByDate, renderArticle, renderBlogIndex, renderFeed } from "./blog/pages.ts";
 
 /** The site's pages run only the site's own scripts and styles; forms go to the site, then on to Paystack. */
 const SITE_CSP = [
@@ -133,9 +137,14 @@ export function registerStudioRoutes(app: Express, config: PlatformConfig): void
   };
 
   // ── The site ─────────────────────────────────────────────────────────
-  app.get("/", (req: Request, res: Response) => {
-    pageHeaders(res, { cache: true, index: true });
-    res.type("html").send(renderHome(pageOf(req)));
+  app.get("/", async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      pageHeaders(res, { cache: true, index: true });
+      const base = config.publicBaseUrl ?? `${req.protocol}://${req.get("host")}`;
+      res.type("html").send(renderHome({ ...pageOf(req), featured: await featuredBusinesses(base) }));
+    } catch (error) {
+      next(error);
+    }
   });
   app.get(["/privacy", "/data-deletion"], (_req: Request, res: Response) => res.redirect(301, "/terms#privacy"));
   app.get("/terms", (req: Request, res: Response) => {
@@ -175,12 +184,33 @@ export function registerStudioRoutes(app: Express, config: PlatformConfig): void
   });
   app.get("/sitemap.xml", (req: Request, res: Response) => {
     const base = baseUrlOf(req);
+    const newest = articlesByDate()[0];
+    const pages: Array<[string, string | null]> = [
+      ["/", null], ["/blog", newest ? newest.updated ?? newest.published : null], ["/start", null], ["/terms", null], ["/pay", null],
+      ...articlesByDate().map((article): [string, string] => [`/blog/${article.slug}`, article.updated ?? article.published]),
+    ];
     res.setHeader("Cache-Control", "public, max-age=3600");
     res.type("application/xml").send(`<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-${["/", "/start", "/terms", "/pay"].map((path) => `  <url><loc>${base}${path}</loc></url>`).join("\n")}
+${pages.map(([path, modified]) => `  <url><loc>${base}${path}</loc>${modified ? `<lastmod>${modified}</lastmod>` : ""}</url>`).join("\n")}
 </urlset>
 `);
+  });
+
+  // ── The blog: guides that bring owners to the studio from search ──────
+  app.get("/blog", (req: Request, res: Response) => {
+    pageHeaders(res, { cache: true, index: true });
+    res.type("html").send(renderBlogIndex(pageOf(req)));
+  });
+  app.get("/blog/feed.xml", (req: Request, res: Response) => {
+    res.setHeader("Cache-Control", "public, max-age=3600");
+    res.type("application/rss+xml").send(renderFeed(baseUrlOf(req)));
+  });
+  app.get("/blog/:slug", (req: Request, res: Response, next: NextFunction) => {
+    const article = articleBySlug(String(req.params.slug));
+    if (!article) return next();
+    pageHeaders(res, { cache: true, index: true });
+    res.type("html").send(renderArticle(pageOf(req), article));
   });
 
   // ── Starting something: a Zaina plan or a project ────────────────────

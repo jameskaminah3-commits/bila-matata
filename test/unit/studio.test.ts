@@ -128,7 +128,7 @@ test("the home page carries the agreed offer: headline, navigation, both plans, 
   assert.match(html, /<h1>Run Your Business <em>Without the Hassle\.<\/em><\/h1>/);
   assert.match(words, /24\/7 AI sales & booking concierges, custom web & mobile apps, AI automation, and data-backed research that help businesses capture more leads and scale effortlessly\./);
   const nav = /<nav class="nav"[\s\S]*?<\/nav>/.exec(html)![0];
-  assert.deepEqual([...nav.matchAll(/<a [^>]*>([^<]+)<\/a>/g)].map((match) => match[1]), ["Zaina AI", "Services", "Pricing", "Client Login", "Pay Invoice", "Contact"]);
+  assert.deepEqual([...nav.matchAll(/<a [^>]*>([^<]+)<\/a>/g)].map((match) => match[1]), ["Zaina AI", "Services", "Pricing", "Blog", "Client Login", "Pay Invoice", "Contact"]);
   assert.match(nav, /href="\/app\/"/);
   assert.match(nav, /href="\/pay"/);
   assert.match(words, /Try Zaina AI Live/);
@@ -255,7 +255,9 @@ test("public pages, the price list and the studio's knowledge describe a softwar
     invoice: renderInvoicePage(PAGE, { invoice: invoice(), message: null, email: "", testMode: false, available: true, waiting: false }),
   };
   for (const [name, html] of Object.entries(pages)) assert.doesNotMatch(html, banned, name);
-  assert.doesNotMatch(renderHome(PAGE), neverNamed, "home");
+  // The studio never presents itself as a travel business; the one exception is its client work (Tembea Bila Matata is a travel platform it built).
+  const withoutWork = renderHome(PAGE).replace(/<section class="band alt" id="work"[\s\S]*?<\/section>/, "");
+  assert.doesNotMatch(withoutWork, neverNamed, "home");
   assert.match(text(renderHome(PAGE)), /for hotels, lodges, villas and stays/i, "the home page speaks to hospitality");
   const knowledge = path.join(REPO, "knowledge", STUDIO.businessId);
   const files = readdirSync(knowledge);
@@ -344,4 +346,18 @@ test("the studio's price list says what the site shows, so its Zaina quotes the 
   }
   assert.deepEqual([seeded("Menu plan"), seeded("Menu plan set-up")], [MENU_PLAN.monthlyMinor, MENU_PLAN.setupMinor]);
   for (const service of STUDIO_SERVICES) assert.equal(seeded(service.title.replace(/ & /g, " and ").replace(/^(\w)(.*)$/, (_, a: string, b: string) => a + b.toLowerCase())), service.fromMinor, service.title);
+});
+
+test("the home page shows the studio's live work, and only the businesses the studio chose to feature", async () => {
+  const { STUDIO_WORK } = await import("../../src/studio/home-sections.ts");
+  const html = renderHome(PAGE);
+  const work = /<section class="band alt" id="work"[\s\S]*?<\/section>/.exec(html)![0];
+  assert.ok(html.indexOf('id="services"') < html.indexOf('id="work"') && html.indexOf('id="work"') < html.indexOf('id="how"'), "after the services, before how it works");
+  assert.match(work, /<h2 id="work-title">Selected work built by our studio<\/h2>/);
+  for (const project of STUDIO_WORK) assert.match(work, new RegExp(`<a class="work-link" href="${project.url.replace(/[.]/g, "\\.")}" target="_blank" rel="noopener"><span class="work-host">`), project.name);
+  assert.deepEqual(STUDIO_WORK.map((project) => project.url), ["https://happyfinewholesalers.co.ke", "https://channahcakes.co.ke", "https://ewamaproperties.com", "https://tembeabilamatata.com"]);
+  assert.doesNotMatch(work, /Businesses powered by Zaina/, "nothing featured: no row at all");
+  const featured = renderHome({ ...PAGE, featured: [{ id: "amani", name: "Amani Hair <Studio>", tagline: "Hair in Nyali", logoUrl: null, url: "https://amani.bilamatata.com/" }] });
+  assert.match(featured, /<p class="powered-label">Businesses powered by Zaina<\/p>/);
+  assert.match(featured, /<a href="https:\/\/amani\.bilamatata\.com\/" target="_blank" rel="noopener"><span class="powered-mark" aria-hidden="true">AH<\/span><span><strong>Amani Hair &lt;Studio&gt;<\/strong><small>Hair in Nyali<\/small>/);
 });

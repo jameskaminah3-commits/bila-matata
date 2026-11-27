@@ -8,9 +8,11 @@
 import { formatMoney, STUDIO, whatsappLink } from "./brand.ts";
 import { renderDemo } from "./demo.ts";
 import { MENU_PLAN, PLANS } from "./plans.ts";
+import type { FeaturedBusiness } from "./featured.ts";
+import { articlesByDate, longDate, readMinutes } from "./blog/articles.ts";
 import { SITE_ASSETS_VERSION } from "./site-css.ts";
 import { TITLE_FONTS } from "../frontdoor/title-fonts.ts";
-import { breakEvenBookings, CALC_PRESETS, homeFaq, renderCalculator, renderFaq, renderHeroCard, renderHospitality, renderIndustryPicker, renderMeetZaina, renderReach, renderStickyCta, renderValueTable } from "./home-sections.ts";
+import { breakEvenBookings, CALC_PRESETS, homeFaq, renderCalculator, renderFaq, renderHeroCard, renderHospitality, renderIndustryPicker, renderMeetZaina, renderReach, renderStickyCta, renderValueTable, renderWork } from "./home-sections.ts";
 import { STUDIO_SERVICES, type StudioServiceId } from "./services.ts";
 
 export const esc = (value: unknown) => String(value ?? "").replace(/[&<>"']/g, (char) => (
@@ -37,12 +39,14 @@ const ICONS = {
 export type SitePage = {
   /** The site's own address, without a trailing slash: for canonical links. Null when it isn't known. */
   baseUrl: string | null;
+  /** The home page's "Businesses powered by Zaina": the businesses the studio turned on in /admin. */
+  featured?: FeaturedBusiness[];
 };
 
 const PROJECT_MESSAGE = "Hello Bila Matata, I'd like to start a project. Here's what I need:";
 const ZAINA_MESSAGE = "Hello Bila Matata, I'd like Zaina AI for my business.";
 
-function head(options: { title: string; description: string; path: string; baseUrl: string | null; index?: boolean; extra?: string; image?: string }): string {
+function head(options: { title: string; description: string; path: string; baseUrl: string | null; index?: boolean; extra?: string; image?: string; article?: { published: string; modified: string; section: string } }): string {
   const canonical = options.baseUrl ? `${options.baseUrl}${options.path}` : null;
   return `<!doctype html>
 <html lang="en">
@@ -54,20 +58,22 @@ function head(options: { title: string; description: string; path: string; baseU
 ${options.index === false ? '<meta name="robots" content="noindex">' : ""}
 ${canonical ? `<link rel="canonical" href="${esc(canonical)}">` : ""}
 <meta property="og:site_name" content="${esc(STUDIO.name)}">
-<meta property="og:type" content="website">
+<meta property="og:type" content="${options.article ? "article" : "website"}">
+${options.article ? `<meta property="article:published_time" content="${esc(options.article.published)}">\n<meta property="article:modified_time" content="${esc(options.article.modified)}">\n<meta property="article:section" content="${esc(options.article.section)}">` : ""}
 <meta property="og:title" content="${esc(options.title)}">
 <meta property="og:description" content="${esc(options.description)}">
 ${canonical ? `<meta property="og:url" content="${esc(canonical)}">` : ""}
 ${options.baseUrl ? `<meta property="og:image" content="${esc(options.baseUrl)}${esc(options.image ?? "/site/og.png")}">\n<meta name="twitter:card" content="summary_large_image">` : ""}
-<meta name="theme-color" content="#0e5f58">
+<meta name="theme-color" content="#4a3ae0">
 <link rel="icon" href="/site/favicon.svg" type="image/svg+xml">
-<link rel="preload" href="/c-assets/title-classic.woff2?v=${TITLE_FONTS.classic.version}" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/c-assets/title-modern.woff2?v=${TITLE_FONTS.modern.version}" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/site/site.css?v=${SITE_ASSETS_VERSION}">
+<link rel="alternate" type="application/rss+xml" title="${esc(STUDIO.name)}: articles" href="/blog/feed.xml">
 ${options.extra ?? ""}
 </head>`;
 }
 
-function header(current: "home" | "terms" | "pay" | "start"): string {
+function header(current: "home" | "terms" | "pay" | "start" | "blog"): string {
   const home = current === "home" ? "" : "/";
   return `<a class="skip" href="#main">Skip to the content</a>
 <header class="site-header">
@@ -78,6 +84,7 @@ function header(current: "home" | "terms" | "pay" | "start"): string {
       <a href="${home}#zaina">Zaina AI</a>
       <a href="${home}#services">Services</a>
       <a href="${home}#pricing">Pricing</a>
+      <a href="/blog"${current === "blog" ? ' aria-current="page"' : ""}>Blog</a>
       <a href="/app/">Client Login</a>
       <a href="/pay"${current === "pay" ? ' aria-current="page"' : ""}>Pay Invoice</a>
       <a class="nav-cta" href="${home}#contact">Contact</a>
@@ -91,6 +98,7 @@ function footer(): string {
   <div class="wrap">
     <p>Serving businesses across Kenya and globally · WhatsApp/Call: <a href="${esc(whatsappLink("Hello Bila Matata,"))}" rel="noopener">${esc(STUDIO.phoneDisplay)}</a> · Email: <a href="mailto:${esc(STUDIO.email)}">${esc(STUDIO.email)}</a></p>
     <nav aria-label="Footer">
+      <a href="/blog">Blog</a>
       <a href="/terms">Terms and privacy</a>
       <a href="/pay">Pay an invoice</a>
       <a href="/app/">Client login</a>
@@ -319,7 +327,9 @@ ${renderCalculator({ starter: PLANS[0].monthlyMinor, full: PLANS[1].monthlyMinor
   </div>
 </section>
 
-<section class="band alt" id="how" aria-labelledby="how-title">
+${renderWork(page.featured)}
+
+<section class="band" id="how" aria-labelledby="how-title">
   <div class="wrap">
     <div class="section-head">
       <p class="eyebrow">How it works</p>
@@ -335,6 +345,26 @@ ${renderCalculator({ starter: PLANS[0].monthlyMinor, full: PLANS[1].monthlyMinor
 </section>
 
 ${renderFaq()}
+
+<section class="band" id="blog" aria-labelledby="blog-title">
+  <div class="wrap">
+    <div class="section-head section-head-row">
+      <div>
+        <p class="eyebrow">From the blog</p>
+        <h2 id="blog-title">Guides for growing your business</h2>
+      </div>
+      <a class="btn btn-ghost" href="/blog">All articles</a>
+    </div>
+    <div class="post-grid">
+      ${articlesByDate().slice(0, 3).map((article) => `<article class="post-card">
+        <p class="post-meta"><span class="post-tag">${esc(article.category)}</span><span>${readMinutes(article)} min read</span></p>
+        <h3><a href="/blog/${esc(article.slug)}">${esc(article.title)}</a></h3>
+        <p>${esc(article.description)}</p>
+        <p class="post-date">${esc(longDate(article.published))}</p>
+      </article>`).join("\n      ")}
+    </div>
+  </div>
+</section>
 
 <section class="band" id="contact" aria-labelledby="contact-title">
   <div class="wrap">
@@ -530,6 +560,6 @@ ${footer()}
 }
 
 /** The parts every studio page shares, for the payment pages. */
-export const siteParts = { head, header, footer, ICONS };
+export const siteParts = { head, header, footer, ICONS, zainaEmbed: () => ZAINA_EMBED };
 
-export const FAVICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="9" fill="#0e5f58"/><path fill="#fff" d="M9 9.500h14a2.500 2.500 0 0 1 2.500 2.500v7a2.500 2.500 0 0 1-2.500 2.500h-6.200L12 25.300v-3.800H9A2.500 2.500 0 0 1 6.500 19v-7A2.500 2.500 0 0 1 9 9.500Z"/><path fill="#0f766e" d="M11 13.250h10v1.600H11zm0 3.400h6.500v1.600H11z"/></svg>`;
+export const FAVICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="9" fill="#4a3ae0"/><path fill="#fff" d="M9 9.500h14a2.500 2.500 0 0 1 2.500 2.500v7a2.500 2.500 0 0 1-2.500 2.500h-6.200L12 25.300v-3.800H9A2.500 2.500 0 0 1 6.500 19v-7A2.500 2.500 0 0 1 9 9.500Z"/><path fill="#0f766e" d="M11 13.250h10v1.600H11zm0 3.400h6.500v1.600H11z"/></svg>`;

@@ -32,6 +32,7 @@ type Overview = {
     business_type: string;
     tier: Tier;
     platform_payments?: boolean;
+    featured_on_studio?: boolean;
     status: "onboarding" | "active" | "paused";
     tokens_today: number;
     daily_token_cap: number | null;
@@ -303,6 +304,7 @@ function SetPlan(props: { business: Business; current: string | null; plans: Pla
   const [choice, setChoice] = useState<string>(props.current ?? "");
   const [tier, setTier] = useState<Tier>(props.business.tier);
   const [platformPayments, setPlatformPayments] = useState(props.business.platform_payments === true);
+  const [featured, setFeatured] = useState(props.business.featured_on_studio === true);
   const integration = useLoad(() => api<{ enabled: boolean; connected: boolean }>("GET", `/v1/platform/businesses/${props.business.id}/integration`), [props.business.id]);
   const [connect, setConnect] = useState<boolean | null>(null);
   useEffect(() => { if (integration.data) setConnect(integration.data.enabled); }, [integration.data]);
@@ -315,7 +317,7 @@ function SetPlan(props: { business: Business; current: string | null; plans: Pla
         onSubmit={async (event) => {
           event.preventDefault();
           await action.run(async () => {
-            await api("PATCH", `/v1/platform/businesses/${props.business.id}`, { ...(plan ? { plan_id: plan.id } : { tier }), ...(platformPayments !== (props.business.platform_payments === true) ? { platform_payments: platformPayments } : {}) });
+            await api("PATCH", `/v1/platform/businesses/${props.business.id}`, { ...(plan ? { plan_id: plan.id } : { tier }), ...(featured !== (props.business.featured_on_studio === true) ? { featured_on_studio: featured } : {}), ...(platformPayments !== (props.business.platform_payments === true) ? { platform_payments: platformPayments } : {}) });
             if (connect !== null && integration.data && connect !== integration.data.enabled) await api("PATCH", `/v1/platform/businesses/${props.business.id}/integration`, { enabled: connect });
             props.onSaved(plan ? `${props.business.name} is on ${plan.name} (${TIER_NAMES[plan.tier]}). Its invoices go out by themselves.` : `${props.business.name} is on the ${TIER_NAMES[tier]} tier.`);
           });
@@ -339,6 +341,8 @@ function SetPlan(props: { business: Business; current: string | null; plans: Pla
         <p className="muted small">{TIER_HELP[plan?.tier ?? tier]}</p>
         <label className="check"><input type="checkbox" checked={platformPayments} onChange={(event) => setPlatformPayments(event.target.checked)} /><span>Let this business be paid through our payment account (a subaccount)</span></label>
         <p className="muted small">Leave this off: a business's customers pay into its own account, and Zaina never collects money for it. Turn it on only for a business that can't open an account of its own.</p>
+        <label className="check"><input type="checkbox" checked={featured} onChange={(event) => setFeatured(event.target.checked)} /><span>Show on bilamatata.com under "Businesses powered by Zaina"</span></label>
+        <p className="muted small">Only with the business's agreement. It shows its name, logo, line and a link to its page, while it's live and on a plan with Zaina.</p>
         {connect !== null ? (
           <>
             <label className="check"><input type="checkbox" checked={connect} onChange={(event) => setConnect(event.target.checked)} /><span>Let this business connect its own system (shop, booking system or back office){integration.data?.connected ? " · connected" : ""}</span></label>

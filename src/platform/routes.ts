@@ -43,6 +43,7 @@ import { hashPassword, passwordProblem } from "../staff/passwords.ts";
 import { signals } from "./platform-state.ts";
 import { WEBHOOK_PATH } from "../channels/whatsapp/routes.ts";
 import { ownerPool } from "../db/platform-db.ts";
+import { setFeaturedOnStudio } from "../studio/featured.ts";
 
 export const DEFAULT_DAILY_TOKEN_CAP = 5_000_000;
 const ADMIN_AS_OWNER = "That's a Bila Matata admin's account. Use the business owner's own email: admins already reach every business from Bila Matata → Businesses.";
@@ -68,6 +69,7 @@ export function registerPlatformRoutes(app: Express, config: PlatformConfig): vo
           business_type: business.businessType,
           tier: business.tier,
           platform_payments: business.platformPayments,
+          featured_on_studio: business.featuredOnStudio,
           public_key: business.publicKey,
           allowed_origins: business.allowedOrigins,
           time_zone: business.timeZone,
@@ -92,6 +94,12 @@ export function registerPlatformRoutes(app: Express, config: PlatformConfig): vo
         if (typeof req.body.platform_payments !== "boolean") return res.status(400).json({ error: "invalid_platform_payments", message: "platform_payments is true or false." });
         await setPlatformPayments(business.id, req.body.platform_payments);
         if (req.body?.status === undefined && req.body?.plan_id === undefined && req.body?.tier === undefined) return res.json({ id: business.id, status: business.status, platform_payments: req.body.platform_payments });
+      }
+      // Shown on bilamatata.com under "Businesses powered by Zaina": only once the business has agreed.
+      if (req.body?.featured_on_studio !== undefined) {
+        if (typeof req.body.featured_on_studio !== "boolean") return res.status(400).json({ error: "invalid_featured_on_studio", message: "featured_on_studio is true or false." });
+        await setFeaturedOnStudio(business.id, req.body.featured_on_studio);
+        if (req.body?.status === undefined && req.body?.plan_id === undefined && req.body?.tier === undefined) return res.json({ id: business.id, status: business.status, featured_on_studio: req.body.featured_on_studio });
       }
       // What the business gets: a plan (its tier comes with it, and its invoices go out by themselves), or the tier alone.
       const planId = req.body?.plan_id;
@@ -168,6 +176,7 @@ export function registerPlatformRoutes(app: Express, config: PlatformConfig): vo
           working_type: workingType(business),
           tier: business.tier,
           platform_payments: business.platformPayments,
+          featured_on_studio: business.featuredOnStudio,
           status: business.status,
           tokens_today: Number(row.tokens_today ?? 0),
           daily_token_cap: business.dailyTokenCap,
