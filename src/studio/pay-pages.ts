@@ -9,6 +9,7 @@
 import { formatMoney, STUDIO, whatsappLink } from "./brand.ts";
 import { categoryLabels, type StudioInvoice } from "./invoices.ts";
 import { esc, siteParts, type SitePage } from "./pages.ts";
+import { SITE_ASSETS_VERSION } from "./site-css.ts";
 
 /** Messages a page can show, by the code in its address (?m=…). */
 export const PAY_MESSAGES: Record<string, { tone: "ok" | "error" | "info"; text: string }> = {
@@ -48,7 +49,7 @@ ${options.body}
   </div>
 </main>
 ${siteParts.footer()}
-<script src="/site/site.js" defer></script>
+<script src="/site/site.js?v=${SITE_ASSETS_VERSION}" defer></script>
 </body>
 </html>`;
 }

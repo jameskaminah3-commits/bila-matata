@@ -6,6 +6,7 @@
 
 import { formatMoney, STUDIO, whatsappLink } from "./brand.ts";
 import { esc, siteParts, type SitePage } from "./pages.ts";
+import { SITE_ASSETS_VERSION } from "./site-css.ts";
 import type { ProjectRequest, RequestProblems } from "./requests.ts";
 import { REQUEST_TOPICS, requestTopic, STUDIO_SERVICES } from "./services.ts";
 
@@ -25,7 +26,7 @@ ${options.body}
   </div>
 </main>
 ${siteParts.footer()}
-<script src="/site/site.js" defer></script>
+<script src="/site/site.js?v=${SITE_ASSETS_VERSION}" defer></script>
 </body>
 </html>`;
 

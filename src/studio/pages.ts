@@ -7,6 +7,8 @@
 
 import { formatMoney, STUDIO, whatsappLink } from "./brand.ts";
 import { renderDemo } from "./demo.ts";
+import { SITE_ASSETS_VERSION } from "./site-css.ts";
+import { TITLE_FONTS } from "../frontdoor/title-fonts.ts";
 import { breakEvenBookings, CALC_PRESETS, renderCalculator, renderHeroCard, renderHospitality, renderIndustryPicker, renderMeetZaina, renderStickyCta, renderValueTable } from "./home-sections.ts";
 import { STUDIO_SERVICES, type StudioServiceId } from "./services.ts";
 
@@ -56,9 +58,10 @@ ${canonical ? `<link rel="canonical" href="${esc(canonical)}">` : ""}
 <meta property="og:description" content="${esc(options.description)}">
 ${canonical ? `<meta property="og:url" content="${esc(canonical)}">` : ""}
 ${options.baseUrl ? `<meta property="og:image" content="${esc(options.baseUrl)}${esc(options.image ?? "/site/og.png")}">\n<meta name="twitter:card" content="summary_large_image">` : ""}
-<meta name="theme-color" content="#0f766e">
+<meta name="theme-color" content="#0e5f58">
 <link rel="icon" href="/site/favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="/site/site.css">
+<link rel="preload" href="/c-assets/title-classic.woff2?v=${TITLE_FONTS.classic.version}" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="/site/site.css?v=${SITE_ASSETS_VERSION}">
 ${options.extra ?? ""}
 </head>`;
 }
@@ -215,15 +218,12 @@ ${header("home")}
         <a class="btn btn-primary" href="#zaina" data-open-zaina>${ICONS.chat}Try Zaina AI Live</a>
         <a class="btn btn-ghost" href="${projectLink}" rel="noopener">${ICONS.whatsapp}Start a Project on WhatsApp</a>
       </div>
-      ${renderIndustryPicker()}
-      <p class="hero-note">Meet Zaina, the team member we set up for your business: she answers every enquiry in seconds, and books the sale while you sleep.</p>
-      <ul class="chips" aria-label="At a glance">
+      <ul class="hero-proof" aria-label="At a glance">
         <li>Replies in seconds, day and night</li>
         <li>Answers only from your business</li>
-        <li>No invented prices</li>
-        <li>English and Swahili</li>
-        <li>Website and WhatsApp</li>
+        <li>English and Swahili, on your website and WhatsApp</li>
       </ul>
+      ${renderIndustryPicker()}
     </div>
     ${renderHeroCard()}
   </div>
@@ -392,7 +392,7 @@ ${renderCalculator({ starter: PLANS[0].monthlyMinor, full: PLANS[1].monthlyMinor
 </main>
 ${footer()}
 ${renderStickyCta()}
-<script src="/site/site.js" defer></script>
+<script src="/site/site.js?v=${SITE_ASSETS_VERSION}" defer></script>
 ${ZAINA_EMBED}
 </body>
 </html>`;
@@ -558,7 +558,7 @@ ${header("terms")}
   </div>
 </main>
 ${footer()}
-<script src="/site/site.js" defer></script>
+<script src="/site/site.js?v=${SITE_ASSETS_VERSION}" defer></script>
 </body>
 </html>`;
 }
@@ -566,4 +566,4 @@ ${footer()}
 /** The parts every studio page shares, for the payment pages. */
 export const siteParts = { head, header, footer, ICONS };
 
-export const FAVICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="9" fill="#0f766e"/><path fill="#fff" d="M9 9.500h14a2.500 2.500 0 0 1 2.500 2.500v7a2.500 2.500 0 0 1-2.500 2.500h-6.200L12 25.300v-3.800H9A2.500 2.500 0 0 1 6.500 19v-7A2.500 2.500 0 0 1 9 9.500Z"/><path fill="#0f766e" d="M11 13.250h10v1.600H11zm0 3.400h6.500v1.600H11z"/></svg>`;
+export const FAVICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="9" fill="#0e5f58"/><path fill="#fff" d="M9 9.500h14a2.500 2.500 0 0 1 2.500 2.500v7a2.500 2.500 0 0 1-2.500 2.500h-6.200L12 25.300v-3.800H9A2.500 2.500 0 0 1 6.500 19v-7A2.500 2.500 0 0 1 9 9.500Z"/><path fill="#0f766e" d="M11 13.250h10v1.600H11zm0 3.400h6.500v1.600H11z"/></svg>`;

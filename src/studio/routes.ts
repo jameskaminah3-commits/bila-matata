@@ -61,9 +61,7 @@ import { readRequest, saveRequest } from "./requests.ts";
 import { requestTopic } from "./services.ts";
 import { renderStart, renderStartThanks } from "./start-pages.ts";
 import { ZAINA_FACE_SVG } from "../brand/zaina-face.ts";
-import { DEMO_CSS, DEMO_JS } from "./demo.ts";
-import { HOME_CSS, HOME_JS } from "./home-sections.ts";
-import { SITE_CSS, SITE_JS } from "./site-css.ts";
+import { SITE_SCRIPT, SITE_STYLES } from "./site-css.ts";
 
 /** The site's pages run only the site's own scripts and styles; forms go to the site, then on to Paystack. */
 const SITE_CSP = [
@@ -144,8 +142,8 @@ export function registerStudioRoutes(app: Express, config: PlatformConfig): void
     pageHeaders(res, { cache: true, index: true });
     res.type("html").send(renderTerms(pageOf(req)));
   });
-  app.get("/site/site.css", text("text/css", SITE_CSS + DEMO_CSS + HOME_CSS));
-  app.get("/site/site.js", text("application/javascript", SITE_JS + DEMO_JS + HOME_JS));
+  app.get("/site/site.css", text("text/css", SITE_STYLES));
+  app.get("/site/site.js", text("application/javascript", SITE_SCRIPT));
   app.get("/site/favicon.svg", text("image/svg+xml", FAVICON_SVG, 86400));
   app.get("/site/zaina.svg", text("image/svg+xml", ZAINA_FACE_SVG, 86400));
   app.get("/favicon.ico", (_req: Request, res: Response) => res.redirect(302, "/site/favicon.svg"));
