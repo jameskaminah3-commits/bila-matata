@@ -9,6 +9,9 @@
 //   DELETE …/price-list/:itemId                               manager  remove one
 //   PUT    …/price-list/order { ids: [ … ] }                  manager  the menu's order: sections and items
 //                                                                      as the team arranged them
+//   GET    …/price-list/assistant                             manager  what the menu assistant might be asked first
+//   POST   …/price-list/assistant { text }                    manager  the changes, before → after (nothing is saved)
+//   POST   …/price-list/assistant/apply { changes: [ … ] }    manager  apply them; returns how to undo them
 //   POST   …/price-list/parse { text, currency? }             manager  a pasted list read into items and
 //                                                                      problems, to check (nothing is saved)
 //   POST   …/price-list/import { items: [ … ], replace? }     manager  many at once: an item with the same
@@ -38,7 +41,9 @@ import { refreshFeed } from "./feed.ts";
 import { checkItemPicture, ITEM_PICTURE_MAX_BYTES, readItemPicture, removeItemPicture, saveItemPicture } from "./images.ts";
 import { readSectionPicture, removeSectionPicture, saveSectionPicture, sectionPictureUrls } from "./section-images.ts";
 import { sniffImage } from "../brand/assets.ts";
-import type { EngineOptions } from "../engine/agent.ts";
+import { refusedThinking, thinkingConfigFor, type EngineOptions } from "../engine/agent.ts";
+import { rateLimited } from "../gateway/rate-limit.ts";
+import { applyChanges, ASSISTANT_MAX_CHARS, assistantIdeas, assistantInstructions, editableItems, MENU_ASSISTANT_SCHEMA, previewChanges, readChange, resolveModelChanges } from "./assistant.ts";
 import {
   createPriceItem,
   deletePriceItem,
@@ -274,6 +279,62 @@ export function registerPriceListRoutes(app: Express, secret: string, engine?: E
       if (error instanceof PriceListFull) return res.status(409).json({ error: "too_many", message: error.message });
       throw error;
     }
+  }));
+
+  // ── The menu assistant (assistant.ts): plain words in, exact changes out, applied only when the team says so ──
+  // Each request is a model call: plenty for running a menu, not a tap on repeat.
+  const assistantLimit = rateLimited(secret, "menu-assistant", 60, 3600, (req) => String(req.params.businessId));
+  app.get(`${base}/assistant`, staff, requireBusinessRole("manager"), handle(async (_req, res, businessId) => {
+    res.json({ available: Boolean(engine), ideas: assistantIdeas(await listPriceItems(businessId)) });
+  }));
+
+  app.post(`${base}/assistant`, priceListBody, staff, requireBusinessRole("manager"), assistantLimit, handle(async (req, res, businessId) => {
+    if (!engine) return res.status(503).json({ error: "not_available", message: "The menu assistant isn't available here." });
+    const ask = typeof req.body?.text === "string" ? req.body.text.replace(/\s+/g, " ").trim() : "";
+    if (ask.length < 3) return res.status(400).json({ error: "text_required", message: "Say what to change, like \"Raise the cocktails by 10%\"." });
+    if (ask.length > ASSISTANT_MAX_CHARS) return res.status(400).json({ error: "text_too_long", message: `Keep it under ${ASSISTANT_MAX_CHARS} characters, one change or a few at a time.` });
+    const items = editableItems(await listPriceItems(businessId));
+    if (!items.length) return res.status(409).json({ error: "empty_menu", message: "Add your menu first (snap it or paste it): then tell me what to change." });
+    const name = (await getBusinessSettings(businessId))?.displayName ?? staffOf(req).business!.name;
+    const call = (thinking: boolean) => engine.ai.models.generateContent({
+      model: engine.model,
+      contents: [{ role: "user", parts: [{ text: `<team_request>\n${ask}\n</team_request>` }] }],
+      config: {
+        systemInstruction: assistantInstructions(name, items),
+        responseMimeType: "application/json",
+        responseSchema: MENU_ASSISTANT_SCHEMA,
+        temperature: 0,
+        abortSignal: AbortSignal.timeout(30_000),
+        ...(thinking ? thinkingConfigFor(engine.model, engine.thinking ?? "low") ?? {} : {}),
+      },
+    });
+    let raw: unknown;
+    try {
+      const thinking = Boolean(thinkingConfigFor(engine.model, engine.thinking ?? "low"));
+      let response;
+      try {
+        response = await call(thinking);
+      } catch (error) {
+        if (!refusedThinking(engine.model, error, thinking)) throw error;
+        response = await call(false);
+      }
+      raw = JSON.parse(response.text ?? "{}");
+    } catch (error) {
+      console.error(`[menu assistant] ${businessId} failed:`, error instanceof Error ? error.message : error);
+      return res.status(502).json({ error: "not_read", message: "That didn't go through just now. Try again in a moment." });
+    }
+    const resolved = resolveModelChanges(raw, items);
+    const { previews, skipped } = previewChanges(resolved.changes, items);
+    res.json({ summary: resolved.summary, question: previews.length ? null : resolved.question, previews, skipped, dropped: resolved.dropped });
+  }));
+
+  app.post(`${base}/assistant/apply`, priceListBody, staff, requireBusinessRole("manager"), handle(async (req, res, businessId, userId) => {
+    const list = Array.isArray(req.body?.changes) ? req.body.changes : null;
+    if (!list || !list.length || list.length > 120) return res.status(400).json({ error: "changes_required", message: "Choose the changes to apply." });
+    const changes = list.map(readChange);
+    if (changes.some((change: unknown) => !change)) return res.status(400).json({ error: "invalid_change", message: "One of those changes isn't one the assistant makes." });
+    const result = await applyChanges(businessId, changes, userId);
+    res.json({ ...result, items: (await listPriceItems(businessId)).map(publicPriceItem) });
   }));
 
   app.put(`${base}/order`, priceListBody, staff, requireBusinessRole("manager"), handle(async (req, res, businessId) => {

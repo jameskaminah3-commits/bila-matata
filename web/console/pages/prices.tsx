@@ -8,7 +8,7 @@
 // Each item says whether it's in stock: Zaina won't take an order for one
 // that's out.
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api, apiUpload, businessPath } from "../api.ts";
 import { bannerPhoto, shrinkPhoto, squarePhoto } from "../photo.ts";
 import { atLeast, type Role } from "../types.ts";
@@ -23,7 +23,7 @@ type PriceItem = {
 type Feed = { url: string; daily: boolean; last_read_at: string | null; last_items: number; last_skipped: number; last_error: string | null };
 type Parsed = { items: Array<{ section: string | null; name: string; description: string | null; price: string; price_max: string | null; currency: "KES" | "USD"; unit: string | null }>; problems: Array<{ line: number; text: string; reason: string }> };
 
-export function PricesPage(props: { businessId: string; role: Role; businessType: string | null; menuOnly?: boolean }) {
+export function PricesPage(props: { businessId: string; role: Role; businessType: string | null; kind?: string | null; menuOnly?: boolean }) {
   const list = useLoad(() => api<{ items: PriceItem[] }>("GET", businessPath(props.businessId, "/price-list")), [props.businessId]);
   // Each section's banner picture on the business's page (src/prices/section-images.ts).
   const banners = useLoad(() => api<{ pictures: Record<string, string> }>("GET", businessPath(props.businessId, "/catalogue-sections")), [props.businessId]);
@@ -54,6 +54,7 @@ export function PricesPage(props: { businessId: string; role: Role; businessType
           {items.length > 1 ? <Button kind="ghost" onClick={() => setArranging(true)}><Icon name="up" size={15} /> Arrange the order</Button> : null}
         </div>
       ) : null}
+      {manager && items.length > 0 ? <MenuAssistant businessId={props.businessId} menu={props.kind === "restaurant" || props.menuOnly === true} onChanged={() => void list.reload()} /> : null}
       {manager && !props.menuOnly ? <FeedCard businessId={props.businessId} onChanged={() => void list.reload()} /> : null}
       <ErrorLine error={list.error} />
       <Message message={action.message} />
@@ -511,6 +512,134 @@ function ArrangeMenu(props: { businessId: string; zaina: boolean; items: PriceIt
           await props.onSaved();
         })}>Save this order</Button>
       </div>
+    </section>
+  );
+}
+
+type AssistantChange = Record<string, unknown> & { op: string };
+type AssistantPreview = { change: AssistantChange; kind: string; label: string; before: string | null; after: string };
+type AssistantPlan = { summary: string; question: string | null; previews: AssistantPreview[]; skipped: string[]; dropped: number };
+
+/**
+ * The menu assistant: the team says what to change in its own words, sees
+ * every change before → after, applies the ones it wants, and can undo them
+ * in one tap. Nothing changes until Apply.
+ */
+function MenuAssistant(props: { businessId: string; menu: boolean; onChanged: () => void }) {
+  const info = useLoad(() => api<{ available: boolean; ideas: string[] }>("GET", businessPath(props.businessId, "/price-list/assistant")), [props.businessId]);
+  const [text, setText] = useState("");
+  const [plan, setPlan] = useState<AssistantPlan | null>(null);
+  const [chosen, setChosen] = useState<boolean[]>([]);
+  const [undo, setUndo] = useState<{ changes: AssistantChange[]; note: string } | null>(null);
+  const [state, setState] = useState<"idle" | "thinking" | "applying">("idle");
+  const [error, setError] = useState<string | null>(null);
+  const input = useRef<HTMLInputElement>(null);
+  useEffect(() => { if (plan?.question) input.current?.focus(); }, [plan]);
+  if (!info.data?.available) return null;
+  const name = props.menu ? "Menu assistant" : "Catalogue assistant";
+
+  const ask = async (words: string) => {
+    const request = words.replace(/\s+/g, " ").trim();
+    if (request.length < 3 || state !== "idle") return;
+    setText(request);
+    setState("thinking");
+    setError(null);
+    setUndo(null);
+    setPlan(null);
+    try {
+      const result = await api<AssistantPlan>("POST", businessPath(props.businessId, "/price-list/assistant"), { text: request });
+      setPlan(result);
+      setChosen(result.previews.map(() => true));
+    } catch (problem) {
+      setError(problem instanceof Error ? problem.message : "That didn't go through. Try again in a moment.");
+    } finally {
+      setState("idle");
+    }
+  };
+  const apply = async (changes: AssistantChange[], undoing: boolean) => {
+    if (!changes.length) return;
+    setState("applying");
+    setError(null);
+    try {
+      const result = await api<{ applied: number; skipped: string[]; undo: AssistantChange[] }>("POST", businessPath(props.businessId, "/price-list/assistant/apply"), { changes });
+      props.onChanged();
+      setPlan(null);
+      if (undoing) {
+        setUndo(null);
+        setText("");
+        setError(result.skipped.length ? `Put back, except: ${result.skipped.join("; ")}.` : null);
+      } else {
+        const count = `${result.applied} change${result.applied === 1 ? "" : "s"}`;
+        setUndo({ changes: result.undo, note: `${count} applied. Live on your ${props.menu ? "menu" : "page"} now.${result.skipped.length ? ` Not applied: ${result.skipped.join("; ")}.` : ""}` });
+        setText("");
+      }
+    } catch (problem) {
+      setError(problem instanceof Error ? problem.message : "That didn't go through. Try again in a moment.");
+    } finally {
+      setState("idle");
+    }
+  };
+  const picked = plan ? plan.previews.filter((_, index) => chosen[index]).map((preview) => preview.change) : [];
+
+  return (
+    <section className="menu-ai" aria-labelledby="menu-ai-title">
+      <div className="menu-ai-head">
+        <span className="menu-ai-mark" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M12 2.5l1.9 5.6 5.6 1.9-5.6 1.9L12 17.5l-1.9-5.6L4.5 10l5.6-1.9z" /><path d="M18.5 15l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z" opacity=".7" /></svg></span>
+        <div>
+          <h2 id="menu-ai-title">{name}</h2>
+          <p>Say what to change, in your own words. You'll see every change before anything moves.</p>
+        </div>
+      </div>
+      <form className="menu-ai-ask" onSubmit={(event) => { event.preventDefault(); void ask(text); }}>
+        <input ref={input} value={text} maxLength={1500} onChange={(event) => setText(event.target.value)} placeholder={props.menu ? "e.g. Raise the cocktails by 10%, or: the tilapia is finished tonight" : "e.g. Raise everything in Extras by 10%"} aria-label={`Tell the ${name.toLowerCase()} what to change`} disabled={state !== "idle"} />
+        <button type="submit" className="menu-ai-go" disabled={state !== "idle" || text.trim().length < 3}>{state === "thinking" ? "Preparing…" : "Prepare changes"}</button>
+      </form>
+      {!plan && !undo && state === "idle" && info.data.ideas.length ? (
+        <div className="menu-ai-ideas" role="group" aria-label="Ideas">
+          {info.data.ideas.map((idea) => <button type="button" key={idea} className="menu-ai-idea" onClick={() => void ask(idea)}>{idea}</button>)}
+        </div>
+      ) : null}
+      {state === "thinking" ? <p className="menu-ai-working" role="status">Reading your {props.menu ? "menu" : "catalogue"}…</p> : null}
+      {error ? <p className="menu-ai-error" role="alert">{error}</p> : null}
+      {plan && plan.previews.length === 0 ? (
+        <div className="menu-ai-note" role="status">
+          <p>{plan.question ? <><span className="menu-ai-label">A question first</span>{plan.question}</> : "Nothing to change there: everything already reads that way."}</p>
+          {plan.skipped.length ? <p className="menu-ai-skipped">{plan.skipped.join(" · ")}</p> : null}
+        </div>
+      ) : null}
+      {plan && plan.previews.length > 0 ? (
+        <div className="menu-ai-plan">
+          {plan.summary ? <p className="menu-ai-summary">{plan.summary}</p> : null}
+          <ul className="menu-ai-changes">
+            {plan.previews.map((preview, index) => (
+              <li key={index} className={chosen[index] ? "" : "off"}>
+                <label>
+                  <input type="checkbox" checked={chosen[index] ?? false} onChange={(event) => setChosen(chosen.map((on, at) => (at === index ? event.target.checked : on)))} />
+                  <span className="menu-ai-row">
+                    <span className="menu-ai-what"><span className="menu-ai-kind">{preview.kind}</span><strong>{preview.label}</strong></span>
+                    <span className={`menu-ai-diff${preview.kind === "Description" || preview.kind === "New dish" ? " long" : ""}`}>
+                      {preview.before ? <><s>{preview.before}</s><span className="menu-ai-arrow" aria-label="becomes">→</span></> : null}
+                      <b>{preview.after}</b>
+                    </span>
+                  </span>
+                </label>
+              </li>
+            ))}
+          </ul>
+          {plan.skipped.length ? <p className="menu-ai-skipped">Left out: {plan.skipped.join(" · ")}</p> : null}
+          <div className="menu-ai-actions">
+            <button type="button" className="menu-ai-go" disabled={!picked.length || state !== "idle"} onClick={() => void apply(picked, false)}>{state === "applying" ? "Applying…" : `Apply ${picked.length} change${picked.length === 1 ? "" : "s"}`}</button>
+            <button type="button" className="menu-ai-quiet" disabled={state !== "idle"} onClick={() => setPlan(null)}>Discard</button>
+          </div>
+        </div>
+      ) : null}
+      {undo ? (
+        <div className="menu-ai-done" role="status">
+          <span className="menu-ai-tick" aria-hidden="true">✓</span>
+          <p>{undo.note}</p>
+          {undo.changes.length ? <button type="button" className="menu-ai-quiet" disabled={state !== "idle"} onClick={() => void apply(undo.changes, true)}>Undo</button> : null}
+        </div>
+      ) : null}
     </section>
   );
 }

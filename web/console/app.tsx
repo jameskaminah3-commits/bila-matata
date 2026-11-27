@@ -371,7 +371,7 @@ function Console(props: { me: Me; route: Route; reloadMe: () => Promise<void> })
   const page = route.page === "platform" ? "platform" : route.page;
   // The business's type decides some pages; a platform admin without a membership asks for it.
   const typeInfo = useLoad(
-    () => (membership?.businessType || !businessId || !role ? Promise.resolve(null) : api<{ business_type: string; status: string; tier?: string }>("GET", businessPath(businessId, "/operations"))),
+    () => (membership?.businessType || !businessId || !role ? Promise.resolve(null) : api<{ business_type: string; status: string; tier?: string; kind?: string }>("GET", businessPath(businessId, "/operations"))),
     [businessId, membership?.businessType, role],
   );
   const businessType = membership?.businessType ?? typeInfo.data?.business_type ?? null;
@@ -456,7 +456,7 @@ function Console(props: { me: Me; route: Route; reloadMe: () => Promise<void> })
   else if (page === "outreach" && businessType !== "custom" && atLeast(role, "manager")) content = <OutreachPage businessId={businessId} />;
   else if (page === "customers" && businessType !== "custom" && atLeast(role, "agent")) content = <CustomersPage businessId={businessId} role={role} customerId={route.id ?? null} />;
   else if (page === "leads" && businessType !== "custom" && atLeast(role, "agent")) content = <LeadsPage businessId={businessId} role={role} onChanged={() => void refreshCounts()} />;
-  else if (page === "prices" && businessType !== "custom") content = <PricesPage businessId={businessId} role={role} businessType={businessType} menuOnly={menuOnly} />;
+  else if (page === "prices" && businessType !== "custom") content = <PricesPage businessId={businessId} role={role} businessType={businessType} kind={membership?.kind ?? typeInfo.data?.kind ?? null} menuOnly={menuOnly} />;
   else if (page === "whats-on" && businessType !== "custom") content = <WhatsOnPage businessId={businessId} role={role} />;
   else if (page === "knowledge") content = <KnowledgePage businessId={businessId} role={role} />;
   else if (page === "reports" && atLeast(role, "manager")) content = <ReportsPage key={route.id ?? "reports"} businessId={businessId} month={route.id ?? null} />;
