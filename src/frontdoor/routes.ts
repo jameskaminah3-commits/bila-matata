@@ -335,6 +335,18 @@ export function registerFrontDoorRoutes(app: Express, config: PlatformConfig): v
         card: settings?.cardDetails ?? null,
         // How guests pay at the place, for the printed table cards and poster.
         pay: settings?.venuePayment ?? null,
+        // What the printed codes look like and say: the page's lettering, its light or dark, what the business is, and whether it chats.
+        print: (() => {
+          const font: TitleFont = settings?.titleFont && TITLE_FONT_KEYS.includes(settings.titleFont) ? settings.titleFont : "classic";
+          return {
+            font_family: TITLE_FONTS[font].family,
+            font_weight: TITLE_FONTS[font].weight,
+            font_url: `/c-assets/title-${font}.woff2?v=${TITLE_FONTS[font].version}`,
+            menu_style: settings?.menuStyle ?? "auto",
+            kind: business.businessType,
+            chat: chatsOnTier(business.tier),
+          };
+        })(),
         contact: { phone: settings?.contactPhoneDisplay ?? settings?.contactPhone ?? null, email: settings?.supportEmail ?? null, website: settings?.websiteUrl ?? null },
         open: settings?.frontDoor !== false,
         // Customers reach it once the business is live.

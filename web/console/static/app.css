@@ -526,61 +526,91 @@ table.lines tr.total th, table.lines tr.total td { font-weight: 700; border-top:
 .print-choice p { margin: 0 0 4px; }
 @media (max-width: 620px) { .door-grid { grid-template-columns: 1fr; justify-items: center; } .door-side { justify-items: start; width: 100%; } .door-qr img { width: 200px; height: 200px; } }
 
-/* What goes to the printer: on screen it is out of sight; on paper it is all there is. */
-.print-root { position: absolute; left: -10000px; top: 0; width: 210mm; --print-brand: #0f766e; color: #111827; background: #ffffff; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+/* What goes to the printer: on screen it is out of sight; on paper it is all there is.
+   Every sheet is one A4 page inside 10mm margins (190 × 277mm), in one of two looks:
+   ivory (a daytime café) or a dark lounge card, the business's colour as the accent. */
+.print-root { position: absolute; left: -10000px; top: 0; width: 190mm;
+  --print-surface: #ffffff; --print-ink: #15130f; --print-muted: #5f5a52; --print-line: #ddd6c8; --print-qr-ground: #ffffff;
+  --print-display: "Print Display", "Playfair Display", Georgia, "Times New Roman", serif;
+  color: var(--print-ink); background: var(--print-surface); font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+.print-root.look-lounge { --print-surface: #121212; --print-ink: #f4efe6; --print-muted: #b8ae9c; --print-line: #3a342a; }
 .print-root p { margin: 0; }
-.print-qr { display: block; image-rendering: pixelated; }
+.print-qr { display: block; width: 100%; height: auto; image-rendering: auto; }
 .print-logo { display: grid; place-items: center; flex: none; overflow: hidden; background: #ffffff; font-weight: 700; }
 .print-logo img { width: 100%; height: 100%; object-fit: contain; display: block; }
-.print-logo.letters { background: var(--print-brand); color: #ffffff; }
-.print-poster { width: 210mm; height: 296mm; display: flex; flex-direction: column; align-items: center; text-align: center; padding-bottom: 14mm; }
-.print-band { width: 100%; display: flex; align-items: center; gap: 7mm; padding: 13mm 16mm; background: var(--print-brand); color: #ffffff; text-align: left; }
-.print-band .print-logo { width: 26mm; height: 26mm; border-radius: 6mm; font-size: 11mm; }
-.print-band .print-logo.letters { background: #ffffff; color: var(--print-brand); }
-.print-band .print-name { font-size: 11mm; font-weight: 750; line-height: 1.1; }
-.print-tagline { font-size: 5mm; opacity: .92; margin-top: 2mm !important; }
-.print-headline { font-size: 17mm; font-weight: 800; letter-spacing: -.02em; margin-top: 16mm !important; line-height: 1.05; }
-.print-sub { font-size: 5.6mm; color: #374151; max-width: 150mm; margin-top: 5mm !important; line-height: 1.4; }
-.print-poster .print-qr { width: 118mm; height: 118mm; margin-top: 11mm; border: 1.2mm solid var(--print-brand); border-radius: 6mm; padding: 3mm; }
-.print-steps { font-size: 4.4mm; color: #374151; margin-top: 9mm !important; }
-.print-address { font-size: 5.2mm; font-weight: 650; margin-top: auto !important; color: var(--print-brand); }
-.print-cards { width: 210mm; height: 296mm; display: grid; grid-template-rows: repeat(2, minmax(0, 1fr)); }
+.print-logo.letters { background: var(--print-accent); color: var(--print-surface); font-family: var(--print-display); }
+.print-name { font-family: var(--print-display); font-weight: var(--print-display-weight, 700); font-synthesis: none; line-height: 1.08; color: var(--print-ink); }
+.print-tagline { font-size: 3.2mm; font-weight: 600; letter-spacing: .12em; text-transform: uppercase; color: var(--print-muted); line-height: 1.35; }
+/* The code in a crisp hairline frame, on white so it always scans, with its caption under it. */
+.print-frame { flex: none; display: grid; justify-items: center; gap: 2.2mm; padding: 4mm 4mm 3mm; border: 1.5px solid var(--print-accent); border-radius: 5mm; background: var(--print-qr-ground); }
+.print-caption { font-size: 11px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase; color: #15130f; line-height: 1; }
+.print-rule { display: block; width: 16mm; height: .5mm; border-radius: .5mm; background: var(--print-accent); }
+.print-pay { display: flex; flex-wrap: wrap; align-items: baseline; gap: 1mm 2.5mm; margin: 0; padding: 2.2mm 3.4mm; border-radius: 3mm; border: 1px solid var(--print-accent); font-size: 3.7mm; color: var(--print-ink); }
+.print-pay b { font-weight: 800; color: var(--print-ink); }
+.print-pay-label { font-size: 3.3mm; font-weight: 700; color: var(--print-accent); }
+.print-pay-name { flex-basis: 100%; font-size: 2.8mm; color: var(--print-muted); }
+.print-powered { font-size: 2.5mm; color: var(--print-muted); }
+
+/* The poster: strictly one page. */
+.print-poster { width: 190mm; height: 277mm; max-height: 277mm; overflow: hidden; break-inside: avoid; page-break-inside: avoid; display: flex; flex-direction: column; align-items: center; text-align: center; padding: 9mm 14mm 6mm; border: 1.5px solid var(--print-accent); border-radius: 4mm; background: var(--print-surface); }
+.print-poster-brand { display: grid; justify-items: center; gap: 2.5mm; }
+.print-poster-brand .print-logo { width: 24mm; height: 24mm; border-radius: 5mm; font-size: 10mm; }
+.print-poster .print-name { font-size: 11mm; }
+.print-poster .print-rule { margin: 5mm 0 0; }
+.print-headline { font-family: var(--print-display); font-weight: var(--print-display-weight, 700); font-synthesis: none; font-size: 13mm; line-height: 1.08; margin-top: 5mm !important; color: var(--print-ink); text-wrap: balance; }
+.print-sub { font-size: 4.3mm; color: var(--print-muted); max-width: 150mm; margin-top: 3mm !important; line-height: 1.4; text-wrap: balance; }
+.print-poster .print-frame { margin-top: 7mm; padding: 5mm 5mm 4mm; }
+.print-poster .print-qr { width: 100mm; height: 100mm; }
+.print-steps { font-size: 3.9mm; color: var(--print-muted); margin-top: 5mm !important; }
+.print-poster .print-pay { justify-content: center; margin-top: 5mm !important; font-size: 4.4mm; padding: 2.6mm 6mm; }
+.print-foot { margin-top: auto; display: grid; gap: 1.5mm; justify-items: center; padding-top: 4mm; }
+.print-address { font-size: 4.6mm; font-weight: 650; color: var(--print-accent); }
+.print-poster .print-powered { font-size: 3mm; }
+
+/* Table cards: two to a page, a cut line between. */
+.print-cards { width: 190mm; height: 277mm; display: grid; grid-template-rows: 1fr 1fr; gap: 5mm; break-inside: avoid; page-break-inside: avoid; position: relative; }
 .print-cards + .print-cards { break-before: page; page-break-before: always; }
-/* A table card: the business's own colour band, the spot, what to do, and the code in a frame. Half an A4 page each. */
-.print-card { display: grid; grid-template-rows: auto 1fr auto; gap: 6mm; padding: 9mm 12mm 7mm; border-bottom: .3mm dashed #9ca3af; overflow: hidden; }
-.print-card:last-child { border-bottom: 0; }
-.print-card-head { display: flex; align-items: center; gap: 5mm; padding: 5mm 7mm; border-radius: 5mm; background: var(--print-brand); color: var(--print-on-brand, #ffffff); }
-.print-card-head .print-logo { width: 16mm; height: 16mm; border-radius: 4mm; font-size: 6.5mm; flex: none; border: .6mm solid #ffffff; }
-.print-card-head .print-name { font-size: 7.5mm; font-weight: 800; line-height: 1.1; }
-.print-card-head .print-tagline { font-size: 3.9mm; line-height: 1.3; margin-top: 1mm !important; opacity: .92; }
+.print-cards::after { content: ""; position: absolute; left: -6mm; right: -6mm; top: 50%; border-top: .25mm dashed #a8a29e; }
+.print-card { display: grid; grid-template-rows: auto 1fr auto; gap: 4mm; padding: 8mm 10mm 6mm; border: 1.5px solid var(--print-accent); border-radius: 4mm; background: var(--print-surface); overflow: hidden; }
+.print-card-head { display: flex; align-items: center; gap: 4mm; padding-bottom: 4mm; border-bottom: 1px solid var(--print-line); }
+.print-card-head .print-logo { width: 15mm; height: 15mm; border-radius: 3.5mm; font-size: 6mm; }
+.print-card-names { display: grid; gap: 1mm; min-width: 0; }
+.print-card .print-name { font-size: 7.5mm; }
+.print-card .print-tagline { font-size: 2.8mm; }
 .print-card-main { display: flex; align-items: center; justify-content: space-between; gap: 8mm; }
-.print-card-copy { display: grid; gap: 5mm; justify-items: start; min-width: 0; }
-.print-spot { font-size: 14mm; font-weight: 900; line-height: 1; text-transform: uppercase; letter-spacing: .01em; color: #111827; padding-left: 4mm; border-left: 2.4mm solid var(--print-brand); }
-.print-call { font-size: 8mm; font-weight: 800; line-height: 1.1; color: #111827; }
+.print-card-copy { display: grid; gap: 4mm; justify-items: start; min-width: 0; }
+.print-spot { font-family: var(--print-display); font-weight: var(--print-display-weight, 700); font-synthesis: none; font-size: 12mm; line-height: 1; text-transform: uppercase; letter-spacing: .04em; color: var(--print-ink); padding-left: 3.5mm; border-left: 1.6mm solid var(--print-accent); font-variant-numeric: lining-nums; font-feature-settings: "lnum" 1; }
+.print-call { font-family: var(--print-display); font-weight: var(--print-display-weight, 700); font-synthesis: none; font-size: 7.5mm; line-height: 1.12; color: var(--print-ink); text-wrap: balance; }
 .print-steps-row { display: flex; flex-wrap: wrap; gap: 2mm 5mm; list-style: none; margin: 0; padding: 0; }
-.print-steps-row li { display: inline-flex; align-items: center; gap: 2mm; font-size: 4mm; font-weight: 700; color: #1f2937; }
-.print-steps-row b { display: inline-grid; place-items: center; width: 6.5mm; height: 6.5mm; border-radius: 50%; background: var(--print-brand); color: var(--print-on-brand, #ffffff); font-size: 3.6mm; }
-.print-pay { display: flex; flex-wrap: wrap; align-items: baseline; gap: 1mm 3mm; margin: 0; padding: 2.4mm 3.4mm; border-radius: 3mm; border: 0.35mm solid color-mix(in srgb, var(--print-brand) 45%, #d1d5db); font-size: 3.8mm; color: #1f2937; }
-.print-pay b { font-weight: 800; letter-spacing: 0.04em; color: #111827; }
-.print-pay-label { font-size: 2.8mm; font-weight: 800; letter-spacing: 0.14em; text-transform: uppercase; color: var(--print-brand); }
-.print-pay-name { flex-basis: 100%; font-size: 3mm; color: #4b5563; }
-.print-poster .print-pay { justify-content: center; margin-top: 8mm !important; font-size: 5mm; padding: 3mm 6mm; }
-.print-frame { flex: none; display: grid; justify-items: center; gap: 1.5mm; padding: 3mm 3mm 2mm; border: 2.4mm solid var(--print-brand); border-radius: 6mm; background: #ffffff; }
-.print-frame .print-qr { width: 64mm; height: 64mm; }
-.print-frame span { font-size: 3.2mm; font-weight: 800; letter-spacing: .24em; text-transform: uppercase; color: #111827; }
-.print-powered { font-size: 2.6mm; color: #6b7280; margin-top: 3mm !important; letter-spacing: .02em; }
-.print-poster .print-powered { margin-top: auto !important; font-size: 3.2mm; }
+.print-steps-row li { display: inline-flex; align-items: center; gap: 2mm; font-size: 3.7mm; font-weight: 650; color: var(--print-ink); }
+.print-steps-row b { display: inline-grid; place-items: center; width: 6mm; height: 6mm; border-radius: 50%; border: 1px solid var(--print-accent); color: var(--print-accent); font-size: 3.2mm; }
+.print-card .print-qr { width: 54mm; height: 54mm; }
+
+/* Table stickers: six 85mm squares to a page, trim marks outside each corner. */
+.print-stickers { width: 190mm; height: 277mm; display: grid; grid-template-columns: repeat(2, 85mm); grid-template-rows: repeat(3, 85mm); justify-content: center; align-content: center; column-gap: 12mm; row-gap: 6mm; overflow: hidden; break-inside: avoid; page-break-inside: avoid; }
+.print-stickers + .print-stickers { break-before: page; page-break-before: always; }
+.print-sticker { position: relative; width: 85mm; height: 85mm; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2mm; padding: 5mm; border: 1.5px solid var(--print-accent); border-radius: 5mm; background: var(--print-surface); text-align: center; }
+.print-sticker-head { display: flex; align-items: center; justify-content: center; gap: 2.5mm; max-width: 100%; }
+.print-sticker-head .print-logo { width: 9mm; height: 9mm; border-radius: 2.2mm; font-size: 3.6mm; }
+.print-sticker .print-name { font-size: 4.8mm; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.print-sticker-spot { font-variant-numeric: lining-nums; font-size: 2.9mm; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; padding: .9mm 3mm; border-radius: 999px; background: var(--print-accent); color: var(--print-surface); line-height: 1.2; }
+.print-sticker .print-frame { padding: 2.6mm 2.6mm 2.2mm; gap: 1.8mm; border-radius: 4mm; }
+.print-sticker .print-qr { width: 42mm; height: 42mm; }
+.print-credit { font-size: 2.2mm; letter-spacing: .06em; color: var(--print-muted); }
+.print-trim { position: absolute; width: 3mm; height: 3mm; border: 0 solid #9a948a; }
+.print-trim.tl { top: -4.5mm; left: -4.5mm; border-right-width: .2mm; border-bottom-width: .2mm; }
+.print-trim.tr { top: -4.5mm; right: -4.5mm; border-left-width: .2mm; border-bottom-width: .2mm; }
+.print-trim.bl { bottom: -4.5mm; left: -4.5mm; border-right-width: .2mm; border-top-width: .2mm; }
+.print-trim.br { bottom: -4.5mm; right: -4.5mm; border-left-width: .2mm; border-top-width: .2mm; }
+
+.print-look { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 4px 0 14px; }
 .print-numbered { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); display: grid; gap: 10px; }
 .print-numbered h3 { margin: 0; }
-.print-stickers { width: 210mm; height: 296mm; padding: 12mm; display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(4, 1fr); gap: 5mm; }
-.print-sticker { display: grid; justify-items: center; align-content: center; gap: 2mm; border: .3mm dashed #9ca3af; border-radius: 5mm; padding: 3mm; text-align: center; }
-.print-sticker .print-qr { width: 42mm; height: 42mm; }
-.print-sticker p { font-size: 3.3mm; font-weight: 650; line-height: 1.2; }
 @media print {
-  @page { size: A4; margin: 0; }
+  @page { size: A4 portrait; margin: 10mm; }
   html, body { background: #ffffff !important; margin: 0 !important; }
   #root { display: none !important; }
-  .print-root { position: static; left: auto; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .print-root { position: static; left: auto; background: transparent; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
 
 /* ── Premium QR and where scans go ────────────────────────────────────── */
@@ -594,8 +624,6 @@ table.lines tr.total th, table.lines tr.total td { font-weight: 700; border-top:
 .check.destination { padding: 10px 12px; border: 1px solid var(--line); border-radius: var(--radius); width: 100%; }
 .check.destination:has(input:checked) { border-color: var(--brand); background: var(--brand-soft); }
 .check.destination.unavailable { opacity: .7; cursor: default; }
-.print-qr.premium { image-rendering: auto; }
-.print-poster .print-qr.premium { border: 0; padding: 0; width: 120mm; height: 120mm; }
 
 /* ── Business cards (Settings → Business cards) ───────────────────────── */
 .bc-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }

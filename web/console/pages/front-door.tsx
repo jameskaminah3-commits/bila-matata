@@ -30,6 +30,8 @@ export type Door = {
   };
   card: CardDetails | null;
   pay: { till: string | null; paybill: string | null; account: string | null; name: string | null } | null;
+  /** What the printed codes look like and say: the page's lettering, its light or dark, the business's kind, and whether it chats. */
+  print?: { font_family: string; font_weight: number; font_url: string; menu_style: string; kind: string; chat: boolean };
   contact: { phone: string | null; email: string | null; website: string | null };
   open: boolean;
   live: boolean;
@@ -45,6 +47,8 @@ export type Door = {
 };
 export type CardDetails = { design: "signature" | "minimal" | "bold"; personName: string | null; personTitle: string | null; phone: string | null; email: string | null; website: string | null; address: string | null };
 type Sheet = "poster" | "cards" | "stickers";
+/** The printed look: ivory for a daytime café, a dark lounge card for a dark menu. */
+type Look = "ivory" | "lounge";
 
 export const svgUri = (svg: string) => `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 
@@ -78,6 +82,7 @@ export function FrontDoor(props: { businessId: string; role: Role }) {
   // Numbered table cards: each with its own code, which tells Zaina where the customer is ("Table 5").
   const [numbering, setNumbering] = useState({ label: "Table", count: 10 });
   const [numbered, setNumbered] = useState<Array<{ spot: string; svg: string }> | null>(null);
+  const [look, setLook] = useState<Look | null>(null);
   const numberedAction = useAction();
   const [classic, setClassic] = useState(false);
   const action = useAction();
@@ -92,14 +97,22 @@ export function FrontDoor(props: { businessId: string; role: Role }) {
       setNumbered(null);
     };
     window.addEventListener("afterprint", done, { once: true });
-    const timer = setTimeout(() => window.print(), 150);
+    let cancelled = false;
+    void (async () => {
+      // The venue's own lettering and every picture are ready before the print window opens.
+      await loadPrintFont(door?.print);
+      await new Promise((resolve) => setTimeout(resolve, 120));
+      await Promise.all(Array.from(document.querySelectorAll<HTMLImageElement>(".print-root img")).map((image) => image.decode().catch(() => undefined)));
+      if (!cancelled) window.print();
+    })();
     return () => {
-      clearTimeout(timer);
+      cancelled = true;
       window.removeEventListener("afterprint", done);
     };
   }, [sheet]);
   if (!door) return <ErrorLine error={loaded.error} />;
   const file = props.businessId;
+  const printLook: Look = look ?? (door.print?.menu_style === "dark" ? "lounge" : "ivory");
   const svg = classic ? door.qr_classic_svg : door.qr_svg;
   const where: Record<Destination, string> = {
     page: "your page here, with the chat open",
@@ -190,14 +203,23 @@ export function FrontDoor(props: { businessId: string; role: Role }) {
 
       <section className="card">
         <h2>Print it</h2>
-        <p className="muted">Each prints on ordinary A4 paper, with your name, logo and colour. Choose "Save as PDF" in the print window to send it to a print shop.</p>
+        <p className="muted">Each prints on one A4 page, with your logo, colour and lettering. Choose "Save as PDF" in the print window to send it to a print shop.</p>
+        <div className="print-look">
+          <span className="small muted">Look</span>
+          <div className="segmented" role="group" aria-label="Printed look">
+            <button type="button" aria-pressed={printLook === "ivory"} onClick={() => setLook("ivory")}>Ivory</button>
+            <button type="button" aria-pressed={printLook === "lounge"} onClick={() => setLook("lounge")}>Dark lounge</button>
+          </div>
+          <span className="small muted">{printLook === "lounge" ? "A dark card with your colour as the accent, for a lounge or a dark menu." : "Warm white, for a café, a daytime menu or a lighter print."}</span>
+        </div>
         <div className="print-choices">
-          <PrintChoice title="Poster" text="One A4 page for the door, the wall or the counter." onPrint={() => setSheet("poster")} />
-          <PrintChoice title="Table cards" text="Two cards to a page: cut along the line and stand them on tables." onPrint={() => { setNumbered(null); setSheet("cards"); }} />
-          <PrintChoice title="Stickers" text="Twelve small codes to a page, for menus, bags and receipts." onPrint={() => setSheet("stickers")} />
+          <PrintChoice title="Poster" text="One A4 page for the door, the wall or the counter." onPrint={() => { setNumbered(null); setSheet("poster"); }} />
+          <PrintChoice title="Table cards" text="Two to a page: cut along the line and stand them on tables." onPrint={() => { setNumbered(null); setSheet("cards"); }} />
+          <PrintChoice title="Table stickers" text="Six 85 mm squares to a page, with trim marks: ready for matte vinyl." onPrint={() => { setNumbered(null); setSheet("stickers"); }} />
         </div>
         <form className="print-numbered" onSubmit={(event) => {
           event.preventDefault();
+          const target: Sheet = (event.nativeEvent as SubmitEvent).submitter?.getAttribute("value") === "stickers" ? "stickers" : "cards";
           const label = numbering.label.replace(/\s+/g, " ").trim();
           const count = Math.round(numbering.count);
           void numberedAction.run(async () => {
@@ -210,17 +232,20 @@ export function FrontDoor(props: { businessId: string; role: Role }) {
               return { spot, svg: await response.text() };
             }));
             setNumbered(cards);
-            setSheet("cards");
+            setSheet(target);
           });
         }}>
-          <h3>Numbered table cards</h3>
+          <h3>Numbered table cards and stickers</h3>
           <p className="muted small">Each card has its own code. When a customer scans {numbering.label || "Table"} 5's card, {door.assistant} knows they're at {numbering.label || "Table"} 5: an order is brought to them, with no address or delivery fee, and the team sees where.</p>
           <div className="form-grid">
             <Field label="Label"><input value={numbering.label} maxLength={25} onChange={(event) => setNumbering({ ...numbering, label: event.target.value })} placeholder="Table" /></Field>
             <Field label="How many"><input type="number" min={1} max={60} value={numbering.count} onChange={(event) => setNumbering({ ...numbering, count: Number(event.target.value) })} /></Field>
           </div>
           <Message message={numberedAction.message} />
-          <div className="actions start"><Button small kind="primary" type="submit" busy={numberedAction.busy}>Print numbered cards</Button></div>
+          <div className="actions start">
+            <button type="submit" value="cards" className="button primary small" disabled={numberedAction.busy}>Print numbered cards</button>
+            <button type="submit" value="stickers" className="button secondary small" disabled={numberedAction.busy}>Print numbered stickers</button>
+          </div>
         </form>
       </section>
 
@@ -235,7 +260,7 @@ export function FrontDoor(props: { businessId: string; role: Role }) {
         </div>
       </section>
 
-      {sheet ? createPortal(<PrintSheet door={door} sheet={sheet} numbered={sheet === "cards" ? numbered : null} />, document.body) : null}
+      {sheet ? createPortal(<PrintSheet door={door} sheet={sheet} look={printLook} numbered={numbered} />, document.body) : null}
     </div>
   );
 }
@@ -259,14 +284,59 @@ const lettersOf = (name: string) => {
 const POWERED = "Powered by Bila Matata · bilamatata.com";
 
 /** What a printed code invites people to do, in the words of the page it opens. */
-export function callFor(browse: string | null): string {
+export function callFor(browse: string | null, chat = true): string {
   if (browse === "Browse Menu") return "Scan to view our menu";
   if (browse === "Rooms & Rates") return "Scan for rooms & rates";
   if (browse === "Services & Prices") return "Scan for services & prices";
+  if (!chat) return "Scan to view our page";
   return browse ? "Scan to browse & connect" : "Scan to chat with us";
 }
 
-/** "Pay with M-Pesa · Till 5123456", or the Paybill and its account, for the printed table cards and poster. */
+/** The short line under a printed code: what scanning it opens. A restaurant's says "Scan for menu". */
+export function captionFor(browse: string | null, kind: string | undefined, chat = true): string {
+  if (browse === "Browse Menu" || kind === "restaurant") return "Scan for menu";
+  if (browse === "Rooms & Rates") return "Scan for rooms";
+  if (browse === "Services & Prices") return "Scan for prices";
+  return chat ? "Scan to chat" : "Scan to view";
+}
+
+/** The venue's own lettering (Playfair Display, Cinzel, Cormorant Garamond or Jost), loaded for the print; a serif stands in if it's slow. */
+async function loadPrintFont(print: Door["print"]): Promise<void> {
+  if (!print || typeof FontFace === "undefined") return;
+  try {
+    const face = new FontFace("Print Display", `url(${print.font_url})`, { weight: String(print.font_weight) });
+    const loaded = await Promise.race([face.load(), new Promise<never>((_, reject) => setTimeout(() => reject(new Error("slow")), 2500))]);
+    document.fonts.add(loaded);
+  } catch {
+    // The serif fallback prints.
+  }
+}
+
+const channels = (hex: string): [number, number, number] => {
+  const match = /^#?([0-9a-f]{6})$/i.exec(hex.trim());
+  const value = match ? parseInt(match[1], 16) : 0x0f766e;
+  return [(value >> 16) & 255, (value >> 8) & 255, value & 255];
+};
+const luminance = (rgb: [number, number, number]) => {
+  const [r, g, b] = rgb.map((v) => { const c = v / 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+};
+const contrast = (a: [number, number, number], b: [number, number, number]) => {
+  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (hi + 0.05) / (lo + 0.05);
+};
+const toHex = (rgb: number[]) => `#${rgb.map((v) => Math.round(v).toString(16).padStart(2, "0")).join("")}`;
+
+/** The accent on paper: the business's colour where it reads, deepened on ivory, or gold on a dark card. */
+export function printAccent(color: string, look: Look): string {
+  const base = channels(color);
+  if (look === "lounge") return contrast(base, [18, 18, 18]) >= 3 ? toHex(base) : "#c9a227";
+  let accent = base;
+  for (let step = 0; step < 6 && contrast(accent, [255, 255, 255]) < 3; step++) accent = accent.map((v) => v * 0.82) as [number, number, number];
+  return toHex(accent);
+}
+
+/** "Pay with M-Pesa · Buy Goods till 5123456", or the Paybill and its account, for the printed cards and poster. */
 function PrintPay(props: { pay: Door["pay"] }) {
   const pay = props.pay;
   if (!pay || (!pay.till && !pay.paybill)) return null;
@@ -274,60 +344,90 @@ function PrintPay(props: { pay: Door["pay"] }) {
     <p className="print-pay">
       <span className="print-pay-label">Pay with M-Pesa</span>
       {pay.till ? <span>Buy Goods till <b>{pay.till}</b></span> : <span>Paybill <b>{pay.paybill}</b>{pay.account ? <> · Account <b>{pay.account}</b></> : null}</span>}
-      {pay.name ? <span className="print-pay-name">{pay.name}</span> : null}
+      {pay.name ? <span className="print-pay-name">Shows as {pay.name}</span> : null}
     </p>
   );
 }
 
-function PrintSheet(props: { door: Door; sheet: Sheet; numbered?: Array<{ spot: string; svg: string }> | null }) {
-  const { door, sheet } = props;
-  const qr = <img className="print-qr premium" src={svgUri(door.qr_svg)} alt="" />;
+/** Small marks outside a sticker's corners, for the cutter. */
+const TrimMarks = () => <>{["tl", "tr", "bl", "br"].map((corner) => <i key={corner} className={`print-trim ${corner}`} aria-hidden="true" />)}</>;
+
+function PrintSheet(props: { door: Door; sheet: Sheet; look: Look; numbered?: Array<{ spot: string; svg: string }> | null }) {
+  const { door, sheet, look } = props;
+  const chat = door.print?.chat !== false;
   const logo = <span className={`print-logo${door.logo_url ? "" : " letters"}`}>{door.logo_url ? <img src={door.logo_url} alt="" /> : lettersOf(door.name)}</span>;
   const address = door.url.replace(/^https?:\/\//, "");
-  const call = callFor(door.browse);
-  const card = (key: number, numbered?: { spot: string; svg: string }) => (
+  const call = callFor(door.browse, chat);
+  const caption = captionFor(door.browse, door.print?.kind, chat);
+  const menu = door.browse === "Browse Menu" || door.print?.kind === "restaurant";
+  const sub = menu
+    ? chat ? `Our menu, today's specials and what's on, and ${door.assistant}, our ${door.role}, to answer anything, day and night.` : "Our full menu, today's specials and what's on, on your phone."
+    : chat ? `Ask a question, check what's available or book: ${door.assistant}, our ${door.role}, answers day and night.` : "Everything we offer, on your phone.";
+  const frame = (svg: string) => <div className="print-frame"><img className="print-qr" src={svgUri(svg)} alt="" /><span className="print-caption">{caption}</span></div>;
+  const numbered = props.numbered ?? null;
+  const card = (key: number, entry?: { spot: string; svg: string }) => (
     <div className="print-card" key={key}>
       <div className="print-card-head">
         {logo}
-        <div><p className="print-name">{door.name}</p>{door.tagline ? <p className="print-tagline">{door.tagline}</p> : null}</div>
+        <div className="print-card-names"><p className="print-name">{door.name}</p>{door.tagline ? <p className="print-tagline">{door.tagline}</p> : null}</div>
       </div>
       <div className="print-card-main">
         <div className="print-card-copy">
-          {numbered ? <p className="print-spot">{numbered.spot}</p> : null}
+          {entry ? <p className="print-spot">{entry.spot}</p> : null}
           <p className="print-call">{call}</p>
-          <ol className="print-steps-row"><li><b>1</b>Scan</li><li><b>2</b>{door.browse ?? `Ask ${door.assistant}`}</li><li><b>3</b>Enjoy</li></ol>
+          <ol className="print-steps-row"><li><b>1</b>Scan</li><li><b>2</b>{door.browse ?? (chat ? `Ask ${door.assistant}` : "View")}</li><li><b>3</b>Enjoy</li></ol>
           <PrintPay pay={door.pay} />
         </div>
-        <div className="print-frame"><img className="print-qr premium" src={svgUri(numbered ? numbered.svg : door.qr_svg)} alt="" /><span>Scan me</span></div>
+        {frame(entry ? entry.svg : door.qr_svg)}
       </div>
       <p className="print-powered">{POWERED}</p>
     </div>
   );
-  const numbered = props.numbered ?? null;
-  const pages = numbered ? Array.from({ length: Math.ceil(numbered.length / 2) }, (_, index) => numbered.slice(index * 2, index * 2 + 2)) : null;
+  const sticker = (key: number, entry?: { spot: string; svg: string }) => (
+    <div className="print-sticker" key={key}>
+      <TrimMarks />
+      <div className="print-sticker-head">
+        {logo}
+        <p className="print-name">{door.name}</p>
+      </div>
+      {entry ? <p className="print-sticker-spot">{entry.spot}</p> : null}
+      {frame(entry ? entry.svg : door.qr_svg)}
+      <p className="print-credit">bilamatata.com</p>
+    </div>
+  );
+  const chunk = <T,>(list: T[], size: number) => Array.from({ length: Math.ceil(list.length / size) }, (_, index) => list.slice(index * size, index * size + size));
   return (
-    <div className={`print-root ${sheet}`} ref={(node) => { node?.style.setProperty("--print-brand", door.color); node?.style.setProperty("--print-on-brand", door.on_color); }}>
+    <div
+      className={`print-root ${sheet} look-${look}`}
+      ref={(node) => {
+        node?.style.setProperty("--print-brand", door.color);
+        node?.style.setProperty("--print-on-brand", door.on_color);
+        node?.style.setProperty("--print-accent", printAccent(door.color, look));
+        node?.style.setProperty("--print-display-weight", String(door.print?.font_weight ?? 700));
+      }}
+    >
       {sheet === "poster" ? (
         <div className="print-poster">
-          <div className="print-band">{logo}<div><p className="print-name">{door.name}</p>{door.tagline ? <p className="print-tagline">{door.tagline}</p> : null}</div></div>
+          <div className="print-poster-brand">
+            {logo}
+            <p className="print-name">{door.name}</p>
+            {door.tagline ? <p className="print-tagline">{door.tagline}</p> : null}
+          </div>
+          <i className="print-rule" aria-hidden="true" />
           <p className="print-headline">{call}</p>
-          <p className="print-sub">Ask a question, check what's available or book: {door.assistant}, our {door.role}, answers day and night.</p>
-          {qr}
+          <p className="print-sub">{sub}</p>
+          {frame(door.qr_svg)}
           <p className="print-steps">1. Open your phone's camera&nbsp;&nbsp;·&nbsp;&nbsp;2. Point it at the code&nbsp;&nbsp;·&nbsp;&nbsp;3. Tap the link</p>
           <PrintPay pay={door.pay} />
-          <p className="print-address">{address}</p>
-          <p className="print-powered">{POWERED}</p>
+          <div className="print-foot"><p className="print-address">{address}</p><p className="print-powered">{POWERED}</p></div>
         </div>
       ) : null}
-      {sheet === "cards" && pages ? pages.map((pair, page) => <div className="print-cards" key={page}>{pair.map((entry, index) => card(page * 2 + index, entry))}</div>) : null}
-      {sheet === "cards" && !pages ? <div className="print-cards">{[0, 1].map((key) => card(key))}</div> : null}
-      {sheet === "stickers" ? (
-        <div className="print-stickers">
-          {Array.from({ length: 12 }, (_, index) => (
-            <div className="print-sticker" key={index}>{qr}<p>Scan to chat with {door.name}</p></div>
-          ))}
-        </div>
-      ) : null}
+      {sheet === "cards" ? (numbered ? chunk(numbered, 2) : [[undefined, undefined]]).map((pair, page) => (
+        <div className="print-cards" key={page}>{pair.map((entry, index) => card(page * 2 + index, entry))}</div>
+      )) : null}
+      {sheet === "stickers" ? (numbered ? chunk(numbered, 6) : [Array.from({ length: 6 }, () => undefined)]).map((group, page) => (
+        <div className="print-stickers" key={page}>{group.map((entry, index) => sticker(page * 6 + index, entry))}</div>
+      )) : null}
     </div>
   );
 }

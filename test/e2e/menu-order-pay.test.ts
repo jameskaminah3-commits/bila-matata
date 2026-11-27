@@ -90,6 +90,11 @@ test("guests see the till on the page with a Copy button, and it's on the printe
   assert.match(script, /navigator\.clipboard\.writeText/);
   const door = (await staff("GET", "/front-door")).body;
   assert.deepEqual(door.pay, { till: "5123456", paybill: null, account: null, name: "BISTRO LTD" });
+  // What the printed codes need: the page's lettering, its light or dark, and that this menu has no chat.
+  assert.equal(door.print.font_family, "Playfair Display");
+  assert.match(door.print.font_url, /^\/c-assets\/title-classic\.woff2\?v=\w+$/);
+  assert.equal((await fetch(`${BASE}${door.print.font_url}`)).headers.get("content-type"), "font/woff2");
+  assert.deepEqual({ kind: door.print.kind, chat: door.print.chat, menu_style: door.print.menu_style }, { kind: "restaurant", chat: false, menu_style: "auto" });
 
   await staff("PATCH", "/settings", { venuePayment: { paybill: "247247", account: "TABLE" } });
   const paybill = await (await fetch(`${BASE}/c/bistro`)).text();
