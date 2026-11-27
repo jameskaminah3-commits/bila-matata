@@ -103,6 +103,7 @@ export function FrontDoor(props: { businessId: string; role: Role }) {
       await loadPrintFont(door?.print);
       await new Promise((resolve) => setTimeout(resolve, 120));
       await Promise.all(Array.from(document.querySelectorAll<HTMLImageElement>(".print-root img")).map((image) => image.decode().catch(() => undefined)));
+      fitPoster();
       if (!cancelled) window.print();
     })();
     return () => {
@@ -298,6 +299,22 @@ export function captionFor(browse: string | null, kind: string | undefined, chat
   if (browse === "Rooms & Rates") return "Scan for rooms";
   if (browse === "Services & Prices") return "Scan for prices";
   return chat ? "Scan to chat" : "Scan to view";
+}
+
+/**
+ * The poster always ends on its own page with its footer showing: a wide
+ * lettering (Cinzel) or a long tagline can take two lines, so the code
+ * shrinks a step at a time (never below 64mm, still easily scanned) until
+ * everything fits.
+ */
+function fitPoster(): void {
+  const poster = document.querySelector<HTMLElement>(".print-root .print-poster");
+  const qr = poster?.querySelector<HTMLElement>(".print-qr");
+  if (!poster || !qr) return;
+  for (let size = 100; poster.scrollHeight > poster.clientHeight + 1 && size > 64; ) {
+    size -= 4;
+    qr.style.width = qr.style.height = `${size}mm`;
+  }
 }
 
 /** The venue's own lettering (Playfair Display, Cinzel, Cormorant Garamond or Jost), loaded for the print; a serif stands in if it's slow. */
