@@ -10,7 +10,8 @@
 // that follows a phone's screen. Everything is in the HTML first; the script
 // only adds to it.
 
-import { formatMoney, STUDIO, whatsappLink } from "./brand.ts";
+import { formatMoney, STUDIO, STUDIO_SUGGESTIONS, whatsappLink } from "./brand.ts";
+import FAQ from "../../knowledge/bilamatata/frequently-asked-questions.json" with { type: "json" };
 
 const esc = (value: unknown) => String(value ?? "").replace(/[&<>"']/g, (char) => (
   { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char] as string
@@ -45,6 +46,12 @@ export function renderHeroCard(): string {
         <p class="hero-at muted-text" data-hero-at>${esc(HERO_LINES[0].at)} (example)</p>
         <div class="hero-lines" data-hero-lines aria-live="off">
           ${HERO_LINES.map((line, index) => `<p class="bubble zaina" data-hero-line data-role="${esc(line.role)}" data-at="${esc(line.at)}"${index === 0 ? "" : " hidden"}>${esc(line.text)}</p>`).join("\n          ")}
+        </div>
+        <div class="hero-ask">
+          <p class="hero-ask-label"><i aria-hidden="true"></i>Live on this page: ask me about Bila Matata</p>
+          <div class="hero-ask-chips">
+            ${STUDIO_SUGGESTIONS.slice(0, 3).map((question) => `<button type="button" class="hero-ask-chip" data-ask-zaina="${esc(question)}">${esc(question)}</button>`).join("\n            ")}
+          </div>
         </div>
       </aside>`;
 }
@@ -140,8 +147,10 @@ export function renderValueTable(plans: { starter: { monthlyMinor: number; setup
     <div class="section-head">
       <p class="eyebrow">What you get for your money</p>
       <h2 id="value-title">Every feature has a job: here is what it does for you</h2>
-      <p>No filler. Each line below is something Zaina does that either wins you a customer, saves your team's time or protects your reputation. Starter answers and captures. Full goes on to close the sale.</p>
+      <p>No filler. Each line is something Zaina does that either wins you a customer, saves your team's time or protects your reputation. Starter answers and captures. Full goes on to close the sale.</p>
     </div>
+    <details class="value-more">
+    <summary><span>Compare every feature, plan by plan</span><small>${VALUE_ROWS.length + 1} lines, Starter beside Full</small></summary>
     <div class="table-scroll">
       <table class="compare value-table">
         <thead>
@@ -153,6 +162,7 @@ export function renderValueTable(plans: { starter: { monthlyMinor: number; setup
         </tbody>
       </table>
     </div>
+    </details>
     <div class="cta-row"><a class="btn btn-primary" href="#worth">Work out what she's worth to you</a><a class="btn btn-ghost" href="#pricing">See the plans</a></div>
   </div>
 </section>`;
@@ -351,6 +361,53 @@ export const HOME_CSS = String.raw`
   .hero-face img, .online i, .meet-tag { animation: none; }
   .picker-chip, .sticky-cta { transition: none; }
 }
+
+/* ── Live on this page: one tap asks the real Zaina ─────────────────── */
+.hero-ask { width: 100%; margin-top: 16px; padding-top: 16px; border-top: 1px dashed var(--line); text-align: left; }
+.hero-ask-label { display: flex; align-items: center; gap: 8px; font-size: 0.76rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent); }
+.hero-ask-label i { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 0 4px color-mix(in srgb, var(--ok) 18%, transparent); flex: none; }
+.hero-ask-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.hero-ask-chip { min-height: 38px; padding: 0 14px; border-radius: 999px; border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--line)); background: var(--accent-soft); color: var(--ink); font: inherit; font-size: 0.88rem; font-weight: 600; cursor: pointer; text-align: left; transition: border-color .15s ease, transform .15s ease; }
+.hero-ask-chip:hover { border-color: var(--accent); transform: translateY(-1px); }
+.hero-ask-chip::after { content: " →"; color: var(--accent); }
+
+/* ── Where Zaina works: a quiet band of facts under the hero ────────── */
+.reach { border-block: 1px solid var(--line); background: var(--surface); }
+.reach-grid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1.25fr) minmax(0, 0.9fr); gap: 20px 40px; padding-block: 26px; }
+.reach-block { min-width: 0; }
+.reach-label { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); }
+.reach-channels { list-style: none; margin: 10px 0 0; padding: 0; display: grid; grid-template-columns: repeat(2, max-content); gap: 8px 22px; }
+@media (max-width: 420px) { .reach-channels { grid-template-columns: minmax(0, 1fr); } }
+.reach-channels li { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; font-size: 0.95rem; }
+.reach-channels svg { width: 20px; height: 20px; color: var(--accent); flex: none; }
+.reach-kinds { margin-top: 10px; font-weight: 600; font-size: 0.95rem; line-height: 1.7; }
+.reach-kinds span { white-space: nowrap; }
+.reach-kinds i { font-style: normal; color: var(--coral); margin: 0 8px; }
+.reach-note { margin-top: 10px; font-size: 0.95rem; color: var(--ink); }
+@media (max-width: 960px) { .reach-grid { grid-template-columns: minmax(0, 1fr); gap: 18px; padding-block: 22px; } }
+
+/* ── The long feature table, folded until asked for ─────────────────── */
+.value-more { margin-top: 30px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--bg); }
+.value-more > summary { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 16px; padding: 18px 22px; cursor: pointer; list-style: none; font-weight: 700; font-size: 1.05rem; }
+.value-more > summary::-webkit-details-marker { display: none; }
+.value-more > summary span::before { content: "+"; display: inline-grid; place-items: center; width: 26px; height: 26px; margin-right: 12px; border-radius: 50%; background: var(--accent); color: var(--accent-ink); font-weight: 700; }
+.value-more[open] > summary span::before { content: "−"; }
+.value-more > summary small { font-size: 0.85rem; font-weight: 550; color: var(--muted); }
+.value-more .table-scroll { margin: 0; border: 0; border-top: 1px solid var(--line); border-radius: 0 0 var(--radius) var(--radius); }
+
+/* ── Questions ──────────────────────────────────────────────────────── */
+.faq-grid { display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); gap: 28px 56px; align-items: start; }
+.faq-grid .section-head { position: sticky; top: 96px; }
+@media (max-width: 900px) { .faq-grid { grid-template-columns: minmax(0, 1fr); } .faq-grid .section-head { position: static; } }
+.faq-list { display: grid; gap: 10px; }
+.faq-item { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; }
+.faq-item > summary { position: relative; padding: 16px 52px 16px 20px; cursor: pointer; list-style: none; font-weight: 650; font-size: 1.02rem; }
+.faq-item > summary::-webkit-details-marker { display: none; }
+.faq-item > summary::after { content: ""; position: absolute; right: 22px; top: 50%; width: 9px; height: 9px; border-right: 2px solid var(--accent); border-bottom: 2px solid var(--accent); transform: translateY(-70%) rotate(45deg); transition: transform .15s ease; }
+.faq-item[open] > summary::after { transform: translateY(-30%) rotate(-135deg); }
+.faq-item > p { padding: 0 20px 18px; color: var(--muted); }
+.faq-item[open] { border-color: color-mix(in srgb, var(--accent) 35%, var(--line)); }
+@media (prefers-reduced-motion: reduce) { .hero-ask-chip, .faq-item > summary::after { transition: none; } }
 `;
 
 // ── Script ───────────────────────────────────────────────────────────────
@@ -452,3 +509,64 @@ export const HOME_JS = String.raw`
   }
 })();
 `;
+
+/** The FAQ the home page shows: the same answers Zaina gives (knowledge/bilamatata), so the page and the chat never disagree. */
+export const HOME_FAQ_QUESTIONS = [
+  "Do I need a website to use Zaina?",
+  "Do you work in my town?",
+  "How does set-up work if I'm far away from you?",
+  "Does Zaina make things up or invent prices?",
+  "Where does my customers' money go?",
+  "Can my staff take over a conversation?",
+  "What is the Menu plan?",
+  "What languages does Zaina speak?",
+  "Can I cancel Zaina?",
+];
+export const homeFaq = (): Array<{ question: string; answer: string }> =>
+  HOME_FAQ_QUESTIONS.map((question) => (FAQ as Array<{ question: string; answer: string }>).find((entry) => entry.question === question)).filter((entry): entry is { question: string; answer: string } => Boolean(entry));
+
+const REACH_ICONS = {
+  web: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="15" rx="2.5"/><path d="M3 8.5h18"/><circle cx="6" cy="6.3" r=".5" fill="currentColor"/></svg>',
+  whatsapp: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 21l1.6-4.8A8.5 8.5 0 1 1 7.8 19.4L3 21z"/><path d="M9 9.5c0 3 2.5 5.5 5.5 5.5l1-1.5-2-1-1 .8a4 4 0 0 1-1.8-1.8l.8-1-1-2L9 9.5z"/></svg>',
+  qr: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M14 14h3v3h-3zM20 14v.01M14 20h.01M17 20h4v-3"/></svg>',
+  search: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>',
+};
+
+/** Under the hero: where Zaina works, for whom, and that it's anywhere. Plain facts, no logos we don't have. */
+export function renderReach(): string {
+  const channels: Array<[keyof typeof REACH_ICONS, string]> = [["web", "Your website"], ["whatsapp", "WhatsApp"], ["qr", "A QR code on the table"], ["search", "Google and shared links"]];
+  const kinds = ["Hotels and lodges", "Restaurants and bars", "Salons and spas", "Clinics", "Shops", "Schools", "Property", "Professional firms"];
+  return `<section class="reach" aria-label="Where Zaina works">
+  <div class="wrap reach-grid">
+    <div class="reach-block">
+      <p class="reach-label">Everywhere your customers are</p>
+      <ul class="reach-channels">${channels.map(([icon, label]) => `<li>${REACH_ICONS[icon]}<span>${esc(label)}</span></li>`).join("")}</ul>
+    </div>
+    <div class="reach-block">
+      <p class="reach-label">For every business that gets enquiries</p>
+      <p class="reach-kinds">${kinds.map((kind) => `<span>${esc(kind)}</span>`).join(' <i aria-hidden="true">·</i> ')}</p>
+    </div>
+    <div class="reach-block">
+      <p class="reach-label">Across Kenya and beyond</p>
+      <p class="reach-note">Set up remotely, in any county or country, in English or Swahili.</p>
+    </div>
+  </div>
+</section>`;
+}
+
+/** Questions asked often, answered exactly as Zaina answers them; anything else, ask her. */
+export function renderFaq(): string {
+  return `<section class="band" id="faq" aria-labelledby="faq-title">
+  <div class="wrap faq-grid">
+    <div class="section-head">
+      <p class="eyebrow">Questions</p>
+      <h2 id="faq-title">Asked often, answered plainly</h2>
+      <p>The same answers Zaina gives. Anything else, ask her: she's on this page now.</p>
+      <div class="cta-row"><a class="btn btn-primary" href="#faq" data-open-zaina>Ask Zaina</a><a class="btn btn-ghost" href="${esc(whatsappLink("Hello Bila Matata, I have a question."))}" rel="noopener">WhatsApp us</a></div>
+    </div>
+    <div class="faq-list">
+      ${homeFaq().map((entry) => `<details class="faq-item"><summary>${esc(entry.question)}</summary><p>${esc(entry.answer)}</p></details>`).join("\n      ")}
+    </div>
+  </div>
+</section>`;
+}

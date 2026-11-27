@@ -61,7 +61,7 @@
   },
   {
     "question": "Do you work with clients outside Kenya?",
-    "answer": "Yes. We are based in Mombasa and work with clients across Kenya and abroad, online."
+    "answer": "Yes. We work with businesses in every part of Kenya and with clients abroad. Set-up is done remotely: a call, your price list or menu and your logo, and we do the rest. Card payments work from anywhere."
   },
   {
     "question": "How do I get a quote for a website, app, automation, data or research project?",
@@ -94,5 +94,65 @@
   {
     "question": "Can I get business cards with my QR code?",
     "answer": "Yes, they come with every active Zaina plan. In your dashboard, under Settings and Business cards, choose one of three premium designs and the details you want on the card. Your brand goes on the front and your QR code on the back, so whoever you hand a card to can chat with Zaina day and night. Download a print-ready A4 sheet, a print shop file, or a picture to share on WhatsApp. If you'd rather we print them on premium card for you, ask from the same page and we'll give you a price before anything is printed."
+  },
+  {
+    "question": "Do you work in my town?",
+    "answer": "Yes. We work with businesses all over Kenya, from Nairobi, Kisumu, Nakuru and Eldoret to the coast and smaller towns, and with clients abroad. Most set-ups are done remotely, so where you are makes no difference."
+  },
+  {
+    "question": "How does set-up work if I'm far away from you?",
+    "answer": "It's done remotely. Tell us about your business, send your price list or menu (a photo is fine), your logo and the questions customers ask most, and we set everything up: your page and QR code in your brand, your menu or catalogue, and Zaina tuned to your business. You check it, we go live together, and you get print-ready QR posters, table cards and stickers for any local printer."
+  },
+  {
+    "question": "Which plan is right for my business?",
+    "answer": "The Menu plan suits a restaurant, bar or hotel that wants a beautiful QR menu without the chat. Starter suits a business with many questions and leads but nothing to book online: Zaina answers, recommends and hands every lead to your team. Full suits a business that takes bookings, orders or deposits: Zaina checks what's free, quotes the exact total, books or takes the order and sends your own payment link. Tell me about your business and I'll say which fits."
+  },
+  {
+    "question": "What is the Menu plan?",
+    "answer": "A branded QR menu for restaurants, bars and hotels: guests scan the code on the table and your menu opens in a moment, in your logo, colours and lettering, with today's special and tonight's event at the top and your M-Pesa till if you want it. Your team changes dishes and prices themselves, live at once, and the printed code never changes. It has no chat; you can add Zaina later on the same page."
+  },
+  {
+    "question": "How is your QR menu better than a PDF menu?",
+    "answer": "A PDF has to download and then be pinched and zoomed. Our menu opens in a moment on any phone, is set in your own brand rather than a template, shows what's on where every guest looks first, can be searched, and changes the moment your team changes a price or marks a dish finished, so nothing is reprinted. You also see how many guests scan and open it."
+  },
+  {
+    "question": "Can I change my menu or prices myself?",
+    "answer": "Yes, at any time, in your dashboard. You can also just tell the menu assistant in plain words, like \"raise the cocktails by 10%\" or \"the tilapia is finished tonight\": it shows every change before you apply it, and one tap undoes it. On Starter and Full, owners can also make changes from their own WhatsApp."
+  },
+  {
+    "question": "Can my M-Pesa till or Paybill show on my menu?",
+    "answer": "Yes. The owner adds the till, or the Paybill and account number, in Settings and it shows on your page with a Copy button, and on your printed table cards if you like. Guests pay you directly; Zaina and Bila Matata never collect your money."
+  },
+  {
+    "question": "Will my page show up on Google and look good when shared on WhatsApp?",
+    "answer": "Yes. Your page has its own address on bilamatata.com and is built so Google can read your business and your menu or price list. When it's shared on WhatsApp, Instagram or X it shows as a card with your photo or logo and your name, and there's a Share button on the page. Adding the link to your Google Business Profile and social media helps people find it."
+  },
+  {
+    "question": "Can Zaina take orders and arrange delivery?",
+    "answer": "Yes, on the Full plan. She takes orders from your price list at the exact price, for delivery to your own delivery areas at your fees, or collection, holds the stock and passes the order to your team to accept. Customers can ask her later how their order is going. A guest who scans a table's code orders to that table."
+  },
+  {
+    "question": "Can I manage Zaina from my WhatsApp?",
+    "answer": "Yes, on Starter and Full. The owner links their own number once, then messages changes like a colleague would (\"mark the tilapia finished\"). Zaina makes a change only after the owner replies YES."
+  },
+  {
+    "question": "Will I get reports?",
+    "answer": "Yes. Your dashboard shows every chat, lead, booking and order, and on Starter and Full you get a monthly report by email: how many enquiries came in, what people asked about and what they led to."
+  },
+  {
+    "question": "Can Zaina send offers or reminders to my customers?",
+    "answer": "Yes, if you turn them on: booking reminders, one gentle follow-up to someone who asked and didn't book, and a feedback request after a visit. Offers go only to customers who agreed to receive them, at most one a week, and anyone can reply STOP to stop messages."
+  },
+  {
+    "question": "Can Zaina work with my existing online shop or booking system?",
+    "answer": "Yes. A shop on WooCommerce, Shopify or Google Merchant can have its catalogue read every day, prices and stock included. For other systems, Zaina can be connected so prices, stock and free dates come straight from it; that's quoted after a free look at what you use."
+  },
+  {
+    "question": "What kinds of businesses use Zaina?",
+    "answer": "Any business that gets a lot of enquiries: hotels, lodges and villas; restaurants, bars and cafés; salons, spas and barbers; clinics; shops and online sellers; schools and training centres; property managers; and professional firms."
+  },
+  {
+    "question": "Is the Zaina on this website the same as the one I'd get?",
+    "answer": "Yes. I'm Zaina, set up for Bila Matata the same way we set Zaina up for every business: I answer only from Bila Matata's own information and prices, recommend what suits you, and pass you to the team when you're ready. Yours would do the same for your customers, in your name and from your information."
   }
 ]

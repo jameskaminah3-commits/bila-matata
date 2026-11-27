@@ -15,6 +15,17 @@ url: https://bilamatata.com/terms
 
 Work outside the quote is quoted separately before we start it. After delivery you have 7 days to tell us about anything that doesn't match the quote, and we fix it at no charge.
 
+## Getting Zaina or the Menu plan, from anywhere
+
+We set businesses up remotely, anywhere in Kenya and abroad:
+
+1. **Tell us about your business**, on WhatsApp, in this chat or at https://bilamatata.com/start. We suggest the plan that fits and send the set-up invoice.
+2. **Send what you have:** your price list or menu (a photo is fine), your logo, opening hours, policies and the questions customers ask most. For the Full plan, also your rooms, services or tables and how you take payment.
+3. **We set it up:** your page and QR code in your brand, your menu or catalogue loaded, Zaina tuned to your business and your voice, and the chat added to your website if you have one (one line of code).
+4. **You check it, we go live together**, and you get your print-ready QR poster, table cards and stickers. Your team gets its dashboard logins.
+
+How long it takes depends on how much there is to load; the team gives you a date once they've seen what you have. After go-live, your team keeps prices and availability up to date in the dashboard (or on WhatsApp), and the studio is a message away for help.
+
 ## Zaina AI billing
 
 - A one-off set-up fee is paid before set-up begins.

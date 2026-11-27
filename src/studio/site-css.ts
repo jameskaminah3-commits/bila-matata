@@ -376,6 +376,15 @@ export const SITE_JS = String.raw`
     if (window.Zaina && typeof window.Zaina.open === "function") { window.Zaina.open(); return; }
     if (tries > 0) setTimeout(function () { openZaina(tries - 1); }, 250);
   }
+  // "Ask Zaina" questions on the page: open the chat and ask it, as if the visitor typed it.
+  function askZaina(text, tries) {
+    if (window.Zaina && typeof window.Zaina.ask === "function") { window.Zaina.ask(text); return; }
+    if (tries > 0) setTimeout(function () { askZaina(text, tries - 1); }, 250);
+  }
+  var asks = document.querySelectorAll("[data-ask-zaina]");
+  for (var a = 0; a < asks.length; a += 1) {
+    asks[a].addEventListener("click", function (event) { event.preventDefault(); askZaina(event.currentTarget.getAttribute("data-ask-zaina") || "", 40); });
+  }
   var buttons = document.querySelectorAll("[data-open-zaina]");
   for (var i = 0; i < buttons.length; i += 1) {
     buttons[i].addEventListener("click", function (event) { event.preventDefault(); openZaina(40); });

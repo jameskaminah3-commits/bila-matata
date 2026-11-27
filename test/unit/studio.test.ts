@@ -315,3 +315,33 @@ test("the invoice and receipt emails say what was bought, in the studio's own na
   configureStudioPay({ paystackKey: null, publicBaseUrl: null, notifyEmail: null });
   assert.equal(invoiceEmail(invoice()), null, "no address, no link to send");
 });
+
+test("the site speaks for all of Kenya and beyond, and lets a visitor ask the live Zaina in one tap", async () => {
+  const { homeFaq, HOME_FAQ_QUESTIONS } = await import("../../src/studio/home-sections.ts");
+  const { STUDIO_SUGGESTIONS } = await import("../../src/studio/brand.ts");
+  const html = renderHome({ baseUrl: "https://bilamatata.com" } as Parameters<typeof renderHome>[0]);
+  const words = html.replace(/<script[\s\S]*?<\/script>|<[^>]+>/g, " ");
+  assert.doesNotMatch(words, /from Mombasa|Studio in Mombasa/, "the brand isn't tied to one town");
+  assert.match(html, /<title>[^<]*Kenya<\/title>/);
+  assert.match(words, /Kenya and beyond/);
+  // The hero's one-tap questions are the chat's own suggestions, asked of the live Zaina.
+  for (const question of STUDIO_SUGGESTIONS.slice(0, 3)) assert.match(html, new RegExp(`data-ask-zaina="${question.replace(/[?]/g, "\\?")}"`));
+  // The page's FAQ is Zaina's own: every question is in her knowledge, and in the page's structured data.
+  assert.equal(homeFaq().length, HOME_FAQ_QUESTIONS.length, "every question on the page has Zaina's answer");
+  const faq = JSON.parse([...html.matchAll(/<script type="application\/ld\+json">(.+?)<\/script>/gs)].map((m) => m[1]).find((json) => json.includes("FAQPage"))!);
+  assert.deepEqual(faq.mainEntity.map((entry: any) => entry.name), HOME_FAQ_QUESTIONS);
+  assert.match(html, /<details class="value-more">/, "the long feature table is folded until asked for");
+});
+
+test("the studio's price list says what the site shows, so its Zaina quotes the same prices", async () => {
+  const { MENU_PLAN, PLANS } = await import("../../src/studio/plans.ts");
+  const { STUDIO_SERVICES } = await import("../../src/studio/services.ts");
+  const seeds = ["0016_studio_invoices.sql", "0017_tiers_support_services.sql", "0045_menu_tier.sql"].map((file) => readFileSync(path.join(REPO, "migrations", file), "utf8")).join("\n");
+  const seeded = (name: string) => Number(new RegExp(`'${name.replace(/[&]/g, "\\&")}', '[^']*(?:''[^']*)*', (\\d+), 'KES'`, "i").exec(seeds)?.[1]);
+  for (const plan of PLANS) {
+    assert.equal(seeded(plan.name), plan.monthlyMinor, plan.name);
+    assert.equal(seeded(`${plan.name} set-up`), plan.setupMinor, `${plan.name} set-up`);
+  }
+  assert.deepEqual([seeded("Menu plan"), seeded("Menu plan set-up")], [MENU_PLAN.monthlyMinor, MENU_PLAN.setupMinor]);
+  for (const service of STUDIO_SERVICES) assert.equal(seeded(service.title.replace(/ & /g, " and ").replace(/^(\w)(.*)$/, (_, a: string, b: string) => a + b.toLowerCase())), service.fromMinor, service.title);
+});

@@ -7,9 +7,10 @@
 
 import { formatMoney, STUDIO, whatsappLink } from "./brand.ts";
 import { renderDemo } from "./demo.ts";
+import { MENU_PLAN, PLANS } from "./plans.ts";
 import { SITE_ASSETS_VERSION } from "./site-css.ts";
 import { TITLE_FONTS } from "../frontdoor/title-fonts.ts";
-import { breakEvenBookings, CALC_PRESETS, renderCalculator, renderHeroCard, renderHospitality, renderIndustryPicker, renderMeetZaina, renderStickyCta, renderValueTable } from "./home-sections.ts";
+import { breakEvenBookings, CALC_PRESETS, homeFaq, renderCalculator, renderFaq, renderHeroCard, renderHospitality, renderIndustryPicker, renderMeetZaina, renderReach, renderStickyCta, renderValueTable } from "./home-sections.ts";
 import { STUDIO_SERVICES, type StudioServiceId } from "./services.ts";
 
 export const esc = (value: unknown) => String(value ?? "").replace(/[&<>"']/g, (char) => (
@@ -103,51 +104,6 @@ const ZAINA_EMBED = `<script src="/zaina.js" data-business="${STUDIO.businessId}
 
 // ── The home page ────────────────────────────────────────────────────────
 
-/** The Menu plan: the branded menu page alone, for restaurants, bars and hotels. Shown beside Zaina's plans, not as one of them. */
-const MENU_PLAN = {
-  name: "Menu",
-  monthlyMinor: 490_000,
-  setupMinor: 500_000,
-  for: "A branded QR menu for restaurants, bars and hotels, kept up to date by your team.",
-};
-
-const PLANS = [
-  {
-    name: "Starter Sales Concierge",
-    monthlyMinor: 670_000,
-    setupMinor: 1_000_000,
-    for: "Every enquiry answered and every lead captured, without adding to your team.",
-    features: [
-      "Answers customers day and night, only from your own catalogue, price list and policies",
-      "Understands what each customer needs and recommends what suits them",
-      "Never invents a price: every quote comes straight from your price list",
-      "Captures each lead's name, number and what they want",
-      "Suggests the extras and upgrades you really offer, at your listed prices, without being pushy",
-      "Alerts your team on their phones and hands over the whole conversation, ready to close",
-      "Up to 2 notification emails, each with a takeover link and, if you like, the conversation written out",
-      "Chat on your website with one line of code, or no website at all: your own page, branded QR code and business cards to print",
-      "Your logo, colours and welcome line on the chat and your page",
-      "Dashboard with every chat, lead and report, and help from our team",
-    ],
-    featured: false,
-  },
-  {
-    name: "Full Booking & Quote Engine",
-    monthlyMinor: 1_100_000,
-    setupMinor: 2_000_000,
-    for: "For businesses that sell by appointment, reservation or quote: Zaina finishes the sale.",
-    features: [
-      "Everything in Starter",
-      "Checks your up-to-date calendar before she offers a time",
-      "Works out exact totals from your own rates: dates, number of people and fees included",
-      "Helps each customer find the right option, then books it from start to finish",
-      "Sends your own M-Pesa or card payment link 24/7: customers pay you directly",
-      "Up to 5 notification emails, with takeover links and conversation transcripts",
-      "Calendar sync and booking notices for your team",
-    ],
-    featured: true,
-  },
-];
 
 const OUTCOMES = [
   { icon: ICONS.moon, title: "Stop losing the customers who message after hours", text: "Zaina replies in seconds, at midnight and on Sunday. The customer who would have gone to whoever answered first stays with you." },
@@ -173,8 +129,8 @@ const COMPARISON: Array<[string, string, string]> = [
 const SERVICE_ICONS: Record<StudioServiceId, string> = { software: ICONS.code, automation: ICONS.flow, data: ICONS.chart, research: ICONS.doc };
 
 export function renderHome(page: SitePage): string {
-  const title = "Bila Matata | AI Sales Concierge, Software, Data & Research Studio in Mombasa";
-  const description = "Zaina AI answers your customers day and night from your own prices and calendar, captures leads and takes bookings. Plus custom websites and apps, AI automation, data analysis and research, from a studio in Mombasa, Kenya.";
+  const title = "Bila Matata | Zaina AI Sales Concierge, Software, Data & Research · Kenya";
+  const description = "Zaina AI answers your customers day and night from your own prices and calendar, captures leads and takes bookings, on your website, WhatsApp and a QR menu. Plus custom websites and apps, AI automation, data analysis and research, for businesses across Kenya and beyond.";
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "ProfessionalService",
@@ -183,7 +139,7 @@ export function renderHome(page: SitePage): string {
     ...(page.baseUrl ? { url: page.baseUrl } : {}),
     telephone: STUDIO.phone,
     email: STUDIO.email,
-    address: { "@type": "PostalAddress", addressLocality: "Mombasa", addressCountry: "KE" },
+    address: { "@type": "PostalAddress", addressCountry: "KE" },
     areaServed: ["Kenya", "Worldwide"],
     makesOffer: [
       ...PLANS.map((plan) => ({
@@ -196,13 +152,19 @@ export function renderHome(page: SitePage): string {
       { "@type": "Offer", name: "Menu plan: branded QR menu", price: MENU_PLAN.monthlyMinor / 100, priceCurrency: "KES", description: MENU_PLAN.for },
     ],
   };
+  // The questions on the page, for search engines too.
+  const faqLd = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: homeFaq().map((entry) => ({ "@type": "Question", name: entry.question, acceptedAnswer: { "@type": "Answer", text: entry.answer } })),
+  };
   const projectLink = esc(whatsappLink(PROJECT_MESSAGE));
   return `${head({
     title,
     description,
     path: "/",
     baseUrl: page.baseUrl,
-    extra: `<script type="application/ld+json">${JSON.stringify(jsonLd).replace(/</g, "\\u003c")}</script>`,
+    extra: [jsonLd, faqLd].map((data) => `<script type="application/ld+json">${JSON.stringify(data).replace(/</g, "\\u003c")}</script>`).join("\n"),
   })}
 <body>
 ${header("home")}
@@ -211,7 +173,7 @@ ${header("home")}
 <section class="hero">
   <div class="wrap hero-grid">
     <div>
-      <p class="eyebrow">AI · Software · Data · Research, from Mombasa</p>
+      <p class="eyebrow">AI · Software · Data · Research · Kenya and beyond</p>
       <h1>Run Your Business <em>Without the Hassle.</em></h1>
       <p class="lede">24/7 AI sales &amp; booking concierges, custom web &amp; mobile apps, AI automation, and data-backed research that help businesses capture more leads and scale effortlessly.</p>
       <div class="cta-row">
@@ -228,6 +190,8 @@ ${header("home")}
     ${renderHeroCard()}
   </div>
 </section>
+
+${renderReach()}
 
 ${renderDemo()}
 
@@ -362,13 +326,15 @@ ${renderCalculator({ starter: PLANS[0].monthlyMinor, full: PLANS[1].monthlyMinor
       <h2 id="how-title">From first message to delivery</h2>
     </div>
     <ol class="steps">
-      <li><h3>Tell us what you need</h3><p>Message us on WhatsApp or ask Zaina on this page. A short call if it helps.</p></li>
+      <li><h3>Tell us what you need</h3><p>Message us on WhatsApp or ask Zaina on this page, wherever you are in Kenya or abroad. A short call if it helps.</p></li>
       <li><h3>Get a written quote</h3><p>Scope, price and delivery date in writing, before you pay anything.</p></li>
       <li><h3>Pay the deposit to start</h3><p>50% to begin project work, paid securely by M-Pesa or card on our <a href="/pay">payment page</a>.</p></li>
       <li><h3>Review and go live</h3><p>You review the work, we make the agreed changes, and the balance is due on delivery.</p></li>
     </ol>
   </div>
 </section>
+
+${renderFaq()}
 
 <section class="band" id="contact" aria-labelledby="contact-title">
   <div class="wrap">
@@ -383,7 +349,7 @@ ${renderCalculator({ starter: PLANS[0].monthlyMinor, full: PLANS[1].monthlyMinor
       <ul class="ways">
         <li><span>WhatsApp or call</span><a href="tel:${esc(STUDIO.phone)}">${esc(STUDIO.phoneDisplay)}</a></li>
         <li><span>Email</span><a href="mailto:${esc(STUDIO.email)}">${esc(STUDIO.email)}</a></li>
-        <li><span>Studio</span>${esc(STUDIO.city)}</li>
+        <li><span>Where we work</span>All of Kenya, in person or online, and clients abroad</li>
       </ul>
     </div>
   </div>

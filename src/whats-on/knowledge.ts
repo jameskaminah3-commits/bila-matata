@@ -12,6 +12,7 @@ import type { Business, BusinessSettings, VenuePayment } from "../db/schema.ts";
 import { addExtras } from "../engine/extras.ts";
 import { cachedDoorCatalogue, type DoorItem } from "../frontdoor/catalogue.ts";
 import { whatsOnPrompt, whatsOnView } from "./whats-on.ts";
+import { STUDIO, STUDIO_SUGGESTIONS } from "../studio/brand.ts";
 
 /** The longest menu written out in full (about 8,000 tokens); a longer one is described by its sections. */
 const MAX_MENU_CHARS = 32_000;
@@ -92,6 +93,8 @@ export function registerPlaceKnowledge(): void {
  * something it doesn't). At most four.
  */
 export async function chatSuggestions(business: Business, settings: BusinessSettings | null): Promise<string[]> {
+  // The studio's own Zaina on bilamatata.com: what a visitor deciding on Zaina asks first.
+  if (business.id === STUDIO.businessId) return STUDIO_SUGGESTIONS;
   if (business.businessType === "custom") return [];
   const capabilities = capabilitiesOf(business, settings);
   const [catalogue, whatsOn] = await Promise.all([

@@ -52,7 +52,11 @@ Zaina also speaks English and Swahili, and Bila Matata sets her up: the business
 
 ## A QR code and page for every business
 
-A business does not need a website to use Zaina. Every business gets its own page with its name, logo and colours, where customers chat with Zaina, and a QR code that opens it. From the dashboard (Settings, then QR code & link) the business prints the code as a poster, table cards or stickers, downloads it, or shares the link on WhatsApp and social media. The dashboard shows how many people scanned the code and how many started a chat.
+A business does not need a website to use Zaina. Every business gets its own page with its name, logo and colours, at its own address on bilamatata.com, where customers see its menu or price list and chat with Zaina, and a QR code that opens it. From the dashboard (Settings, then QR code & link) the business prints the code, downloads it, or shares the link on WhatsApp and social media. The dashboard shows how many people scanned the code and how many started a chat.
+
+**Print-ready, on one A4 page each:** a poster for the counter or the door, table cards, and a sheet of six table stickers with cut guides, in an Ivory or a Dark lounge look, with the business's M-Pesa till or Paybill on them if it wants. Any local printer can print them; Bila Matata can also print and deliver them as a separate service.
+
+**Found on Google, and a rich card when shared.** The business's page is built so Google can read it: its name, phone, pictures and its menu or price list item by item, with prices. When anyone shares the link on WhatsApp, Instagram or X it shows as a card with the business's cover photo or logo, its name and what it offers. A Share button on the page lets guests send it to a friend in one tap. Owners help Google find it by adding the link to their Google Business Profile and their social media.
 
 ### Where a scan goes, and business cards
 
@@ -87,6 +91,38 @@ Each plan has a monthly price and a one-off set-up fee. Use the price list for t
 
 For a restaurant, bar or hotel that wants its menu first, without the chat: a branded menu page guests open by scanning the QR code on the table, in the business's own logo, colours and lettering, with every dish and price, and What's on (today's special, tonight's event) at the top. The team changes dishes, prices and photos themselves, live at once, with nothing to reprint. It includes the QR code, printable table cards and business cards. Why it beats a menu file behind a QR code: it opens in a moment on any phone with nothing to download or zoom; it's set in the business's own brand rather than a template; What's on puts today's special and tonight's event where every guest looks first, so it sells as well as shows; a price change or a finished dish is live in seconds while the printed code never changes, so nothing is reprinted; and the dashboard counts how many guests scan and open it. We load the menu from a photo and send the QR code and table cards ready to print. It has no Zaina: no chat on the page or website, and no WhatsApp replies. Moving up to Starter later adds Zaina on the same page, with nothing to redo. It is a monthly price with a one-off set-up fee that includes loading the menu; use the price list for the amounts.
 
+## The menu, prices and photos, kept up to date by the team
+
+- **Change it in plain words.** In the dashboard (Catalogue), the menu assistant takes instructions like "raise the cocktails by 10%", "the tilapia is finished tonight", "add Chicken Tikka, 950, to Mains" or "write descriptions for the burgers". It shows every change before and after, the team ticks the ones to keep and applies them, and one tap undoes them. It finds dishes by name even when they're typed loosely, works out the new prices itself, and never changes anything until the team applies it. It's on every plan, including the Menu plan, for owners and managers only.
+- **Snap your price list.** A photo of a printed menu or price list becomes items to check and save, so nobody types the menu in.
+- **The order guests see.** The team arranges sections in the order they want ("Burgers first") and every page follows.
+- **Photos.** Items can have their own photos, and sections their own banner pictures.
+- **What's on.** Today's special and tonight's event sit at the top of the page, where every guest looks first.
+- **From the business's own system.** A shop that already sells online (WooCommerce, Shopify, Google Merchant, or a product file) can have its catalogue read every day, prices and stock included.
+
+## Run it from WhatsApp (Starter and Full)
+
+An owner who lives on WhatsApp links their own number in Settings (Manage from WhatsApp). From then on they can message the business's Zaina number like a colleague to change things: "mark the tilapia finished", "add tonight's special". Zaina proposes the change and makes it only when the owner replies YES. Customers writing to the same number are unaffected.
+
+## Orders and delivery (Full)
+
+Zaina takes orders from the price list at the exact price, for delivery (with the business's own delivery areas and fees) or collection, holds the stock, and passes the order to the team to accept. Where the business wants, she sends its own payment link, and customers can ask her later how their order is going. A guest who scans the code on a table orders to that table, with no delivery questions.
+
+## Customers, reports and follow-ups (Starter and Full)
+
+- **Customers.** Zaina recognises returning customers, and the dashboard keeps each one's chats, bookings and orders together.
+- **A monthly report** by email and in the dashboard: how many enquiries came in, what people asked about, what Zaina handled, and the leads, bookings and orders it led to.
+- **Follow-ups, chosen by the business:** booking reminders, one gentle follow-up to someone who asked and didn't book, and a "how was it?" after a visit. Offers go only to customers who said yes to them, at most one a week, and anyone can reply STOP at any time.
+
+## Which plan suits which business
+
+- **A restaurant, bar or hotel that wants a beautiful menu first:** the Menu plan. No chat; the team keeps the menu up to date; Zaina can be added later on the same page and the same printed code.
+- **A business with many questions and leads but no bookings to take online** (a shop, a consultant, a school, a property manager): Starter. Zaina answers from the price list and policies, recommends, and hands every lead to the team.
+- **A business that books, takes orders or takes deposits** (a hotel, lodge, villa, salon, clinic, restaurant taking tables, or a shop that delivers): Full. Zaina checks free times or dates, quotes exact totals, books or takes the order, and sends the business's own payment link.
+- **A business with its own online shop or booking system:** either plan, with Zaina connected to that system (quoted after a free look).
+
+When someone describes their business, recommend the plan that fits from the above and say why in a sentence; for the prices, use the price list.
+
 ## What set-up includes
 
 We load the business's catalogue, prices, opening hours and policies, tune Zaina's answers and tone with the owner, connect the business's own payment account and calendars where the plan includes them, and install the chat on the website. The website installation is one line of code and works on WordPress, Shopify, Wix and custom-built sites.
@@ -105,6 +141,6 @@ Zaina makes sure every enquiry is answered and followed up. How many leads and s
 
 ## Getting started
 
-Message us on WhatsApp at +254 707 255 598 and tell us about your business, or leave your name and number in this chat and the team will contact you.
+Message us on WhatsApp at +254 707 255 598 and tell us about your business, book a free consultation at https://bilamatata.com/start, or leave your name and number in this chat and the team will contact you. Businesses anywhere in Kenya, and abroad, are set up remotely.
 
 **Zaina inside your own system.** A business that already runs its own online shop or booking system can have Zaina connected to it, so prices, stock and free dates come straight from that system, customers can ask where their order is (answered only for the customer it belongs to), customers are sent to the business's own checkout to pay, and new leads and bookings arrive in the business's system as they happen. It is added to either plan and quoted for each system after a free look at what the business uses today; ask the studio through the Get started form or on WhatsApp.
