@@ -552,7 +552,7 @@ function MenuAssistant(props: { businessId: string; menu: boolean; onChanged: ()
       const result = await api<AssistantPlan>("POST", businessPath(props.businessId, "/price-list/assistant"), { text: request, ...(earlier ? { earlier } : {}) });
       const asked = result.question ? { request: earlier ? `${earlier.request} (${earlier.question} ${request})` : request, question: result.question } : null;
       setEarlier(asked);
-      if (asked) setText("");
+      if (asked || earlier) setText("");
       setPlan(result);
       setChosen(result.previews.map(() => true));
     } catch (problem) {
