@@ -59,7 +59,9 @@ test("a business's page opens its own Zaina, with a strict policy; an unknown or
   assert.equal(response.status, 200);
   const html = await response.text();
   assert.match(response.headers.get("content-security-policy") ?? "", /script-src 'self'; style-src 'self'/);
-  assert.equal(response.headers.get("x-robots-tag"), "noindex, nofollow");
+  assert.equal(response.headers.get("x-robots-tag"), null, "open to search engines");
+  assert.match(html, /<link rel="canonical" href="http:\/\/127\.0\.0\.1:\d+\/c\/palm">/);
+  assert.match(html, /<meta property="og:url" content="http:\/\/127\.0\.0\.1:\d+\/c\/palm">/);
   assert.match(html, /<h1>Palm Cove Stays<\/h1>/);
   assert.match(html, /data-business="palm" data-mode="page" data-mount="#zaina-chat" data-via="link"/);
   assert.match(html, /our guest experience host/);

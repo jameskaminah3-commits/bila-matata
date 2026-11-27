@@ -39,13 +39,14 @@ import { whatsappLink } from "../gateway/routes.ts";
 import { requireBusinessRole, requireStaff, staffOf } from "../staff/auth.ts";
 import { brandCss, DOOR_ASSETS_VERSION, DOOR_CSS, DOOR_JS, initials, renderDoorClosed, renderFrontDoor } from "./page.ts";
 import { TITLE_FONTS, TITLE_FONT_KEYS, type TitleFont } from "./title-fonts.ts";
-import { cachedDoorCatalogue, doorCatalogue } from "./catalogue.ts";
+import { cachedDoorCatalogue, catalogueKind, doorCatalogue } from "./catalogue.ts";
+import { capabilitiesOf } from "../capabilities/catalog.ts";
 import { cleanSpot } from "./spot.ts";
 import { whatsOnView } from "../whats-on/whats-on.ts";
 import { businessOrigin, canBeSubdomain, subdomainsOn } from "./subdomains.ts";
 import { qrSvg } from "./qr.ts";
 import { isOriginAllowed } from "../gateway/origin.ts";
-import { chatsOnTier, type QrDestination } from "../db/schema.ts";
+import { booksOnTier, chatsOnTier, type QrDestination } from "../db/schema.ts";
 import { doorSource, doorStats, looksLikePerson, recordDoorVisit, type DoorSource } from "./stats.ts";
 
 const BUSINESS_ID = /^[a-z][a-z0-9-]{1,39}$/;
@@ -231,7 +232,6 @@ export function registerFrontDoorRoutes(app: Express, config: PlatformConfig): v
       res.setHeader("X-Frame-Options", "DENY");
       res.setHeader("X-Content-Type-Options", "nosniff");
       res.setHeader("Referrer-Policy", "no-referrer");
-      res.setHeader("X-Robots-Tag", "noindex, nofollow");
       res.setHeader("Cache-Control", "no-store");
       const business = await live(String(req.params.business));
       const settings = business ? await getBusinessSettings(business.id) : null;
@@ -245,6 +245,10 @@ export function registerFrontDoorRoutes(app: Express, config: PlatformConfig): v
       if (looksLikePerson(req.header("user-agent"))) void recordDoorVisit(business.id, via);
       const catalogue = await cachedDoorCatalogue(business, settings).catch(() => null);
       const whatsOn = catalogue ? await whatsOnView(business).catch(() => null) : null;
+      // Search engines and shared links see one address for the page: its own (clubxo.bilamatata.com) where those are on.
+      const canonicalUrl = doorUrl(config.publicBaseUrl ?? base, business.id);
+      // Bookable here: the plan books, the chat is on, and the business takes tables, rooms or appointments.
+      const books = chat && booksOnTier(business.tier) && capabilitiesOf(business, settings).some((key) => key === "tables" || key === "rooms" || key === "appointments");
       res.type("html").send(renderFrontDoor({
         businessId: business.id,
         name: settings.displayName ?? business.name,
@@ -268,6 +272,11 @@ export function registerFrontDoorRoutes(app: Express, config: PlatformConfig): v
         spot: cleanSpot(req.query.spot),
         chat,
         pay: settings.venuePayment ?? null,
+        canonicalUrl,
+        kind: catalogue?.kind ?? (business.businessType === "custom" ? null : catalogueKind(business.businessType, settings.industry)),
+        books,
+        about: settings.about,
+        address: settings.cardDetails?.address?.trim() || null,
       }));
     } catch (error) {
       next(error);

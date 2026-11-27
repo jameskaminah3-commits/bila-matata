@@ -141,7 +141,7 @@ test("the words follow the business: a salon's services, and a page with nothing
   assert.match(salon, /<span class="cat-name">Haircut<\/span><i class="cat-dots" aria-hidden="true"><\/i><span class="cat-price">KSh 1,500<\/span><\/span><span class="cat-desc">Wash, cut and style<\/span>/);
   assert.match(salon, /data-ask="I'd like to book Haircut">Book via Zaina<\/button>/);
   const stays = await (await page("/c/palm")).text();
-  assert.doesNotMatch(stays, /door-tabs|door\.js/);
+  assert.doesNotMatch(stays, /door-tabs|door-catalogue/);
   assert.match(stays, /aria-label="Chat with Zaina"/);
   assert.match(stays, /Powered by Bila Matata/);
 });

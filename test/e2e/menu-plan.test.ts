@@ -51,7 +51,7 @@ test("the Menu plan's page is the menu and What's on, with no chat anywhere on i
   const response = await fetch(`${BASE}/c/corner`);
   assert.equal(response.status, 200);
   const page = await response.text();
-  assert.match(page, /<title>Corner Bistro · Menu<\/title>/);
+  assert.match(page, /<title>Corner Bistro — Menu<\/title>/);
   assert.match(page, /Grilled Tilapia/);
   assert.match(page, /<p class="whats-on-title">Today at Corner Bistro<\/p><ul class="whats-on-today"><li>Live band from 8pm<\/li>/);
   assert.match(page, /<section class="door-catalogue" id="door-catalogue" aria-label="Menu">/);

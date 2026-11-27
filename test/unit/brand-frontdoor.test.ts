@@ -7,7 +7,8 @@ import { BRAND_MAX_BYTES, brandAssetUrl, checkBrandImage, readableOn, sniffImage
 import { allowedOriginsFor, setFrontDoorOrigins } from "../../src/businesses/registry.ts";
 import { validateSettingsPatch } from "../../src/businesses/settings.ts";
 import { CONCIERGE_GUIDANCE } from "../../src/engine/concierge.ts";
-import { brandCss, DOOR_CSS, initials, renderDoorClosed, renderFrontDoor, type DoorView } from "../../src/frontdoor/page.ts";
+import { brandCss, DOOR_CSS, DOOR_JS, initials, publicAbout, renderDoorClosed, renderFrontDoor, type DoorView } from "../../src/frontdoor/page.ts";
+import type { DoorItem } from "../../src/frontdoor/catalogue.ts";
 import { qrSvg } from "../../src/frontdoor/qr.ts";
 import { doorSource, looksLikePerson } from "../../src/frontdoor/stats.ts";
 import { isOriginAllowed } from "../../src/gateway/origin.ts";
@@ -64,19 +65,19 @@ const view = (over: Partial<DoorView> = {}): DoorView => ({
 
 test("a business's page shows its brand, opens its own Zaina, and carries nothing inline", () => {
   const html = renderFrontDoor(view());
-  assert.match(html, /<title>Palm Cove Stays · Chat with Zaina<\/title>/);
+  assert.match(html, /<title>Palm Cove Stays — Info &amp; Enquiries<\/title>/);
   assert.match(html, /<h1>Palm Cove Stays<\/h1>\s*<p>Sea-view rooms in Diani<\/p>/);
   assert.match(html, /<span class="door-logo letters">PC<\/span>/, "no logo: its initials");
   assert.match(html, /<script src="\/zaina\.js" data-business="palm-cove" data-mode="page" data-mount="#zaina-chat" data-via="qr" async><\/script>/);
   assert.match(html, /href="tel:\+254700000321"/);
   assert.match(html, /href="https:\/\/wa\.me\/254700000321"/);
-  assert.match(html, /<meta name="robots" content="noindex">/);
+  assert.doesNotMatch(html, /noindex/, "the page is for search engines too");
   assert.match(html, /\/c\/palm-cove\/brand\.css\?v=0f766e/);
   // Zaina is the receptionist: the page says who is paid, and that she never asks for card details.
   assert.match(html, /You pay Palm Cove Stays directly\. Zaina never asks for card numbers or PINs\./);
   // The page's policy allows only the service's own files.
   assert.doesNotMatch(html, / style="| on[a-z]+="|<style|<script>(?!<)/);
-  assert.equal((html.match(/<script/g) ?? []).length, 1);
+  assert.equal((html.match(/<script/g) ?? []).length, 2, "the page's own script and the chat's");
 
   const branded = renderFrontDoor(view({ logoUrl: "https://bilamatata.co.ke/brand/palm-cove/logo?v=abc", coverUrl: "https://bilamatata.co.ke/brand/palm-cove/cover?v=def", via: "link", phone: null, phoneDisplay: null, whatsapp: null, tagline: null }));
   assert.match(branded, /<div class="door has-cover">/);
@@ -94,6 +95,75 @@ test("a business's page shows its brand, opens its own Zaina, and carries nothin
   assert.doesNotMatch(renderDoorClosed(), /<script/);
   assert.match(DOOR_CSS, /@media \(max-width: 860px\)/);
   assert.match(DOOR_CSS, /prefers-color-scheme: dark/);
+});
+
+test("a shared link shows a rich card, and search engines read the business and its menu, item by item", () => {
+  const dishes: DoorItem[] = [
+    { id: "1", name: "Tapas Burger", description: "Two beef patties, cheese and gherkins", price: "KSh 1,190", amount: { value: 1190, max: null, currency: "KES" }, section: "Burgers", picture: "/catalogue/tapas-gold/1?v=abc", inStock: true, variants: [], tell: "", order: null },
+    { id: "2", name: "Beef Samosa", description: null, price: "KSh 575", amount: { value: 575, max: null, currency: "KES" }, section: "Snacks", picture: null, inStock: false, variants: [], tell: "", order: null },
+    { id: "3", name: "Jameson", description: null, price: null, section: "Whiskey", picture: null, inStock: true, tell: "", order: null,
+      variants: [{ label: "Shot", price: "KSh 400", inStock: true, amount: { value: 400, max: null, currency: "KES" } }, { label: "750ml Bottle", price: "KSh 6,500", inStock: true, amount: { value: 6500, max: null, currency: "KES" } }] },
+    { id: "4", name: "Booth", description: null, price: null, section: "Tables", picture: null, inStock: true, variants: [], tell: "", order: null, booking: true },
+  ];
+  const tapas = view({
+    businessId: "tapas-gold", name: "Tapas Gold", tagline: "Dining, Cocktails & Entertainment · Nyali Centre, Mombasa", phone: "+254700000000", phoneDisplay: "0700 000 000",
+    logoUrl: "https://tapas-gold.bilamatata.com/brand/tapas-gold/logo?v=abc", coverUrl: "https://tapas-gold.bilamatata.com/brand/tapas-gold/cover?v=def",
+    canonicalUrl: "https://tapas-gold.bilamatata.com/", kind: "menu", books: true, address: "Nyali Centre, Links Road, Mombasa", spot: "Table 7",
+    about: "Tapas Gold is a lounge and restaurant in Nyali serving tapas, grills and cocktails late into the night. Call the manager on 0722 123 456 for events.",
+    catalogue: { tab: "Browse Menu", search: "Search the menu", kind: "menu", items: dishes, sections: ["Burgers", "Snacks", "Whiskey", "Tables"] },
+  });
+  const html = renderFrontDoor(tapas);
+  assert.match(html, /<title>Tapas Gold — Menu &amp; Reservations<\/title>/);
+  const description = /<meta name="description" content="([^"]+)">/.exec(html)![1];
+  assert.equal(description, "Tapas Gold is a lounge and restaurant in Nyali serving tapas, grills and cocktails late into the night. See the full menu with prices, and book a table.");
+  assert.doesNotMatch(html, /0722|manager/, "the about text's contact details never reach the page");
+  assert.match(html, /<link rel="canonical" href="https:\/\/tapas-gold\.bilamatata\.com\/">/);
+  assert.match(html, /<meta property="og:url" content="https:\/\/tapas-gold\.bilamatata\.com\/">/, "the table never goes into the shared address");
+  assert.match(html, /<meta property="og:image" content="https:\/\/tapas-gold\.bilamatata\.com\/brand\/tapas-gold\/cover\?v=def">/, "the cover first");
+  assert.match(html, /<meta name="twitter:card" content="summary_large_image">/);
+  assert.match(html, /<meta property="og:title" content="Tapas Gold — Menu &amp; Reservations">/);
+  // With only a logo: the logo, as the small square card.
+  const logoOnly = renderFrontDoor({ ...tapas, coverUrl: null });
+  assert.match(logoOnly, /<meta property="og:image" content="https:\/\/tapas-gold\.bilamatata\.com\/brand\/tapas-gold\/logo\?v=abc">/);
+  assert.match(logoOnly, /<meta name="twitter:card" content="summary">/);
+
+  const data = JSON.parse(/<script type="application\/ld\+json">(.+?)<\/script>/s.exec(html)![1]);
+  assert.equal(data["@type"], "Restaurant");
+  assert.deepEqual([data.name, data.url, data.telephone, data.address.streetAddress, data.acceptsReservations], ["Tapas Gold", "https://tapas-gold.bilamatata.com/", "+254700000000", "Nyali Centre, Links Road, Mombasa", true]);
+  assert.deepEqual(data.hasMenu.hasMenuSection.map((section: any) => section.name), ["Burgers", "Snacks", "Whiskey"], "tables booked through the chat aren't on the menu");
+  const burger = data.hasMenu.hasMenuSection[0].hasMenuItem[0];
+  assert.deepEqual([burger["@type"], burger.name, burger.image, burger.offers.price, burger.offers.priceCurrency, burger.offers.availability], ["MenuItem", "Tapas Burger", "https://tapas-gold.bilamatata.com/catalogue/tapas-gold/1?v=abc", 1190, "KES", "https://schema.org/InStock"]);
+  assert.equal(data.hasMenu.hasMenuSection[1].hasMenuItem[0].offers.availability, "https://schema.org/OutOfStock");
+  assert.deepEqual(data.hasMenu.hasMenuSection[2].hasMenuItem[0].offers.map((offer: any) => [offer.name, offer.price]), [["Shot", 400], ["750ml Bottle", 6500]], "a price for each size");
+
+  // Share: the page's own address and title, shown once the script runs.
+  assert.match(html, /<button type="button" class="door-btn door-share" data-share="https:\/\/tapas-gold\.bilamatata\.com\/" data-share-title="Tapas Gold — Menu &amp; Reservations" hidden>/);
+  assert.match(html, /<p class="door-toast" id="door-toast" role="status" aria-live="polite"><\/p>/);
+  assert.match(DOOR_JS, /navigator\.share\(\{ title: title, url: url \}\)/);
+  assert.match(DOOR_JS, /say\("Link copied"\)/);
+
+  // The Menu plan: the menu alone, so no reservations promised.
+  const menuPlan = renderFrontDoor({ ...tapas, chat: false });
+  assert.match(menuPlan, /<title>Tapas Gold — Menu<\/title>/);
+  assert.doesNotMatch(menuPlan, /acceptsReservations|book a table/);
+  // Another kind of business: its price list as an offer catalogue.
+  const salon = JSON.parse(/<script type="application\/ld\+json">(.+?)<\/script>/s.exec(renderFrontDoor(view({ canonicalUrl: "https://bilamatata.com/c/palm-cove", kind: "services", catalogue: { tab: "Services & Prices", search: "", kind: "services", items: [dishes[0]], sections: ["Burgers"] } })))![1]);
+  assert.deepEqual([salon["@type"], salon.hasOfferCatalog.itemListElement[0].itemListElement[0].itemOffered.name, salon.hasOfferCatalog.itemListElement[0].itemListElement[0].price], ["LocalBusiness", "Tapas Burger", 1190]);
+
+  // What a business typed can't break out of the data block.
+  const sly = renderFrontDoor({ ...tapas, name: "</script><script>alert(1)</script>" });
+  assert.doesNotMatch(sly, /<\/script><script>alert/);
+  assert.equal((sly.match(/<script type="application\/ld\+json">/g) ?? []).length, 1);
+  // No public address: no structured data (it needs a real link).
+  assert.doesNotMatch(renderFrontDoor({ ...tapas, canonicalUrl: null }), /ld\+json/);
+});
+
+test("only the opening of what a business says about itself describes it, never its contact details", () => {
+  assert.equal(publicAbout("We cut and style hair in Nyali. Book with Amina on 0722 000 111. Walk-ins welcome."), "We cut and style hair in Nyali.");
+  assert.equal(publicAbout("Email us at hello@example.com for events."), null);
+  assert.equal(publicAbout("## About\n**Family-run** guesthouse by the beach!"), "About Family-run guesthouse by the beach!");
+  assert.equal(publicAbout(""), null);
+  assert.ok(publicAbout("word ".repeat(80))!.length <= 160);
 });
 
 test("initials stand in for a missing logo", () => {

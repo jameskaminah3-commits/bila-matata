@@ -21,13 +21,19 @@ import type { Business, BusinessSettings } from "../db/schema.ts";
 import { listPriceItems, priceText } from "../prices/price-list.ts";
 import { sectionKey, sectionPictureUrls } from "../prices/section-images.ts";
 
-export type DoorVariant = { label: string; price: string | null; inStock: boolean };
+/** A price as a number, for search engines (the page shows the words in price). */
+export type DoorAmount = { value: number; max: number | null; currency: string };
+
+export type DoorVariant = { label: string; price: string | null; inStock: boolean; amount?: DoorAmount | null };
 
 export type DoorItem = {
   id: string;
   name: string;
   description: string | null;
   price: string | null;
+  amount?: DoorAmount | null;
+  /** A room, service or table booked through Zaina, not an item on the list. */
+  booking?: boolean;
   section: string | null;
   /** Same-origin address of the item's uploaded photo, or null (feed pictures live elsewhere and aren't shown here). */
   picture: string | null;
@@ -43,11 +49,14 @@ export type DoorItem = {
 
 export type DoorCatalogue = {
   tab: string; search: string; items: DoorItem[]; sections: string[];
+  /** What the business shows: a menu, rooms, services or a catalogue. */
+  kind?: CatalogueKind;
   /** Each section's banner picture (same origin), where the business added one. */
   banners?: Record<string, string>;
 };
 
-type Kind = "menu" | "stays" | "services" | "catalogue";
+export type CatalogueKind = "menu" | "stays" | "services" | "catalogue";
+type Kind = CatalogueKind;
 
 /** Which words the page uses: the industry the business chose, else its type. */
 export function catalogueKind(businessType: Business["businessType"], industry: BusinessSettings["industry"] | null | undefined): Kind {
@@ -99,7 +108,7 @@ export function groupVariants(items: DoorItem[]): DoorItem[] {
       continue;
     }
     const [, base, label] = SIZE.exec(item.name)!;
-    const variant = { label: label.trim(), price: item.price, inStock: item.inStock };
+    const variant: DoorVariant = { label: label.trim(), price: item.price, inStock: item.inStock, ...(item.amount ? { amount: item.amount } : {}) };
     const group = groups.get(key);
     if (group) {
       group.variants.push(variant);
@@ -110,8 +119,10 @@ export function groupVariants(items: DoorItem[]): DoorItem[] {
       continue;
     }
     const name = base.trim();
+    // The prices are the sizes' now.
+    const { amount: _each, ...one } = item;
     const merged: DoorItem = {
-      ...item, name, price: null, variants: [variant], tell: `Tell me about ${name}`,
+      ...one, name, price: null, variants: [variant], tell: `Tell me about ${name}`,
       order: item.order && { ...item.order, text: item.order.text.replace(item.name, name) },
     };
     groups.set(key, merged);
@@ -160,6 +171,7 @@ export async function doorCatalogue(business: Business, settings: BusinessSettin
     name: item.name,
     description: item.description?.trim() || null,
     price: priceText(item),
+    amount: { value: item.priceMinor / 100, max: item.priceMaxMinor === null ? null : item.priceMaxMinor / 100, currency: item.currency },
     section: item.section?.trim() || null,
     picture: item.imageVersion ? `/catalogue/${encodeURIComponent(business.id)}/${item.id}?v=${encodeURIComponent(item.imageVersion)}` : null,
     inStock: item.available && (item.stockQuantity === null || item.stockQuantity > 0),
@@ -174,11 +186,14 @@ export async function doorCatalogue(business: Business, settings: BusinessSettin
     const price = offering.kind === "room_type"
       ? (amount(rules.nightly) ? `From ${amount(rules.nightly)} a night` : null)
       : amount(rules.price) ?? (amount(rules.per_person) ? `${amount(rules.per_person)} per person` : null);
+    const minor = (offering.kind === "room_type" ? [rules.nightly] : [rules.price, rules.per_person]).find((value): value is number => typeof value === "number" && value > 0);
     return {
       id: offering.id,
       name: offering.name,
       description: offering.description?.trim() || null,
       price,
+      amount: minor === undefined ? null : { value: minor / 100, max: null, currency: booking.currency },
+      booking: true,
       section: OFFERING_SECTION[offering.kind] ?? null,
       picture: null,
       inStock: true,
@@ -195,5 +210,5 @@ export async function doorCatalogue(business: Business, settings: BusinessSettin
   const sections: string[] = [];
   for (const item of items) if (item.section && !sections.includes(item.section)) sections.push(item.section);
   const banners = Object.fromEntries(sections.flatMap((name) => (pictures.has(sectionKey(name)) ? [[name, pictures.get(sectionKey(name))!]] : [])));
-  return { ...CATALOGUE_WORDS[kind], items, sections, banners };
+  return { ...CATALOGUE_WORDS[kind], kind, items, sections, banners };
 }

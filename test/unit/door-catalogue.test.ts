@@ -151,7 +151,8 @@ test("with a catalogue, the page opens on it, set like a printed menu: lines ope
 
 test("without a catalogue the page is the chat alone, as before, with the same footer", () => {
   const html = renderFrontDoor(view());
-  assert.doesNotMatch(html, /door-tabs|door-catalogue|door\.js|data-spot/);
+  assert.doesNotMatch(html, /door-tabs|door-catalogue|data-spot/);
+  assert.match(html, /<script src="\/c-assets\/door\.js\?v=[0-9a-f]{12}" defer><\/script>/, "the page's own script, for Share");
   assert.match(html, /<main class="door-chat" id="zaina-chat" aria-label="Chat with Zaina">/);
   assert.match(html, /Powered by Bila Matata/);
   // A single section: no pills.

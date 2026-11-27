@@ -12,7 +12,7 @@
 import type { VenuePayment } from "../db/schema.ts";
 import { createHash } from "node:crypto";
 import { readableOn } from "../brand/assets.ts";
-import type { DoorCatalogue } from "./catalogue.ts";
+import type { CatalogueKind, DoorAmount, DoorCatalogue, DoorItem } from "./catalogue.ts";
 import { TITLE_FONTS, TITLE_FONT_KEYS, type TitleFont } from "./title-fonts.ts";
 import { widgetVersion } from "./widget-version.ts";
 
@@ -50,19 +50,215 @@ export type DoorView = {
   chat?: boolean;
   /** How guests pay at the place, as the owner set it: an M-Pesa till, or a Paybill and account. */
   pay?: VenuePayment | null;
+  /** The page's one public address (its own subdomain where those are on), without a table or source: what search engines and shares use. */
+  canonicalUrl?: string | null;
+  /** What the business shows (a menu, rooms, services, a catalogue): its search title and kind of place. */
+  kind?: CatalogueKind | null;
+  /** Whether guests can book here (a table, a room, an appointment) through the chat. */
+  books?: boolean;
+  /** The business's own words about itself: the opening of it describes the page in search results. */
+  about?: string | null;
+  /** The address the business prints on its cards, for search engines. */
+  address?: string | null;
 };
+
+/** The page's title, description and preview picture, for search results and shared links. */
+type PageMeta = { title: string; description: string; image: { url: string; wide: boolean } | null };
+
+/** How each kind of page is named in search results: what it shows, and with bookings. */
+const PAGE_WORDS: Record<CatalogueKind, { shows: string; books: string; offer: string; booking: string }> = {
+  menu: { shows: "Menu", books: "Menu & Reservations", offer: "See the full menu with prices", booking: "book a table" },
+  stays: { shows: "Rooms & Rates", books: "Rooms & Bookings", offer: "See our rooms and rates", booking: "book your stay" },
+  services: { shows: "Services & Prices", books: "Services & Bookings", offer: "See our services and prices", booking: "book an appointment" },
+  catalogue: { shows: "Prices & Info", books: "Bookings & Info", offer: "See what we offer, with prices", booking: "book" },
+};
+
+/**
+ * The opening of what the business says about itself, as a search result's
+ * description: whole sentences up to about 160 characters, stopping before
+ * any sentence with a phone number, an email or a link (those were written
+ * for its assistant, not for search results).
+ */
+export function publicAbout(about: string | null | undefined): string | null {
+  const text = (about ?? "").replace(/[#*_`>]+/g, " ").replace(/\s+/g, " ").trim();
+  if (!text) return null;
+  const sentences = text.match(/[^.!?]+(?:[.!?]+|$)/g) ?? [];
+  const kept: string[] = [];
+  for (const raw of sentences) {
+    const sentence = raw.trim();
+    if (!sentence) continue;
+    if (/@|https?:|www\.|\+?\d[\d\s()-]{6,}\d/i.test(sentence)) break;
+    if (kept.length && kept.join(" ").length + sentence.length + 1 > 160) break;
+    kept.push(sentence);
+  }
+  const joined = kept.join(" ");
+  if (!joined) return null;
+  return joined.length <= 160 ? joined : `${joined.slice(0, 157).replace(/\s+\S*$/, "")}…`;
+}
+
+export function pageMeta(view: DoorView): PageMeta {
+  const chat = view.chat !== false;
+  const kind = view.kind ?? view.catalogue?.kind ?? null;
+  const words = kind ? PAGE_WORDS[kind] : null;
+  const books = Boolean(view.books && chat);
+  const title = words && (view.catalogue || !chat)
+    ? `${view.name} — ${books ? words.books : words.shows}`
+    : `${view.name} — ${books ? "Bookings & Info" : "Info & Enquiries"}`;
+  const lead = publicAbout(view.about) ?? (view.tagline ? `${view.name}: ${view.tagline.replace(/[.\s]+$/, "")}.` : null);
+  const at = lead ? "" : ` at ${view.name}`;
+  const offer = words && view.catalogue
+    ? `${words.offer}${at}${view.whatsOn && (view.whatsOn.today.length || view.whatsOn.soon.length) ? ", what's on" : ""}${books ? `, and ${words.booking}` : ""}.`
+    : chat ? `Ask ${view.assistant}, our ${view.role}${at}, anything${books ? ", or book" : ""}, day or night.` : "";
+  const extra = chat && words && view.catalogue ? ` Ask ${view.assistant} anything, day or night.` : "";
+  let description = [lead, offer].filter(Boolean).join(" ");
+  // Search results show about 160 characters: the chat's line only when it fits in them.
+  if (description.length + extra.length <= 160) description += extra;
+  const absolute = (url: string | null) => (url && /^https?:\/\//.test(url) ? url : null);
+  const cover = absolute(view.coverUrl);
+  const logo = absolute(view.logoUrl);
+  return { title, description, image: cover ? { url: cover, wide: true } : logo ? { url: logo, wide: false } : null };
+}
+
+/** JSON for a <script> data block: nothing in it can close the tag or start markup. */
+const scriptJson = (value: unknown) => JSON.stringify(value)
+  .replace(/</g, "\\u003c").replace(/>/g, "\\u003e").replace(/&/g, "\\u0026").replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029");
+
+const SCHEMA_TYPE: Record<CatalogueKind, string> = { menu: "Restaurant", stays: "LodgingBusiness", services: "LocalBusiness", catalogue: "LocalBusiness" };
+const IN_STOCK = "https://schema.org/InStock";
+const OUT_OF_STOCK = "https://schema.org/OutOfStock";
+
+function offerOf(amount: DoorAmount | null | undefined, inStock: boolean, name?: string): Record<string, unknown> | null {
+  if (!amount) return null;
+  const price = amount.max !== null && amount.max > amount.value
+    ? { priceSpecification: { "@type": "PriceSpecification", minPrice: amount.value, maxPrice: amount.max, priceCurrency: amount.currency } }
+    : { price: amount.value, priceCurrency: amount.currency };
+  return { "@type": "Offer", ...(name ? { name } : {}), ...price, availability: inStock ? IN_STOCK : OUT_OF_STOCK };
+}
+/** An item's prices: one offer, or one for each size. */
+function offersOf(item: DoorItem): Record<string, unknown> | Array<Record<string, unknown>> | null {
+  if (item.variants.length) {
+    const each = item.variants.map((variant) => offerOf(variant.amount, variant.inStock, variant.label)).filter((offer): offer is Record<string, unknown> => Boolean(offer));
+    return each.length ? each : null;
+  }
+  return offerOf(item.amount, item.inStock);
+}
+
+/**
+ * What search engines read: the business as a Restaurant, LodgingBusiness or
+ * LocalBusiness, with its public phone, its address (as printed on its
+ * cards), its pictures, and its menu or price list item by item, each with
+ * its price and whether it's in stock. Only what the page itself shows.
+ */
+export function structuredData(view: DoorView, meta: PageMeta): string {
+  const url = view.canonicalUrl;
+  if (!url || !/^https?:\/\//.test(url)) return "";
+  const absolute = (path: string | null | undefined) => {
+    if (!path) return undefined;
+    try { return new URL(path, url).href; } catch { return undefined; }
+  };
+  const kind = view.kind ?? view.catalogue?.kind ?? null;
+  const data: Record<string, unknown> = {
+    "@context": "https://schema.org",
+    "@type": kind ? SCHEMA_TYPE[kind] : "LocalBusiness",
+    "@id": `${url}#business`,
+    name: view.name,
+    url,
+    description: meta.description,
+  };
+  const images = [absolute(view.coverUrl), absolute(view.logoUrl)].filter(Boolean);
+  if (images.length) data.image = images;
+  if (view.logoUrl) data.logo = absolute(view.logoUrl);
+  if (view.phone) data.telephone = view.phone;
+  if (view.address) data.address = { "@type": "PostalAddress", streetAddress: view.address };
+  if (kind === "menu" && view.books && view.chat !== false) data.acceptsReservations = true;
+  const catalogue = view.catalogue;
+  if (catalogue) {
+    const sections = catalogue.sections;
+    if (kind === "menu") {
+      // The menu itself: the dishes and drinks on the list (tables booked through the chat aren't on it).
+      const dishes = catalogue.items.filter((item) => !item.booking);
+      const itemOf = (item: DoorItem) => {
+        const offers = offersOf(item);
+        const picture = absolute(item.picture);
+        return { "@type": "MenuItem", name: item.name, ...(item.description ? { description: item.description } : {}), ...(picture ? { image: picture } : {}), ...(offers ? { offers } : {}) };
+      };
+      const loose = dishes.filter((item) => !item.section || !sections.includes(item.section));
+      data.hasMenu = {
+        "@type": "Menu",
+        name: `${view.name} menu`,
+        url,
+        ...(loose.length ? { hasMenuItem: loose.map(itemOf) } : {}),
+        hasMenuSection: sections
+          .map((name) => ({ name, items: dishes.filter((item) => item.section === name) }))
+          .filter((section) => section.items.length)
+          .map((section) => {
+            const banner = absolute(catalogue.banners?.[section.name]);
+            return { "@type": "MenuSection", name: sectionTitle(section.name), ...(banner ? { image: banner } : {}), hasMenuItem: section.items.map(itemOf) };
+          }),
+      };
+    } else {
+      const offerFor = (item: DoorItem) => {
+        const type = item.booking || kind === "services" || kind === "stays" ? "Service" : "Product";
+        const offers = item.variants.length ? item.variants.map((variant) => ({ name: `${item.name} (${variant.label})`, offer: offerOf(variant.amount, variant.inStock) })) : [{ name: item.name, offer: offerOf(item.amount, item.inStock) }];
+        return offers.map(({ name, offer }) => ({ ...(offer ?? { "@type": "Offer", availability: item.inStock ? IN_STOCK : OUT_OF_STOCK }), itemOffered: { "@type": type, name, ...(item.description ? { description: item.description } : {}) } }));
+      };
+      const groups = [
+        { name: catalogue.tab.replace(/^Browse\s+/i, ""), items: catalogue.items.filter((item) => !item.section || !sections.includes(item.section)) },
+        ...sections.map((name) => ({ name: sectionTitle(name), items: catalogue.items.filter((item) => item.section === name) })),
+      ].filter((group) => group.items.length);
+      data.hasOfferCatalog = {
+        "@type": "OfferCatalog",
+        name: catalogue.tab.replace(/^Browse\s+/i, ""),
+        itemListElement: groups.map((group) => ({ "@type": "OfferCatalog", name: group.name, itemListElement: group.items.flatMap(offerFor) })),
+      };
+    }
+  }
+  return `<script type="application/ld+json">${scriptJson(data)}</script>`;
+}
+
+/** Everything in the page's <head> that names it: for the tab, search results, and the preview card when the link is shared. */
+function headMeta(view: DoorView, meta: PageMeta): string {
+  const url = view.canonicalUrl && /^https?:\/\//.test(view.canonicalUrl) ? view.canonicalUrl : null;
+  const image = meta.image;
+  return [
+    `<title>${esc(meta.title)}</title>`,
+    `<meta name="description" content="${esc(meta.description)}">`,
+    url ? `<link rel="canonical" href="${esc(url)}">` : "",
+    `<meta name="theme-color" content="${esc(view.color)}">`,
+    `<meta property="og:type" content="website">`,
+    `<meta property="og:site_name" content="${esc(view.name)}">`,
+    `<meta property="og:title" content="${esc(meta.title)}">`,
+    `<meta property="og:description" content="${esc(meta.description)}">`,
+    url ? `<meta property="og:url" content="${esc(url)}">` : "",
+    image ? `<meta property="og:image" content="${esc(image.url)}">` : "",
+    image?.wide ? `<meta property="og:image:width" content="1200">\n<meta property="og:image:height" content="600">` : "",
+    image ? `<meta property="og:image:alt" content="${esc(view.name)}">` : "",
+    // A cover photo fills the large card; a square logo reads best as the small one (the large one would crop it).
+    `<meta name="twitter:card" content="${image && !image.wide ? "summary" : "summary_large_image"}">`,
+    `<meta name="twitter:title" content="${esc(meta.title)}">`,
+    `<meta name="twitter:description" content="${esc(meta.description)}">`,
+    image ? `<meta name="twitter:image" content="${esc(image.url)}">` : "",
+    view.logoUrl ? `<link rel="icon" href="${esc(view.logoUrl)}">` : `<link rel="icon" href="/site/zaina.svg" type="image/svg+xml">`,
+    structuredData(view, meta),
+  ].filter(Boolean).join("\n");
+}
+
+/** "Link copied", and the like: one quiet line at the foot of the screen. */
+const TOAST = '<p class="door-toast" id="door-toast" role="status" aria-live="polite"></p>';
 
 /**
  * One slim line under the name: where the guest is (from the table's code)
  * and how to reach the team (call, WhatsApp). On a phone the call shows as
  * "Call" alone, the number kept for screen readers, so the line stays one.
  */
-function utilityLine(view: DoorView, orders: boolean): string {
+function utilityLine(view: DoorView, orders: boolean, title: string): string {
   const spot = view.catalogue && view.spot
     ? `<p class="door-spot">${ICONS.pin}<span>You're at <strong>${esc(view.spot)}</strong>${orders ? '<span class="door-spot-more">. Anything you order here is brought to you.</span>' : ""}</span></p>`
     : "";
   const contact = [
     view.phone && view.phoneDisplay ? `<a class="door-btn" href="tel:${esc(view.phone)}" aria-label="Call ${esc(view.phoneDisplay)}">${ICONS.phone}<span>Call<span class="door-btn-detail"> ${esc(view.phoneDisplay)}</span></span></a>` : "",
+    // Shared to a friend: the page's own address, never the table's. Shown once the page's script runs.
+    `<button type="button" class="door-btn door-share" data-share="${esc(view.canonicalUrl ?? "")}" data-share-title="${esc(title)}" hidden>${ICONS.share}<span>Share</span></button>`,
     view.whatsapp ? `<a class="door-btn" href="${esc(view.whatsapp)}" target="_blank" rel="noopener noreferrer">${ICONS.whatsapp}<span>WhatsApp</span></a>` : "",
   ].join("");
   return spot || contact ? `<div class="door-utility">${spot}${contact}</div>` : "";
@@ -98,6 +294,7 @@ const ICONS = {
   chat: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.6 7.1L4 20l1-4.6A8 8 0 1 1 21 12z"/></svg>',
   pin: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-7-6.2-7-11a7 7 0 0 1 14 0c0 4.8-7 11-7 11z"/><circle cx="12" cy="10" r="2.5"/></svg>',
   pay: '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="2.5" width="12" height="19" rx="2.5"/><path d="M10.5 18.5h3"/></svg>',
+  share: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3.5"/><path d="M8 7.5l4-4 4 4"/><path d="M6 11H5.5A1.5 1.5 0 0 0 4 12.5v7A1.5 1.5 0 0 0 5.5 21h13a1.5 1.5 0 0 0 1.5-1.5v-7a1.5 1.5 0 0 0-1.5-1.5H18"/></svg>',
   shield: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6l8-3z"/><path d="M9 12l2 2 4-4"/></svg>',
 };
 
@@ -182,28 +379,20 @@ ${cards}
 
 export function renderFrontDoor(view: DoorView): string {
   if (view.chat === false) return renderMenuDoor(view);
-  const title = `${view.name} · Chat with ${view.assistant}`;
-  const description = `Chat with ${view.assistant}, the ${view.role} at ${view.name}: ask a question, check what's available, or leave your details for the team.`;
+  const meta = pageMeta(view);
   const id = encodeURIComponent(view.businessId);
   const orders = view.catalogue?.items.some((item) => item.order?.verb === "order") ?? false;
   const wordmark = Boolean(view.logoHasName && view.logoUrl);
   // The chat's script and its settings start loading with the page, not after it.
   const widget = `/zaina.js${widgetVersion() ? `?v=${widgetVersion()}` : ""}`;
   const font: TitleFont = view.titleFont && TITLE_FONT_KEYS.includes(view.titleFont) ? view.titleFont : "classic";
-  const utility = utilityLine(view, orders);
+  const utility = utilityLine(view, orders, meta.title);
   return `<!doctype html>
 <html lang="en"${view.menuStyle && view.menuStyle !== "auto" ? ` data-menu="${view.menuStyle}"` : ""}${font === "classic" ? "" : ` data-title="${font}"`}>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>${esc(title)}</title>
-<meta name="description" content="${esc(description)}">
-<meta name="robots" content="noindex">
-<meta name="theme-color" content="${esc(view.color)}">
-<meta property="og:title" content="${esc(title)}">
-<meta property="og:description" content="${esc(description)}">
-<meta property="og:type" content="website">
-${view.logoUrl ? `<meta property="og:image" content="${esc(view.logoUrl)}">\n<link rel="icon" href="${esc(view.logoUrl)}">` : `<link rel="icon" href="/site/zaina.svg" type="image/svg+xml">`}
+${headMeta(view, meta)}
 <link rel="preload" href="/c-assets/title-${font}.woff2?v=${TITLE_FONTS[font].version}" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/c-assets/door.css?v=${DOOR_ASSETS_VERSION}">
 <link rel="stylesheet" href="/c/${id}/brand.css?v=${esc(view.brandVersion)}">
@@ -237,8 +426,10 @@ ${view.logoUrl ? `<meta property="og:image" content="${esc(view.logoUrl)}">\n<li
     <noscript><p class="door-loading">The chat needs JavaScript.${view.phoneDisplay ? ` You can also call ${esc(view.phoneDisplay)}.` : ""}</p></noscript>
   </main>${view.catalogue ? "\n  </div>" : ""}
   <footer class="door-foot"><a href="${POWERED_BY.href}" target="_blank" rel="noopener">${POWERED_BY.text}</a></footer>
+  ${TOAST}
 </div>
-${view.catalogue || view.pay ? `<script src="/c-assets/door.js?v=${DOOR_ASSETS_VERSION}" defer></script>\n` : ""}<script src="${widget}" data-business="${esc(view.businessId)}" data-mode="page" data-mount="#zaina-chat" data-via="${view.via}"${view.spot ? ` data-spot="${esc(view.spot)}"` : ""} async></script>
+<script src="/c-assets/door.js?v=${DOOR_ASSETS_VERSION}" defer></script>
+<script src="${widget}" data-business="${esc(view.businessId)}" data-mode="page" data-mount="#zaina-chat" data-via="${view.via}"${view.spot ? ` data-spot="${esc(view.spot)}"` : ""} async></script>
 </body>
 </html>`;
 }
@@ -250,25 +441,17 @@ ${view.catalogue || view.pay ? `<script src="/c-assets/door.js?v=${DOOR_ASSETS_V
 function renderMenuDoor(view: DoorView): string {
   // "Browse Menu" on the tab beside the chat; here, with no tab, just "Menu".
   const tab = (view.catalogue?.tab ?? "Menu").replace(/^Browse\s+/i, "");
-  const title = `${view.name} · ${tab}`;
-  const description = `The ${tab.toLowerCase()} at ${view.name}${view.tagline ? `: ${view.tagline}` : ""}.`;
+  const meta = pageMeta(view);
   const id = encodeURIComponent(view.businessId);
   const wordmark = Boolean(view.logoHasName && view.logoUrl);
   const font: TitleFont = view.titleFont && TITLE_FONT_KEYS.includes(view.titleFont) ? view.titleFont : "classic";
-  const utility = utilityLine(view, false);
+  const utility = utilityLine(view, false, meta.title);
   return `<!doctype html>
 <html lang="en"${view.menuStyle && view.menuStyle !== "auto" ? ` data-menu="${view.menuStyle}"` : ""}${font === "classic" ? "" : ` data-title="${font}"`}>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>${esc(title)}</title>
-<meta name="description" content="${esc(description)}">
-<meta name="robots" content="noindex">
-<meta name="theme-color" content="${esc(view.color)}">
-<meta property="og:title" content="${esc(title)}">
-<meta property="og:description" content="${esc(description)}">
-<meta property="og:type" content="website">
-${view.logoUrl ? `<meta property="og:image" content="${esc(view.logoUrl)}">\n<link rel="icon" href="${esc(view.logoUrl)}">` : `<link rel="icon" href="/site/zaina.svg" type="image/svg+xml">`}
+${headMeta(view, meta)}
 <link rel="preload" href="/c-assets/title-${font}.woff2?v=${TITLE_FONTS[font].version}" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/c-assets/door.css?v=${DOOR_ASSETS_VERSION}">
 <link rel="stylesheet" href="/c/${id}/brand.css?v=${esc(view.brandVersion)}">
@@ -291,8 +474,10 @@ ${view.logoUrl ? `<meta property="og:image" content="${esc(view.logoUrl)}">\n<li
   ${renderCatalogue(view.catalogue, view)}
   </div>` : `<main class="door-chat"><p class="door-loading">Our ${esc(tab.toLowerCase())} is on its way.${view.phoneDisplay ? ` Call us on ${esc(view.phoneDisplay)} in the meantime.` : ""}</p></main>`}
   <footer class="door-foot"><a href="${POWERED_BY.href}" target="_blank" rel="noopener">${POWERED_BY.text}</a></footer>
+  ${TOAST}
 </div>
-${view.catalogue || view.pay ? `<script src="/c-assets/door.js?v=${DOOR_ASSETS_VERSION}" defer></script>\n` : ""}</body>
+<script src="/c-assets/door.js?v=${DOOR_ASSETS_VERSION}" defer></script>
+</body>
 </html>`;
 }
 
@@ -387,6 +572,14 @@ body { font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; 
 .door-btn:hover { border-color: var(--brand); transform: translateY(-1px); }
 .door-btn:focus-visible { outline: 3px solid var(--brand); outline-offset: 2px; }
 .door-btn svg { color: var(--mark); flex: none; }
+.door-share { font: inherit; font-weight: 600; font-size: .95rem; cursor: pointer; }
+.door-share[hidden] { display: none; }
+/* "Link copied": one quiet line at the foot of the screen, then gone. */
+.door-toast { position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); z-index: 60; margin: 0; max-width: min(92vw, 420px); padding: 10px 18px; border-radius: 999px;
+  background: var(--ink); color: var(--surface); font-size: .9rem; font-weight: 600; text-align: center; overflow-wrap: anywhere; box-shadow: 0 14px 32px -14px rgba(0, 0, 0, .55);
+  opacity: 0; transform: translate(-50%, 10px); transition: opacity .2s ease, transform .2s ease; pointer-events: none; }
+.door-toast.show { opacity: 1; transform: translate(-50%, 0); }
+.door-toast:empty { visibility: hidden; }
 .door-trust { margin: 0; display: flex; gap: 8px; align-items: flex-start; color: var(--muted); font-size: .88rem; max-width: 46ch; }
 .door-trust svg { flex: none; margin-top: 3px; color: var(--mark); }
 .door-chat { height: min(720px, calc(100dvh - 64px)); min-height: 420px; background: var(--surface); border: 1px solid var(--line); border-radius: 24px; overflow: hidden;
@@ -522,7 +715,7 @@ body { font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; 
 @media (prefers-reduced-transparency: reduce) {
   [data-menu="backdrop"] .cat-item, [data-menu="backdrop"] .cat-tools { background: #171513; -webkit-backdrop-filter: none; backdrop-filter: none; }
 }
-@media (prefers-reduced-motion: reduce) { [data-menu="backdrop"] .cat-backdrop img { transition: none; } .door-btn, .cat-nudge { transition: none; } .door-btn:hover { transform: none; } }
+@media (prefers-reduced-motion: reduce) { [data-menu="backdrop"] .cat-backdrop img { transition: none; } .door-btn, .cat-nudge, .door-toast { transition: none; } .door-btn:hover { transform: none; } }
 
 @media (max-width: 860px) {
   body { background: var(--surface); }
@@ -577,6 +770,11 @@ body { font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; 
   .has-catalogue .door-spot-more { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
   .has-catalogue .door-btn { flex: none; min-height: 36px; padding: 0 14px; font-size: .86rem; background: var(--hero-veil); color: var(--hero-ink); border-color: var(--hero-edge); }
   .has-catalogue .door-btn-detail { display: none; }
+  /* Share, on a phone, is the icon alone: the line stays one line beside the table and the call. */
+  .has-catalogue .door-share { width: 36px; padding: 0; justify-content: center; }
+  .has-catalogue .door-share span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  /* Above the "Ask Zaina" button, not on it. */
+  .has-catalogue .door-toast { bottom: calc(92px + env(safe-area-inset-bottom, 0px)); }
   /* M-Pesa: a hairline strip in the brand's colour, not a box. */
   .has-catalogue .door-pay { align-self: center; width: 100%; max-width: 340px; margin-top: 10px; border-color: color-mix(in srgb, var(--hero-rule) 60%, transparent); color: var(--hero-ink); }
   .has-catalogue .door-pay-what, .has-catalogue .door-pay-copy { color: var(--hero-rule); }
@@ -621,6 +819,47 @@ export const DOOR_JS = String.raw`(function () {
         button.classList.add("done");
         setTimeout(function () { button.textContent = "Copy"; button.classList.remove("done"); }, 1800);
       }, function () { /* not allowed: the number stays selectable */ });
+    });
+  });
+  // "Link copied", and the like: shown for a moment, read out by screen readers.
+  var toast = document.getElementById("door-toast");
+  var toastTimer = 0;
+  function say(text) {
+    if (!toast) return;
+    toast.textContent = text;
+    toast.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { toast.classList.remove("show"); }, 2400);
+  }
+  // Copies text where the browser allows it: the clipboard, else the older way.
+  function copyText(text) {
+    if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(text);
+    return new Promise(function (resolve, reject) {
+      var field = document.createElement("textarea");
+      field.value = text;
+      field.setAttribute("readonly", "");
+      field.style.position = "fixed";
+      field.style.opacity = "0";
+      document.body.appendChild(field);
+      field.select();
+      var done = false;
+      try { done = document.execCommand("copy"); } catch (error) { done = false; }
+      document.body.removeChild(field);
+      if (done) resolve(); else reject(new Error("copy"));
+    });
+  }
+  // Share: the phone's own share sheet (WhatsApp, Instagram…), else the link copied.
+  document.querySelectorAll("[data-share]").forEach(function (button) {
+    var url = button.getAttribute("data-share") || (location.origin + location.pathname);
+    var title = button.getAttribute("data-share-title") || document.title;
+    function copied() { copyText(url).then(function () { say("Link copied"); }, function () { say(url); }); }
+    button.hidden = false;
+    button.addEventListener("click", function () {
+      if (navigator.share) {
+        navigator.share({ title: title, url: url }).catch(function (error) { if (!error || error.name !== "AbortError") copied(); });
+        return;
+      }
+      copied();
     });
   });
   var tabs = Array.prototype.slice.call(document.querySelectorAll("[data-tab]"));
