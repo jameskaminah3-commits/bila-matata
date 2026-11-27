@@ -487,12 +487,14 @@ body { font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; 
 .cat-nudge-go { display: inline-flex; align-items: center; gap: 8px; border: 0; background: none; color: inherit; font: inherit; font-size: .92rem; font-weight: 600; min-height: 44px; padding: 0 2px 0 16px; cursor: pointer; }
 .cat-nudge-x { flex: none; border: 0; background: none; color: inherit; font: inherit; font-size: 1.2rem; line-height: 1; width: 40px; height: 44px; border-radius: 999px; cursor: pointer; opacity: .65; }
 .cat-nudge button:focus-visible { outline: 3px solid var(--mark); outline-offset: -3px; }
+.cat-nudge { transition: opacity .2s ease, transform .2s ease, visibility .2s; }
+.cat-nudge.away { opacity: 0; visibility: hidden; transform: translateY(10px); pointer-events: none; }
 .cat-none { margin: 28px 16px; color: var(--muted); text-align: center; }
 /* What's on: today's special and tonight's event, posted by the team, above the menu (hidden while the guest filters). */
 .whats-on { margin: 20px 20px 0; padding: 16px 18px; border: 1px solid color-mix(in srgb, var(--brand) 35%, var(--line)); border-radius: 16px; background: color-mix(in srgb, var(--brand) 6%, var(--sheet)); text-align: center; }
 .whats-on-title { margin: 0 0 8px; font-size: .7rem; font-weight: 700; letter-spacing: .22em; text-transform: uppercase; color: var(--mark); }
 .whats-on ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 6px; }
-.whats-on-today li { font-family: var(--display); font-weight: var(--title-weight); font-synthesis: none; font-size: calc(1.15rem * var(--title-scale)); letter-spacing: var(--title-track); line-height: 1.3; overflow-wrap: anywhere; }
+.whats-on-today li { text-wrap: balance; font-family: var(--display); font-weight: var(--title-weight); font-synthesis: none; font-size: calc(1.15rem * var(--title-scale)); letter-spacing: var(--title-track); line-height: 1.3; overflow-wrap: anywhere; }
 .whats-on-today + .whats-on-soon { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
 .whats-on-soon li { font-size: .9rem; color: var(--muted); overflow-wrap: anywhere; }
 .whats-on-soon b { color: var(--ink); font-weight: 600; margin-right: 6px; }
@@ -520,7 +522,7 @@ body { font: 16px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; 
 @media (prefers-reduced-transparency: reduce) {
   [data-menu="backdrop"] .cat-item, [data-menu="backdrop"] .cat-tools { background: #171513; -webkit-backdrop-filter: none; backdrop-filter: none; }
 }
-@media (prefers-reduced-motion: reduce) { [data-menu="backdrop"] .cat-backdrop img { transition: none; } .door-btn { transition: none; } .door-btn:hover { transform: none; } }
+@media (prefers-reduced-motion: reduce) { [data-menu="backdrop"] .cat-backdrop img { transition: none; } .door-btn, .cat-nudge { transition: none; } .door-btn:hover { transform: none; } }
 
 @media (max-width: 860px) {
   body { background: var(--surface); }
@@ -749,6 +751,10 @@ export const DOOR_JS = String.raw`(function () {
   if (nudge && hide) hide.addEventListener("click", function () {
     nudge.hidden = true;
     try { sessionStorage.setItem("door-nudge", "hidden"); } catch (error) { /* no storage */ }
+  });
+  // An open dish has its own Ask and Order buttons: the floating one steps aside so it never covers them.
+  if (nudge) document.querySelectorAll(".cat-card").forEach(function (card) {
+    card.addEventListener("toggle", function () { nudge.classList.toggle("away", Boolean(document.querySelector(".cat-card[open]"))); });
   });
 
   // "Dark, over your photos": the backdrop shows the cover photo, then each section's own as it comes into view.
