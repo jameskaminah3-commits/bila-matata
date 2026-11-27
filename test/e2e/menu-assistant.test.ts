@@ -5,12 +5,16 @@
 // model stands in for the real one: it answers with the plan given to it.
 
 import assert from "node:assert/strict";
+import { mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { after, before, test } from "node:test";
 import { apiFor, startPlatform, type Api, type Platform } from "./harness.ts";
 
 const PORT = 5135;
 const BASE = `http://127.0.0.1:${PORT}`;
 const PASSWORD = "LocalTest#2026";
+const DUMP = mkdtempSync(path.join(tmpdir(), "menu-assistant-"));
 let platform: Platform;
 let api: Api;
 const tokens: Record<string, string> = {};
@@ -19,7 +23,7 @@ const plan = (value: unknown) => `Raise the cocktails by 10% and the tilapia is 
 const menu = async (business: string) => (await staff(business, "GET", "/price-list")).body.items as Array<{ id: string; name: string; section: string; price: number; available: boolean; description: string | null }>;
 
 before(async () => {
-  platform = await startPlatform({ port: PORT, env: { PUBLIC_BASE_URL: BASE } });
+  platform = await startPlatform({ port: PORT, env: { PUBLIC_BASE_URL: BASE, FAKE_GEMINI_DUMP_DIR: DUMP } });
   api = apiFor(platform.base);
   platform.cli("create-staff.ts", ["--email", "ops@example.com", "--name", "Ops", "--platform-admin"], { STAFF_PASSWORD: PASSWORD });
   const ops = (await api("POST", "/v1/staff/login", { email: "ops@example.com", password: PASSWORD })).body.token;
@@ -29,12 +33,15 @@ before(async () => {
     const parsed = (await staff(id, "POST", "/price-list/parse", { text: "Cocktails\nMojito: 650\nDawa: 600\nMains\nTilapia: 1200 | Whole, lemon butter\nNyama Choma: 1500" })).body;
     assert.equal((await staff(id, "POST", "/price-list/import", { items: parsed.items, replace: false })).status, 200);
   }
+  // A dish only Corner Bistro has: it must never reach The Lounge's assistant.
+  assert.equal((await staff("corner", "POST", "/price-list", { name: "Corner Secret Curry", price: "1400", section: "Mains" })).status, 201);
   assert.equal((await staff("lounge", "POST", "/members", { email: "agent@example.com", name: "Agent", password: PASSWORD, role: "agent" })).status, 201);
   tokens.agent = (await api("POST", "/v1/staff/login", { email: "agent@example.com", password: PASSWORD })).body.token;
 });
 
 after(async () => {
   await platform?.stop();
+  rmSync(DUMP, { recursive: true, force: true });
 });
 
 test("it offers ideas from the business's own menu, to managers only", async () => {
@@ -121,4 +128,35 @@ test("one business's assistant can't touch another's menu, and the Menu plan has
   const menuPlan = await staff("corner", "POST", "/price-list/assistant", { text: plan({ summary: "Mark Dawa finished", changes: [{ op: "stock", item: "i2", available: false }] }) });
   assert.equal(menuPlan.status, 200);
   assert.deepEqual(menuPlan.body.previews.map((p: any) => [p.label, p.after]), [["Dawa", "Out of stock"]]);
+});
+
+test("only signed-in managers of this business reach it, and the model sees this business's menu alone", async () => {
+  for (const [method, route] of [["GET", "/price-list/assistant"], ["POST", "/price-list/assistant"], ["POST", "/price-list/assistant/apply"]] as const) {
+    const response = await fetch(`${BASE}/v1/staff/businesses/lounge${route}`, { method, headers: { "content-type": "application/json" }, body: method === "POST" ? JSON.stringify({ text: "Raise everything", changes: [] }) : undefined });
+    assert.equal(response.status, 401, `${method} ${route} without signing in`);
+  }
+  for (const [method, route, body] of [["GET", "/price-list/assistant", undefined], ["POST", "/price-list/assistant", { text: "Raise everything by 10%" }], ["POST", "/price-list/assistant/apply", { changes: [{ op: "hide", item_id: "00000000-0000-4000-8000-000000000001" }] }]] as const) {
+    const response = await staff("corner", method, route, body, tokens.lounge);
+    assert.ok(response.status === 403 || response.status === 404, `The Lounge's owner on Corner Bistro's ${route}: ${response.status}`);
+  }
+  assert.doesNotMatch(JSON.stringify((await staff("lounge", "GET", "/price-list/assistant")).body), /Corner Secret Curry/);
+  await staff("lounge", "POST", "/price-list/assistant", { text: plan({ summary: "Nothing", changes: [] }) });
+  const latest = readdirSync(DUMP).sort().at(-1)!;
+  const request = JSON.parse(readFileSync(path.join(DUMP, latest), "utf8"));
+  const instructions = (request.body ?? request).systemInstruction.parts.map((part: any) => part.text).join("");
+  assert.match(instructions, /^You manage the menu of The Lounge for its team\./);
+  assert.match(instructions, /Mojito/);
+  assert.doesNotMatch(instructions, /Corner Secret Curry|Corner Bistro/, "never another business's menu or name");
+  assert.doesNotMatch(instructions, /[0-9a-f]{8}-[0-9a-f]{4}-/, "never an item's id");
+});
+
+test("a change made meanwhile, on WhatsApp or by a colleague, is never written over", async () => {
+  const answer = await staff("lounge", "POST", "/price-list/assistant", { text: plan({ summary: "Dawa to 700", changes: [{ op: "price", item: "i2", price: 700 }] }) });
+  const dawa = (await menu("lounge")).find((item) => item.name === "Dawa")!;
+  // Meanwhile the owner changes it another way.
+  assert.equal((await staff("lounge", "PATCH", `/price-list/${dawa.id}`, { price: "650" })).status, 200);
+  const applied = await staff("lounge", "POST", "/price-list/assistant/apply", { changes: answer.body.previews.map((p: any) => p.change) });
+  assert.equal(applied.body.applied, 0);
+  assert.deepEqual(applied.body.skipped, ["Dawa's price changed meanwhile: it's now KSh 650"]);
+  assert.equal((await menu("lounge")).find((item) => item.name === "Dawa")!.price, 650, "theirs stands");
 });

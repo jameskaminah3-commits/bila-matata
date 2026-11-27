@@ -20,13 +20,18 @@ import { createPriceItem, deletePriceItem, getPriceItem, listPriceItems, orderPr
 export const ASSISTANT_MAX_CHARS = 1500;
 const MAX_CHANGES = 120;
 
-/** One change, by the item's real id. "delete" only ever comes from an undo (of an added dish). */
+/**
+ * One change, by the item's real id. "delete" only ever comes from an undo
+ * (of an added dish). "was" is the value the team saw in the preview: if the
+ * item has changed since (on WhatsApp, or by a colleague), the change is
+ * skipped rather than written over theirs.
+ */
 export type MenuChange =
-  | { op: "price"; item_id: string; price: number }
-  | { op: "stock"; item_id: string; available: boolean }
-  | { op: "rename"; item_id: string; name: string }
-  | { op: "describe"; item_id: string; description: string | null }
-  | { op: "move"; item_id: string; section: string | null }
+  | { op: "price"; item_id: string; price: number; was?: number }
+  | { op: "stock"; item_id: string; available: boolean; was?: boolean }
+  | { op: "rename"; item_id: string; name: string; was?: string }
+  | { op: "describe"; item_id: string; description: string | null; was?: string | null }
+  | { op: "move"; item_id: string; section: string | null; was?: string | null }
   | { op: "hide"; item_id: string }
   | { op: "show"; item_id: string }
   | { op: "add"; name: string; price: number; section: string | null; description: string | null }
@@ -196,23 +201,23 @@ export function previewChanges(changes: MenuChange[], items: PriceItem[]): { pre
     switch (change.op) {
       case "price":
         if (Math.round(change.price * 100) === item.priceMinor) break;
-        previews.push({ change, kind: "Price", label: item.name, before: formatMoney(item.priceMinor, item.currency), after: formatMoney(Math.round(change.price * 100), item.currency) });
+        previews.push({ change: { ...change, was: item.priceMinor / 100 }, kind: "Price", label: item.name, before: formatMoney(item.priceMinor, item.currency), after: formatMoney(Math.round(change.price * 100), item.currency) });
         break;
       case "stock":
         if (change.available === item.available) break;
-        previews.push({ change, kind: "Stock", label: item.name, before: item.available ? "In stock" : "Out of stock", after: change.available ? "In stock" : "Out of stock" });
+        previews.push({ change: { ...change, was: item.available }, kind: "Stock", label: item.name, before: item.available ? "In stock" : "Out of stock", after: change.available ? "In stock" : "Out of stock" });
         break;
       case "rename":
         if (change.name === item.name) break;
-        previews.push({ change, kind: "Name", label: item.name, before: item.name, after: change.name });
+        previews.push({ change: { ...change, was: item.name }, kind: "Name", label: item.name, before: item.name, after: change.name });
         break;
       case "describe":
         if ((change.description ?? "") === (item.description ?? "")) break;
-        previews.push({ change, kind: "Description", label: item.name, before: item.description, after: change.description ?? "No description" });
+        previews.push({ change: { ...change, was: item.description }, kind: "Description", label: item.name, before: item.description, after: change.description ?? "No description" });
         break;
       case "move":
         if ((change.section ?? "") === (item.section ?? "")) break;
-        previews.push({ change, kind: "Section", label: item.name, before: item.section ?? "No section", after: change.section ?? "No section" });
+        previews.push({ change: { ...change, was: item.section }, kind: "Section", label: item.name, before: item.section ?? "No section", after: change.section ?? "No section" });
         break;
       case "hide":
         if (item.status === "hidden") break;
@@ -235,11 +240,11 @@ export function readChange(input: unknown): MenuChange | null {
   const c = (input && typeof input === "object" ? input : {}) as Record<string, unknown>;
   const id = typeof c.item_id === "string" && /^[0-9a-f-]{36}$/i.test(c.item_id) ? c.item_id : null;
   switch (c.op) {
-    case "price": { const price = amount(c.price); return id && price !== null ? { op: "price", item_id: id, price } : null; }
-    case "stock": return id && typeof c.available === "boolean" ? { op: "stock", item_id: id, available: c.available } : null;
-    case "rename": { const name = text(c.name, 120); return id && name ? { op: "rename", item_id: id, name } : null; }
-    case "describe": return id ? { op: "describe", item_id: id, description: c.description === null ? null : text(c.description, 500) } : null;
-    case "move": return id ? { op: "move", item_id: id, section: c.section === null ? null : text(c.section, 80) } : null;
+    case "price": { const price = amount(c.price); return id && price !== null ? { op: "price", item_id: id, price, ...(typeof c.was === "number" ? { was: c.was } : {}) } : null; }
+    case "stock": return id && typeof c.available === "boolean" ? { op: "stock", item_id: id, available: c.available, ...(typeof c.was === "boolean" ? { was: c.was } : {}) } : null;
+    case "rename": { const name = text(c.name, 120); return id && name ? { op: "rename", item_id: id, name, ...(typeof c.was === "string" ? { was: c.was } : {}) } : null; }
+    case "describe": return id ? { op: "describe", item_id: id, description: c.description === null ? null : text(c.description, 500), ...("was" in c && (c.was === null || typeof c.was === "string") ? { was: c.was as string | null } : {}) } : null;
+    case "move": return id ? { op: "move", item_id: id, section: c.section === null ? null : text(c.section, 80), ...("was" in c && (c.was === null || typeof c.was === "string") ? { was: c.was as string | null } : {}) } : null;
     case "hide": return id ? { op: "hide", item_id: id } : null;
     case "show": return id ? { op: "show", item_id: id } : null;
     case "delete": return id ? { op: "delete", item_id: id } : null;
@@ -305,6 +310,15 @@ export async function applyChanges(businessId: string, changes: MenuChange[], us
       continue;
     }
     if (item.source === "feed") { skipped.push(`${item.name} comes from your own system: change it there`); continue; }
+    // Changed since the team saw it (on WhatsApp, or by a colleague): theirs stands.
+    const moved =
+      change.op === "price" && change.was !== undefined && Math.round(change.was * 100) !== item.priceMinor ? `${item.name}'s price changed meanwhile: it's now ${formatMoney(item.priceMinor, item.currency)}`
+      : change.op === "stock" && change.was !== undefined && change.was !== item.available ? `${item.name} was marked ${item.available ? "in stock" : "out of stock"} meanwhile`
+      : change.op === "rename" && change.was !== undefined && change.was !== item.name ? `${change.was} was renamed ${item.name} meanwhile`
+      : change.op === "describe" && change.was !== undefined && (change.was ?? null) !== (item.description ?? null) ? `${item.name}'s description changed meanwhile`
+      : change.op === "move" && change.was !== undefined && (change.was ?? null) !== (item.section ?? null) ? `${item.name} moved to ${item.section ?? "no section"} meanwhile`
+      : null;
+    if (moved) { skipped.push(moved); continue; }
     const patch: Record<string, unknown> =
       change.op === "price" ? { price: String(change.price) }
       : change.op === "stock" ? { available: change.available }
@@ -313,11 +327,11 @@ export async function applyChanges(businessId: string, changes: MenuChange[], us
       : change.op === "move" ? { section: change.section ?? "" }
       : { status: change.op === "hide" ? "hidden" : "active" };
     const back: MenuChange =
-      change.op === "price" ? { op: "price", item_id: item.id, price: item.priceMinor / 100 }
-      : change.op === "stock" ? { op: "stock", item_id: item.id, available: item.available }
-      : change.op === "rename" ? { op: "rename", item_id: item.id, name: item.name }
-      : change.op === "describe" ? { op: "describe", item_id: item.id, description: item.description }
-      : change.op === "move" ? { op: "move", item_id: item.id, section: item.section }
+      change.op === "price" ? { op: "price", item_id: item.id, price: item.priceMinor / 100, was: change.price }
+      : change.op === "stock" ? { op: "stock", item_id: item.id, available: item.available, was: change.available }
+      : change.op === "rename" ? { op: "rename", item_id: item.id, name: item.name, was: change.name }
+      : change.op === "describe" ? { op: "describe", item_id: item.id, description: item.description, was: change.description }
+      : change.op === "move" ? { op: "move", item_id: item.id, section: item.section, was: change.section }
       : { op: item.status === "hidden" ? "hide" : "show", item_id: item.id };
     const checked = validatePriceItem(patch, item);
     if (!checked.ok) { skipped.push(`${item.name}: ${checked.error}`); continue; }
