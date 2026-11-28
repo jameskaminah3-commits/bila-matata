@@ -401,7 +401,9 @@ export const HOME_CSS = String.raw`
 .faq-grid .section-head { position: sticky; top: 96px; }
 @media (max-width: 900px) { .faq-grid { grid-template-columns: minmax(0, 1fr); } .faq-grid .section-head { position: static; } }
 .faq-list { display: grid; gap: 10px; }
-.faq-item { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; }
+.faq-item { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; transition: border-color 0.2s ease, box-shadow 0.2s ease; }
+.faq-item[open] { border-color: color-mix(in srgb, var(--brand) 35%, var(--line)); box-shadow: 0 18px 36px -28px rgba(15, 23, 42, 0.35); }
+.faq-item > summary:hover { color: var(--accent); }
 .faq-item > summary { position: relative; padding: 16px 52px 16px 20px; cursor: pointer; list-style: none; font-weight: 650; font-size: 1.02rem; }
 .faq-item > summary::-webkit-details-marker { display: none; }
 .faq-item > summary::after { content: ""; position: absolute; right: 22px; top: 50%; width: 9px; height: 9px; border-right: 2px solid var(--accent); border-bottom: 2px solid var(--accent); transform: translateY(-70%) rotate(45deg); transition: transform .15s ease; }

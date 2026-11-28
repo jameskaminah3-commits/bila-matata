@@ -85,8 +85,8 @@ function header(current: "home" | "terms" | "pay" | "start" | "blog"): string {
       <a href="${home}#services">Services</a>
       <a href="${home}#pricing">Pricing</a>
       <a href="/blog"${current === "blog" ? ' aria-current="page"' : ""}>Blog</a>
-      <a href="/app/">Client Login</a>
-      <a href="/pay"${current === "pay" ? ' aria-current="page"' : ""}>Pay Invoice</a>
+      <a class="nav-util nav-split" href="/app/">Client Login</a>
+      <a class="nav-util" href="/pay"${current === "pay" ? ' aria-current="page"' : ""}>Pay Invoice</a>
       <a class="nav-cta" href="${home}#contact">Contact</a>
     </nav>
   </div>
@@ -94,16 +94,34 @@ function header(current: "home" | "terms" | "pay" | "start" | "blog"): string {
 }
 
 function footer(): string {
+  const wa = esc(whatsappLink("Hello Bila Matata,"));
   return `<footer class="site-footer">
-  <div class="wrap">
-    <p>Serving businesses across Kenya and globally · WhatsApp/Call: <a href="${esc(whatsappLink("Hello Bila Matata,"))}" rel="noopener">${esc(STUDIO.phoneDisplay)}</a> · Email: <a href="mailto:${esc(STUDIO.email)}">${esc(STUDIO.email)}</a></p>
-    <nav aria-label="Footer">
-      <a href="/blog">Blog</a>
-      <a href="/terms">Terms and privacy</a>
-      <a href="/pay">Pay an invoice</a>
-      <a href="/app/">Client login</a>
+  <div class="wrap footer-top">
+    <div class="footer-brand">
+      <a class="brand" href="/" aria-label="${esc(STUDIO.name)}: home">${LOGO}<span>${esc(STUDIO.name)}</span></a>
+      <p>AI, software, data and research for businesses across Kenya and beyond. Fewer missed customers, less busywork, better decisions.</p>
+      <a class="btn btn-primary" href="/start">Book a free consultation</a>
+    </div>
+    <nav class="footer-cols" aria-label="Footer">
+      <div>
+        <p class="footer-h">Zaina AI</p>
+        <ul><li><a href="/#zaina">How Zaina works</a></li><li><a href="/#demo">See it work</a></li><li><a href="/#pricing">Pricing</a></li><li><a href="/#faq">Questions</a></li></ul>
+      </div>
+      <div>
+        <p class="footer-h">Studio</p>
+        <ul><li><a href="/#services">Services</a></li><li><a href="/#work">Our work</a></li><li><a href="/#how">How it works</a></li><li><a href="/blog">Blog</a></li></ul>
+      </div>
+      <div>
+        <p class="footer-h">Clients</p>
+        <ul><li><a href="/app/">Client login</a></li><li><a href="/pay">Pay an invoice</a></li><li><a href="/terms">Terms and privacy</a></li></ul>
+      </div>
+      <div>
+        <p class="footer-h">Talk to us</p>
+        <ul><li><a href="${wa}" rel="noopener">WhatsApp us</a></li><li><a href="mailto:${esc(STUDIO.email)}">Email us</a></li><li><a href="/#faq" data-open-zaina>Ask Zaina</a></li><li><a href="/start">Book a consultation</a></li></ul>
+      </div>
     </nav>
   </div>
+  <div class="wrap"><div class="footer-base"><p>Serving businesses across Kenya and globally · WhatsApp/Call: <a href="${wa}" rel="noopener" class="nowrap">${esc(STUDIO.phoneDisplay)}</a> · Email: <a href="mailto:${esc(STUDIO.email)}">${esc(STUDIO.email)}</a></p><p>© ${new Date().getFullYear()} ${esc(STUDIO.name)}. Built in Kenya.</p></div></div>
 </footer>`;
 }
 
