@@ -368,16 +368,24 @@ export const DEMO_CSS = String.raw`
 .demo-controls { display: flex; gap: 8px; }
 .demo-controls button { background: transparent; color: var(--muted); }
 .demo-progress { margin-top: 14px; height: 3px; border-radius: 3px; background: var(--line); overflow: hidden; }
-.demo-progress span { display: block; height: 100%; width: 100%; background: var(--accent); transform-origin: left center; transform: scaleX(1); transition: transform 0.4s ease; }
+.demo-progress span { display: block; height: 100%; width: 100%; background: var(--brand); transform-origin: left center; transform: scaleX(1); transition: transform 0.4s ease; }
 .demo-scene { margin-top: 18px; }
 .demo-scene + .demo-scene { margin-top: 44px; }
 .demo-what { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; font-weight: 650; font-size: 1.05rem; }
 .demo-plan { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding: 4px 10px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); }
-.demo-stage { display: grid; grid-template-columns: minmax(0, 0.82fr) minmax(0, 1.18fr); gap: clamp(16px, 3vw, 32px); margin-top: 16px; align-items: stretch; }
+/* The stage: dark slate, so the product itself is what lights up. The customer's phone stays bright; the owner's side is a dark dashboard. */
+.demo-stage { display: grid; grid-template-columns: minmax(0, 0.82fr) minmax(0, 1.18fr); gap: clamp(16px, 3vw, 32px); margin-top: 16px; align-items: stretch; background: var(--stage); border: 1px solid var(--stage-line); border-radius: 28px; padding: clamp(14px, 3vw, 32px); box-shadow: 0 30px 60px -36px rgba(15, 23, 42, 0.55); }
 @media (max-width: 860px) { .demo-stage { grid-template-columns: minmax(0, 1fr); } }
 .demo-stage figure { margin: 0; min-width: 0; display: flex; flex-direction: column; }
-.demo-stage figcaption { font-size: 0.78rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
-.demo-screen, .demo-panel { background: var(--bg); border: 1px solid var(--line); border-radius: 22px; box-shadow: var(--shadow); min-width: 0; }
+.demo-stage figcaption { font-size: 0.78rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--stage-muted); margin-bottom: 10px; }
+.demo-screen, .demo-panel { background: var(--surface); border: 1px solid var(--line); border-radius: 22px; min-width: 0; }
+.demo-panel {
+  --surface: rgba(255, 255, 255, 0.035); --surface-2: rgba(255, 255, 255, 0.06); --line: var(--stage-line);
+  --ink: #f1f5f9; --body: var(--stage-ink); --muted: var(--stage-muted);
+  --accent: var(--mint); --accent-soft: rgba(16, 185, 129, 0.14);
+  --ok: var(--mint); --ok-soft: rgba(16, 185, 129, 0.14); --warm: #fbbf24; --warm-soft: rgba(217, 119, 6, 0.18);
+  background: var(--stage-card); color: var(--body);
+}
 .demo-screen { display: flex; flex-direction: column; overflow: hidden; flex: 1; }
 .demo-chat { display: flex; flex-direction: column; gap: 10px; padding: 16px; height: 430px; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
 .demo-chat .bubble { max-width: 88%; }
@@ -403,14 +411,14 @@ export const DEMO_CSS = String.raw`
 .demo-chip { display: inline-flex; align-items: center; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.04em; padding: 4px 10px; border-radius: 999px; white-space: nowrap; }
 .demo-chip.ok { background: var(--ok-soft); color: var(--ok); }
 .demo-chip.warn { background: var(--warm-soft); color: var(--warm); }
-.demo-chip.info { background: var(--accent-soft); color: var(--accent); }
+.demo-chip.info { background: rgba(2, 132, 199, 0.2); color: #7dd3fc; }
 .demo-block h4 { margin: 0 0 8px; font-size: 0.72rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
 .demo-work { margin: 0; padding: 0; list-style: none; display: grid; gap: 7px; }
 .demo-work li { display: flex; gap: 8px; align-items: flex-start; font-size: 0.88rem; color: var(--ink); }
 .demo-work svg { margin-top: 4px; color: var(--accent); }
-.demo-alert { display: flex; gap: 10px; align-items: flex-start; padding: 11px 13px; border-radius: 14px; background: var(--ink); color: var(--bg); }
+.demo-alert { display: flex; gap: 10px; align-items: flex-start; padding: 11px 13px; border-radius: 14px; background: rgba(5, 150, 105, 0.16); border: 1px solid rgba(16, 185, 129, 0.32); color: var(--ink); }
 .demo-alert + .demo-alert { margin-top: 8px; }
-.demo-bell { width: 30px; height: 30px; border-radius: 9px; background: color-mix(in srgb, var(--bg) 16%, transparent); display: grid; place-items: center; flex: none; }
+.demo-bell { width: 30px; height: 30px; border-radius: 9px; background: rgba(16, 185, 129, 0.22); color: var(--mint); display: grid; place-items: center; flex: none; }
 .demo-bell svg { width: 16px; height: 16px; }
 .demo-alert strong { display: block; font-size: 0.86rem; }
 .demo-alert div span { font-size: 0.82rem; opacity: 0.82; }

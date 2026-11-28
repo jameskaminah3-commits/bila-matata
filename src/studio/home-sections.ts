@@ -265,7 +265,7 @@ export const HOME_CSS = String.raw`
 .hero-card { background: var(--surface); border: 1px solid var(--line); border-radius: 28px; box-shadow: var(--shadow); padding: 28px 24px 24px; display: grid; justify-items: center; text-align: center; gap: 6px; min-width: 0; position: relative; overflow: hidden; }
 .hero-card::before { content: ""; position: absolute; inset: 0 0 auto; height: 120px; background: linear-gradient(180deg, var(--accent-soft), transparent); pointer-events: none; }
 .hero-face { position: relative; width: 176px; height: 176px; }
-.hero-face img { width: 100%; height: 100%; border-radius: 50%; display: block; border: 5px solid var(--surface); box-shadow: 0 10px 30px -10px rgba(74, 58, 224, 0.45); animation: zaina-breathe 5s ease-in-out infinite; }
+.hero-face img { width: 100%; height: 100%; border-radius: 50%; display: block; border: 5px solid var(--surface); box-shadow: 0 10px 30px -10px rgba(5, 150, 105, 0.35); animation: zaina-breathe 5s ease-in-out infinite; }
 .online { position: absolute; left: 50%; bottom: -10px; transform: translateX(-50%); display: inline-flex; align-items: center; gap: 7px; padding: 5px 12px; border-radius: 999px; background: var(--surface); border: 1px solid var(--line); font-size: 0.78rem; font-weight: 700; color: var(--ok); white-space: nowrap; box-shadow: 0 4px 12px -6px rgba(0,0,0,.3); }
 .online i { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); animation: zaina-pulse 2s ease-in-out infinite; }
 .hero-name { margin-top: 14px; font-size: 1.15rem; }
@@ -289,7 +289,7 @@ export const HOME_CSS = String.raw`
 .meet { display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); gap: clamp(28px, 5vw, 72px); align-items: center; }
 @media (max-width: 860px) { .meet { grid-template-columns: minmax(0, 1fr); } }
 .meet-portrait { position: relative; justify-self: center; width: min(100%, 360px); aspect-ratio: 1; }
-.meet-ring { width: 100%; height: 100%; border-radius: 50%; padding: 10px; background: conic-gradient(from 200deg, var(--accent), #f59e0b, #fb7d62, var(--accent)); box-shadow: 0 24px 60px -24px rgba(74, 58, 224, .45); }
+.meet-ring { width: 100%; height: 100%; border-radius: 50%; padding: 10px; background: conic-gradient(from 200deg, var(--brand), #34d399, var(--cyan), var(--brand)); box-shadow: 0 24px 60px -24px rgba(5, 150, 105, .35); }
 .meet-ring img { width: 100%; height: 100%; display: block; border-radius: 50%; border: 6px solid var(--surface); background: var(--surface); }
 .meet-tag { position: absolute; display: inline-flex; align-items: center; gap: 8px; padding: 9px 14px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow); font-size: 0.86rem; font-weight: 650; animation: zaina-breathe 6s ease-in-out infinite; }
 .meet-tag svg { width: 18px; height: 18px; color: var(--accent); flex: none; }
@@ -298,7 +298,7 @@ export const HOME_CSS = String.raw`
 @media (max-width: 480px) { .meet-tag-a { left: 0; } .meet-tag-b { right: 0; } }
 .trait-list { list-style: none; margin: 24px 0 0; padding: 0; display: grid; gap: 16px; }
 .trait-list li { display: grid; grid-template-columns: 42px minmax(0, 1fr); gap: 14px; align-items: start; }
-.trait-list .icon { width: 42px; height: 42px; border-radius: 12px; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; }
+.trait-list .icon { width: 42px; height: 42px; border-radius: 12px; background: var(--accent-soft); color: var(--brand); display: grid; place-items: center; }
 .trait-list .icon svg { width: 22px; height: 22px; }
 .trait-list h3 { font-size: 1.05rem; margin-bottom: 2px; }
 .trait-list p { color: var(--muted); font-size: 0.97rem; }
@@ -320,7 +320,7 @@ export const HOME_CSS = String.raw`
 .calc { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr); gap: clamp(20px, 4vw, 48px); margin-top: 36px; align-items: start; }
 @media (max-width: 900px) { .calc { grid-template-columns: minmax(0, 1fr); } }
 .calc-inputs, .calc-results { background: var(--surface); border: 1px solid var(--line); border-radius: 22px; padding: clamp(18px, 3vw, 30px); min-width: 0; }
-.calc-results { background: var(--ink); color: var(--bg); border-color: var(--ink); position: sticky; top: 88px; }
+.calc-results { background: var(--stage); color: var(--stage-ink); border-color: var(--stage-line); position: sticky; top: 88px; }
 @media (max-width: 900px) { .calc-results { position: static; } }
 .calc-presets { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 8px; }
 .calc-presets span { font-size: 0.88rem; font-weight: 650; color: var(--muted); margin-right: 4px; }
@@ -338,12 +338,12 @@ export const HOME_CSS = String.raw`
 .money-input:focus-within { border-color: var(--accent); }
 .calc-label { font-size: 0.76rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; opacity: .7; }
 .calc-big { margin-top: 10px; font-size: 1.15rem; }
-.calc-big strong { font-size: clamp(2.6rem, 6vw, 3.6rem); letter-spacing: -0.03em; font-variant-numeric: tabular-nums; line-height: 1; color: #b9b2ff; margin-right: 6px; }
+.calc-big strong { font-size: clamp(2.6rem, 6vw, 3.6rem); letter-spacing: -0.03em; font-variant-numeric: tabular-nums; line-height: 1; color: var(--mint); margin-right: 6px; }
 .calc-sub { margin-top: 6px; font-size: 1.05rem; opacity: .9; }
 .calc-sub strong { font-variant-numeric: tabular-nums; }
 .calc-plans { list-style: none; margin: 20px 0 0; padding: 0; display: grid; gap: 8px; }
 .calc-plans li { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 14px; padding: 12px 14px; border-radius: 14px; background: rgba(255,255,255,.08); font-size: 0.93rem; }
-.calc-plans li.us { background: rgba(159, 149, 255, .18); }
+.calc-plans li.us { background: rgba(16, 185, 129, .16); }
 .calc-times { margin-top: 14px; font-size: 0.95rem; }
 .calc-results .fine { color: inherit; opacity: .72; }
 .calc-results .btn { margin-top: 18px; width: 100%; background: var(--bg); color: var(--ink); }
@@ -383,7 +383,7 @@ export const HOME_CSS = String.raw`
 .reach-channels svg { width: 20px; height: 20px; color: var(--accent); flex: none; }
 .reach-kinds { margin-top: 10px; font-weight: 600; font-size: 0.95rem; line-height: 1.7; }
 .reach-kinds span { white-space: nowrap; }
-.reach-kinds i { font-style: normal; color: var(--coral); margin: 0 8px; }
+.reach-kinds i { font-style: normal; color: var(--brand); margin: 0 8px; }
 .reach-note { margin-top: 10px; font-size: 0.95rem; color: var(--ink); }
 @media (max-width: 960px) { .reach-grid { grid-template-columns: minmax(0, 1fr); gap: 18px; padding-block: 22px; } }
 

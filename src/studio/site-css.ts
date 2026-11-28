@@ -3,11 +3,15 @@
 // The styles of bilamatata.com's own pages (home, terms, pay), served at
 // /site/site.css. One file, no outside frameworks; light and dark.
 //
-// The brand, "Signal": Iris, a deep electric blue-violet, for the studio's
-// AI, software and data work; Zaina's coral as the one warm accent, used
-// sparingly; cool clean neutrals. Headlines, the wordmark and prices in Jost,
-// a precise geometric sans (served from our own address); everything else in
-// the phone's own sans-serif, so pages stay fast and easy to read.
+// The brand: alabaster and deep forest emerald, a high-trust light page for
+// owners reading prices and plans, with dark slate stages where the product
+// itself shows (the live demo, the code snippet, the calculator's answer).
+// Emerald for actions and trust cues (it sits naturally beside WhatsApp and
+// M-Pesa); text-sized emerald is the darker #047857 so it always reads
+// (WCAG AA); cyan and amber only inside the demo and the figures. Light
+// only: the bright page is the point. Headlines, the wordmark and prices in
+// Jost, a precise geometric sans (served from our own address); everything
+// else in the phone's own sans-serif, so pages stay fast and easy to read.
 
 import { createHash } from "node:crypto";
 import { TITLE_FONTS } from "../frontdoor/title-fonts.ts";
@@ -17,57 +21,39 @@ import { HOME_CSS, HOME_JS } from "./home-sections.ts";
 export const SITE_CSS = String.raw`
 @font-face { font-family: "Bila Display"; src: url(/c-assets/title-modern.woff2?v=${TITLE_FONTS.modern.version}) format("woff2"); font-weight: 600; font-style: normal; font-display: swap; }
 :root {
-  color-scheme: light dark;
-  --bg: #f7f7fb;
+  color-scheme: light;
+  --bg: #f8fafc;
   --surface: #ffffff;
-  --surface-2: #efeff6;
-  --ink: #0e0f1f;
-  --muted: #5b5e73;
-  --line: #e3e3ee;
-  --accent: #4a3ae0;
-  --accent-strong: #3a2bc2;
+  --surface-2: #f1f5f9;
+  --ink: #0f172a;
+  --body: #334155;
+  --muted: #475569;
+  --line: #e2e8f0;
+  --accent: #047857;
+  --accent-strong: #065f46;
   --accent-ink: #ffffff;
-  --accent-soft: #ecebfd;
-  --coral: #ef6a43;
-  --coral-ink: #c2471f;
-  --coral-soft: #fdeae3;
-  --pen: rgba(239, 106, 67, 0.55);
-  --display: "Bila Display", Jost, Futura, "Century Gothic", ui-sans-serif, system-ui, sans-serif;
-  --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --accent-soft: #ecfdf5;
+  --brand: #059669;
+  --mint: #6ee7b7;
+  --cyan: #0284c7;
+  --amber: #d97706;
+  --stage: #0b1120;
+  --stage-card: #0f172a;
+  --stage-line: #1e293b;
+  --stage-ink: #e2e8f0;
+  --stage-muted: #94a3b8;
   --warm: #b45309;
-  --warm-soft: #fdf1e2;
-  --ok: #15803d;
-  --ok-soft: #e7f6ec;
+  --warm-soft: #fef3c7;
+  --ok: #047857;
+  --ok-soft: #ecfdf5;
   --bad: #b91c1c;
   --bad-soft: #fdecec;
-  --shadow: 0 1px 2px rgba(14, 15, 31, 0.05), 0 18px 40px -24px rgba(36, 26, 120, 0.3);
+  --pen: rgba(16, 185, 129, 0.28);
+  --display: "Bila Display", Jost, Futura, "Century Gothic", ui-sans-serif, system-ui, sans-serif;
+  --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 18px 40px -24px rgba(15, 23, 42, 0.28);
   --radius: 18px;
   --wrap: 1200px;
-}
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #0b0c17;
-    --surface: #121427;
-    --surface-2: #181a33;
-    --ink: #eeeffc;
-    --muted: #a5a8c4;
-    --line: #262946;
-    --accent: #9f95ff;
-    --accent-strong: #bdb6ff;
-    --accent-ink: #0b0c17;
-    --accent-soft: #1d1b45;
-    --coral: #ff8e66;
-    --coral-ink: #ffab8c;
-    --coral-soft: #3a2018;
-    --pen: rgba(255, 142, 102, 0.8);
-    --warm: #fbbf24;
-    --warm-soft: #2a2110;
-    --ok: #4ade80;
-    --ok-soft: #10281a;
-    --bad: #f87171;
-    --bad-soft: #2c1414;
-    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 16px 36px -20px rgba(0, 0, 0, 0.7);
-  }
 }
 *, *::before, *::after { box-sizing: border-box; }
 [hidden] { display: none !important; }
@@ -75,7 +61,7 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
 body {
   margin: 0;
   background: var(--bg);
-  color: var(--ink);
+  color: var(--body);
   font-family: var(--sans);
   font-size: 17px;
   line-height: 1.6;
@@ -83,7 +69,7 @@ body {
 img, svg { max-width: 100%; }
 a { color: var(--accent); text-underline-offset: 3px; }
 a:hover { color: var(--accent-strong); }
-h1, h2, h3 { line-height: 1.15; letter-spacing: -0.02em; margin: 0; text-wrap: balance; }
+h1, h2, h3 { line-height: 1.15; letter-spacing: -0.02em; margin: 0; text-wrap: balance; color: var(--ink); }
 /* Headlines in the display serif: one weight, set a touch loose, figures that line up. */
 h1, h2 { font-family: var(--display); font-weight: 600; letter-spacing: -0.022em; font-synthesis: none; }
 h1 { font-size: clamp(2.5rem, 5.6vw, 4.2rem); line-height: 1.02; }
@@ -127,19 +113,19 @@ p { margin: 0; }
 .btn[disabled] { opacity: 0.6; cursor: not-allowed; transform: none; }
 
 /* ── Hero ─────────────────────────────────────────────────────────── */
-/* A soft light behind the headline: iris to the right, a warm coral glow to the left. */
+/* A soft light behind the headline: emerald to the right, a cool cyan glow to the left. */
 .hero { padding-block: clamp(48px, 8vw, 104px) clamp(40px, 6vw, 80px);
   background: radial-gradient(52% 68% at 86% 22%, color-mix(in srgb, var(--accent) 13%, transparent), transparent 72%),
-    radial-gradient(42% 52% at 2% 0%, color-mix(in srgb, var(--coral) 10%, transparent), transparent 70%); }
+    radial-gradient(42% 52% at 2% 0%, color-mix(in srgb, var(--cyan) 8%, transparent), transparent 70%); }
 .hero-solo { max-width: var(--wrap); }
 .hero-solo > div { max-width: 50em; }
 .hero-grid { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr); gap: clamp(28px, 5vw, 64px); align-items: center; }
 .eyebrow { display: inline-flex; align-items: center; gap: 8px; font-size: 0.8rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); }
-.eyebrow::before { content: ""; width: 22px; height: 2px; background: var(--coral); border-radius: 2px; }
+.eyebrow::before { content: ""; width: 22px; height: 2px; background: var(--brand); border-radius: 2px; }
 .section-head .eyebrow { margin-top: 0; font-size: 0.8rem; color: var(--accent); }
 .section-head .eyebrow + h2 { margin-top: 12px; }
 .hero h1 { margin-top: 18px; }
-/* The promise, underlined in coral like a pen stroke. */
+/* The promise, underlined with a soft emerald band like a highlighter stroke. */
 .hero h1 em { font-style: normal; color: var(--accent); background: linear-gradient(transparent 87%, var(--pen) 87%, var(--pen) 95%, transparent 95%); -webkit-box-decoration-break: clone; box-decoration-break: clone; }
 .lede { margin-top: 20px; font-size: clamp(1.05rem, 1.6vw, 1.22rem); color: var(--muted); max-width: 36em; }
 .cta-row { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; }
@@ -185,7 +171,7 @@ section { scroll-margin-top: 80px; }
 .band.alt .card { background: var(--bg); }
 .card h3 { margin-bottom: 8px; }
 .card p { color: var(--muted); font-size: 0.98rem; }
-.card .icon { width: 42px; height: 42px; border-radius: 12px; background: var(--accent-soft); color: var(--accent); display: grid; place-items: center; margin-bottom: 16px; }
+.card .icon { width: 42px; height: 42px; border-radius: 12px; background: var(--accent-soft); color: var(--brand); display: grid; place-items: center; margin-bottom: 16px; }
 .card .icon svg { width: 22px; height: 22px; }
 .card ul { margin: 14px 0 0; padding: 0; list-style: none; display: grid; gap: 8px; }
 .card li { position: relative; padding-left: 24px; font-size: 0.95rem; color: var(--ink); }
@@ -206,11 +192,11 @@ table.compare { width: 100%; min-width: 640px; border-collapse: collapse; font-s
 .plans { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin-top: 36px; }
 @media (max-width: 760px) { .plans { grid-template-columns: minmax(0, 1fr); } }
 .plan { position: relative; background: var(--surface); border: 1px solid var(--line); border-radius: 20px; padding: 28px; display: flex; flex-direction: column; min-width: 0; }
-.plan.featured { border-color: var(--accent); box-shadow: var(--shadow); }
+.plan.featured { border: 2px solid var(--brand); box-shadow: 0 24px 48px -28px rgba(5, 150, 105, 0.45); }
 .plan .tag { align-self: flex-start; font-size: 0.74rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding: 5px 10px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); margin-bottom: 14px; }
 .plan .price { margin-top: 14px; font-size: 2.5rem; line-height: 1.1; }
 /* Prices in the display serif, figures lined up. */
-.plan .price, .plan-extra .price, .card.service .from, .amount { font-family: var(--display); font-weight: 600; letter-spacing: -0.015em; font-variant-numeric: tabular-nums; font-synthesis: none; }
+.plan .price, .plan-extra .price, .card.service .from, .amount { font-family: var(--display); font-weight: 600; color: var(--ink); letter-spacing: -0.015em; font-variant-numeric: tabular-nums; font-synthesis: none; }
 .plan .price small, .plan-extra .price small, .card.service .from span { font-family: var(--sans); }
 .plan .price small { font-size: 1rem; font-weight: 600; color: var(--muted); letter-spacing: 0; }
 .plan .setup { margin-top: 4px; color: var(--muted); font-size: 0.95rem; }
@@ -239,7 +225,7 @@ table.compare { width: 100%; min-width: 640px; border-collapse: collapse; font-s
 .plan li { position: relative; padding-left: 26px; font-size: 0.97rem; }
 .plan li::before { content: ""; position: absolute; left: 3px; top: 0.5em; width: 12px; height: 7px; border-left: 2px solid var(--accent); border-bottom: 2px solid var(--accent); transform: rotate(-45deg); }
 .fine { margin-top: 18px; font-size: 0.9rem; color: var(--muted); }
-.snippet { margin-top: 28px; padding: 16px 18px; border-radius: 14px; background: var(--ink); color: var(--bg); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.86rem; overflow-x: auto; white-space: pre; }
+.snippet { margin-top: 28px; padding: 16px 18px; border-radius: 14px; background: var(--stage); color: var(--stage-ink); border: 1px solid var(--stage-line); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.86rem; overflow-x: auto; white-space: pre; }
 
 /* Steps. */
 .steps { counter-reset: step; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px; margin: 36px 0 0; padding: 0; list-style: none; }
@@ -251,7 +237,7 @@ table.compare { width: 100%; min-width: 640px; border-collapse: collapse; font-s
 .steps p { color: var(--muted); font-size: 0.96rem; }
 
 /* Contact. */
-.contact { background: radial-gradient(70% 130% at 100% 0%, color-mix(in srgb, var(--accent) 34%, transparent), transparent 62%), var(--ink); color: var(--bg); border-radius: 26px; padding: clamp(28px, 5vw, 56px); display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr); gap: 28px; align-items: center; }
+.contact { background: radial-gradient(70% 130% at 100% 0%, color-mix(in srgb, var(--brand) 30%, transparent), transparent 62%), var(--stage); color: var(--bg); border-radius: 26px; padding: clamp(28px, 5vw, 56px); display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr); gap: 28px; align-items: center; }
 .contact h2 { color: var(--bg); }
 .contact p { margin-top: 12px; color: color-mix(in srgb, var(--bg) 78%, transparent); }
 .contact .ways { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; font-size: 1.02rem; }

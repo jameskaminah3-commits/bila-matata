@@ -64,7 +64,7 @@ ${options.article ? `<meta property="article:published_time" content="${esc(opti
 <meta property="og:description" content="${esc(options.description)}">
 ${canonical ? `<meta property="og:url" content="${esc(canonical)}">` : ""}
 ${options.baseUrl ? `<meta property="og:image" content="${esc(options.baseUrl)}${esc(options.image ?? "/site/og.png")}">\n<meta name="twitter:card" content="summary_large_image">` : ""}
-<meta name="theme-color" content="#4a3ae0">
+<meta name="theme-color" content="#047857">
 <link rel="icon" href="/site/favicon.svg" type="image/svg+xml">
 <link rel="preload" href="/c-assets/title-modern.woff2?v=${TITLE_FONTS.modern.version}" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/site/site.css?v=${SITE_ASSETS_VERSION}">
@@ -562,4 +562,4 @@ ${footer()}
 /** The parts every studio page shares, for the payment pages. */
 export const siteParts = { head, header, footer, ICONS, zainaEmbed: () => ZAINA_EMBED };
 
-export const FAVICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="9" fill="#4a3ae0"/><path fill="#fff" d="M9 9.500h14a2.500 2.500 0 0 1 2.500 2.500v7a2.500 2.500 0 0 1-2.500 2.500h-6.200L12 25.300v-3.800H9A2.500 2.500 0 0 1 6.500 19v-7A2.500 2.500 0 0 1 9 9.500Z"/><path fill="#0f766e" d="M11 13.250h10v1.600H11zm0 3.400h6.500v1.600H11z"/></svg>`;
+export const FAVICON_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="9" fill="#047857"/><path fill="#fff" d="M9 9.500h14a2.500 2.500 0 0 1 2.500 2.500v7a2.500 2.500 0 0 1-2.500 2.500h-6.200L12 25.300v-3.800H9A2.500 2.500 0 0 1 6.500 19v-7A2.500 2.500 0 0 1 9 9.500Z"/><path fill="#047857" d="M11 13.250h10v1.600H11zm0 3.400h6.500v1.600H11z"/></svg>`;
