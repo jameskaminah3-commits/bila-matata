@@ -413,30 +413,34 @@ export const HOME_CSS = String.raw`
 @media (prefers-reduced-motion: reduce) { .hero-ask-chip, .faq-item > summary::after { transition: none; } }
 
 /* ── Selected work: set like the service cards ──────────────────────── */
-/* Each project: a picture from its own site, slowly drifting, with its logo on a glass chip and a live badge. */
+/* Each project: its own logo, large on a bright stage, over a slow glow in the client's own colours. */
 .work-grid { gap: 22px; }
 @media (min-width: 641px) and (max-width: 1200px) { .work-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .card.work { display: flex; flex-direction: column; padding: 0; overflow: hidden; }
-.work-visual { position: relative; display: block; aspect-ratio: 16 / 10; overflow: hidden; background: var(--stage); }
-.work-shot { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transform-origin: 60% 40%; animation: work-drift 18s ease-in-out infinite alternate; }
-.work-grid > :nth-child(2) .work-shot { animation-duration: 21s; transform-origin: 30% 60%; }
-.work-grid > :nth-child(3) .work-shot { animation-duration: 19s; transform-origin: 70% 70%; }
-.work-grid > :nth-child(4) .work-shot { animation-duration: 23s; transform-origin: 40% 30%; }
-@keyframes work-drift { from { transform: scale(1.02); } to { transform: scale(1.11); } }
-.work-visual::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(11, 17, 32, 0.28), rgba(11, 17, 32, 0) 30%, rgba(11, 17, 32, 0) 62%, rgba(11, 17, 32, 0.42)); transition: background 0.3s ease; }
-.work-live { position: absolute; z-index: 1; left: 14px; top: 14px; display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 999px; background: rgba(11, 17, 32, 0.55); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.16); color: #fff; font-size: 0.74rem; font-weight: 700; letter-spacing: 0.04em; }
-.work-live i { position: relative; width: 8px; height: 8px; border-radius: 50%; background: #34d399; }
-.work-live i::after { content: ""; position: absolute; inset: -4px; border-radius: 50%; border: 2px solid #34d399; animation: work-pulse 2.2s ease-out infinite; }
+.work-stage { position: relative; isolation: isolate; display: grid; place-items: center; aspect-ratio: 16 / 8; overflow: hidden; background: #fff; border-bottom: 1px solid rgba(15, 23, 42, 0.06); --tint-a: rgba(5, 150, 105, 0.2); --tint-b: rgba(2, 132, 199, 0.14); }
+.work-happyfine { --tint-a: rgba(21, 128, 61, 0.24); --tint-b: rgba(234, 179, 8, 0.22); }
+.work-channah { --tint-a: rgba(219, 39, 119, 0.18); --tint-b: rgba(180, 120, 72, 0.18); }
+.work-ewama { --tint-a: rgba(202, 138, 4, 0.2); --tint-b: rgba(120, 82, 45, 0.16); }
+.work-tembea { --tint-a: rgba(20, 184, 166, 0.22); --tint-b: rgba(249, 115, 22, 0.16); }
+.work-stage::before { content: ""; position: absolute; inset: -35%; z-index: -2; background: radial-gradient(34% 40% at 32% 38%, var(--tint-a), transparent 70%), radial-gradient(32% 38% at 70% 64%, var(--tint-b), transparent 70%); animation: work-glow 14s ease-in-out infinite alternate; }
+.work-grid > :nth-child(2) .work-stage::before { animation-duration: 17s; animation-direction: alternate-reverse; }
+.work-grid > :nth-child(3) .work-stage::before { animation-duration: 15s; }
+.work-grid > :nth-child(4) .work-stage::before { animation-duration: 18s; animation-direction: alternate-reverse; }
+@keyframes work-glow { from { transform: translate(-6%, -4%) rotate(0deg); } to { transform: translate(6%, 4%) rotate(10deg); } }
+.work-stage::after { content: ""; position: absolute; inset: 0; z-index: -1; background-image: radial-gradient(rgba(15, 23, 42, 0.08) 1px, transparent 1.3px); background-size: 18px 18px; -webkit-mask-image: radial-gradient(60% 70% at 50% 50%, #000, transparent 75%); mask-image: radial-gradient(60% 70% at 50% 50%, #000, transparent 75%); }
+.work-logo { max-height: 54%; max-width: 58%; width: auto; height: auto; object-fit: contain; filter: drop-shadow(0 16px 24px rgba(15, 23, 42, 0.16)); transition: transform 0.4s cubic-bezier(0.2, 0.7, 0.2, 1); }
+.work-live { position: absolute; left: 14px; top: 14px; display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 999px; background: rgba(255, 255, 255, 0.78); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); border: 1px solid rgba(15, 23, 42, 0.08); color: var(--ink); font-size: 0.74rem; font-weight: 700; letter-spacing: 0.04em; }
+.work-live i { position: relative; width: 8px; height: 8px; border-radius: 50%; background: #10b981; }
+.work-live i::after { content: ""; position: absolute; inset: -4px; border-radius: 50%; border: 2px solid #10b981; animation: work-pulse 2.2s ease-out infinite; }
 @keyframes work-pulse { from { transform: scale(0.5); opacity: 0.9; } to { transform: scale(1.6); opacity: 0; } }
-.work-open { position: absolute; z-index: 1; right: 14px; bottom: 14px; display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 999px; background: rgba(255, 255, 255, 0.9); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); color: var(--ink); font-size: 0.84rem; font-weight: 650; opacity: 0; transform: translateY(6px); transition: opacity 0.25s ease, transform 0.25s ease; }
+.work-open { position: absolute; right: 14px; bottom: 14px; display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 999px; background: var(--ink); color: #fff; font-size: 0.84rem; font-weight: 650; opacity: 0; transform: translateY(6px); transition: opacity 0.25s ease, transform 0.25s ease; }
 @media (hover: hover) {
   .card.work:hover .work-open { opacity: 1; transform: none; }
-  .card.work:hover .work-visual::after { background: linear-gradient(180deg, rgba(11, 17, 32, 0.2), rgba(11, 17, 32, 0) 30%, rgba(11, 17, 32, 0) 55%, rgba(11, 17, 32, 0.5)); }
+  .card.work:hover .work-logo { transform: scale(1.06) translateY(-3px); }
 }
-.work-body { display: flex; flex-direction: column; flex: 1; padding: 0 24px 22px; }
-.work-logo { position: relative; z-index: 2; align-self: flex-start; display: inline-flex; align-items: center; height: 74px; margin: -37px 0 16px; padding: 11px 16px; border-radius: 18px; background: rgba(255, 255, 255, 0.92); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.9); box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.06), 0 14px 30px -18px rgba(15, 23, 42, 0.45); }
-.work-logo img { height: 52px; width: auto; max-width: 170px; object-fit: contain; display: block; }
-@media (prefers-reduced-motion: reduce) { .work-shot, .work-live i::after { animation: none; } }
+.work-body { display: flex; flex-direction: column; flex: 1; padding: 22px 24px; }
+@media (max-width: 640px) { .work-stage { aspect-ratio: 16 / 11; } .work-logo { max-height: 48%; max-width: 62%; transform: translateY(8px); } }
+@media (prefers-reduced-motion: reduce) { .work-stage::before, .work-live i::after { animation: none; } .work-logo { transition: none; } }
 .work-tag { margin: 0 0 8px; font-size: 0.72rem !important; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
 .card.work p:not(.work-tag) { flex: 1; }
 .work-link { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); display: flex; align-items: center; gap: 6px; font-weight: 650; font-size: 0.88rem; color: var(--accent); text-decoration: none; min-width: 0; }
@@ -618,7 +622,7 @@ export function renderFaq(): string {
 </section>`;
 }
 
-/** Live work the studio designed and built: real sites, each a click away. Each has a picture from its own site and its own logo, in assets/work/<slug>.webp and <slug>-logo.webp. */
+/** Live work the studio designed and built: real sites, each a click away, each shown by its own logo (assets/work/<slug>-logo.webp). */
 export const STUDIO_WORK = [
   {
     slug: "happyfine",
@@ -677,13 +681,12 @@ export function renderWork(featured: FeaturedBusiness[] = []): string {
     </div>
     <div class="grid two work-grid">
       ${STUDIO_WORK.map((project) => `<article class="card work">
-        <a class="work-visual" href="${esc(project.url)}" target="_blank" rel="noopener" tabindex="-1" aria-hidden="true">
-          <img class="work-shot" src="/site/work/${project.slug}.webp" alt="" width="960" height="600" loading="lazy" decoding="async">
+        <a class="work-stage work-${project.slug}" href="${esc(project.url)}" target="_blank" rel="noopener" tabindex="-1" aria-hidden="true">
           <span class="work-live"><i></i>Live website</span>
+          <img class="work-logo" src="/site/work/${project.slug}-logo.webp" alt="" loading="lazy" decoding="async">
           <span class="work-open">Open the site ${ARROW}</span>
         </a>
         <div class="work-body">
-          <span class="work-logo"><img src="/site/work/${project.slug}-logo.webp" alt="${esc(project.name)} logo" height="52" loading="lazy" decoding="async"></span>
           <p class="work-tag">${esc(project.tag).replace(/-/g, "\u2011")}</p>
           <h3>${esc(project.name)}</h3>
           <p>${esc(project.summary)}</p>

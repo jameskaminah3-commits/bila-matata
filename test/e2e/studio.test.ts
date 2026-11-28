@@ -334,7 +334,7 @@ test("the blog is served for search engines: articles, a feed, the sitemap, and 
   assert.match(sitemap, /<loc>[^<]+\/blog\/qr-code-menu-restaurants-kenya<\/loc><lastmod>2026-11-27<\/lastmod>/);
 });
 
-test("the site's typefaces and the pictures of the studio's work are served from its own address, and nothing else is", async () => {
+test("the site's typefaces and the logos of the studio's work are served from its own address, and nothing else is", async () => {
   const home = await (await page("/")).text();
   for (const font of ["display", "text"]) {
     const link = new RegExp(`/site/font-${font}\\.woff2\\?v=[0-9a-f]{12}`).exec(home)?.[0];
@@ -348,7 +348,8 @@ test("the site's typefaces and the pictures of the studio's work are served from
   assert.equal((await page("/site/font-other.woff2")).status, 404);
 
   const pictures = [...home.matchAll(/src="(\/site\/work\/[a-z-]+\.webp)"/g)].map((match) => match[1]);
-  assert.equal(pictures.length, 8, "a picture and a logo for each of the four projects");
+  assert.equal(pictures.length, 4, "the logo of each of the four projects, and nothing else");
+  for (const picture of pictures) assert.match(picture, /-logo\.webp$/);
   for (const picture of pictures) {
     const response = await page(picture);
     assert.equal(response.status, 200, picture);
@@ -357,5 +358,6 @@ test("the site's typefaces and the pictures of the studio's work are served from
   }
   assert.equal((await page("/site/work/..%2Fog.png")).status, 404);
   assert.equal((await page("/site/work/other.webp")).status, 404);
+  assert.equal((await page("/site/work/channah.webp")).status, 404, "logos only: no pictures from the clients' sites");
   assert.doesNotMatch(home, /data-business="your-business"/, "no code on the page: the install note says it in words");
 });

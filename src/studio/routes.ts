@@ -173,13 +173,12 @@ export function registerStudioRoutes(app: Express, config: PlatformConfig): void
     res.setHeader("Access-Control-Allow-Origin", "*");
     res.send(font.file);
   });
-  // The studio's work: a picture and the logo of each project, from assets/work/.
+  // The studio's work: each project's logo, from assets/work/.
   const workImages = new Map<string, Buffer>();
   for (const project of STUDIO_WORK) {
-    for (const name of [`${project.slug}.webp`, `${project.slug}-logo.webp`]) {
-      const file = shareImage(`work/${name}`);
-      if (file) workImages.set(name, file);
-    }
+    const name = `${project.slug}-logo.webp`;
+    const file = shareImage(`work/${name}`);
+    if (file) workImages.set(name, file);
   }
   app.get("/site/work/:file", (req: Request, res: Response) => {
     const file = workImages.get(String(req.params.file));
