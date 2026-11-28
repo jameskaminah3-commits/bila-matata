@@ -413,8 +413,30 @@ export const HOME_CSS = String.raw`
 @media (prefers-reduced-motion: reduce) { .hero-ask-chip, .faq-item > summary::after { transition: none; } }
 
 /* ── Selected work: set like the service cards ──────────────────────── */
-.card.work { display: flex; flex-direction: column; }
-.work-mark { font-family: var(--display); font-weight: 600; font-size: 0.95rem; letter-spacing: 0.02em; }
+/* Each project: a picture from its own site, slowly drifting, with its logo on a glass chip and a live badge. */
+.work-grid { gap: 22px; }
+@media (min-width: 641px) and (max-width: 1200px) { .work-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.card.work { display: flex; flex-direction: column; padding: 0; overflow: hidden; }
+.work-visual { position: relative; display: block; aspect-ratio: 16 / 10; overflow: hidden; background: var(--stage); }
+.work-shot { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transform-origin: 60% 40%; animation: work-drift 18s ease-in-out infinite alternate; }
+.work-grid > :nth-child(2) .work-shot { animation-duration: 21s; transform-origin: 30% 60%; }
+.work-grid > :nth-child(3) .work-shot { animation-duration: 19s; transform-origin: 70% 70%; }
+.work-grid > :nth-child(4) .work-shot { animation-duration: 23s; transform-origin: 40% 30%; }
+@keyframes work-drift { from { transform: scale(1.02); } to { transform: scale(1.11); } }
+.work-visual::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(11, 17, 32, 0.28), rgba(11, 17, 32, 0) 30%, rgba(11, 17, 32, 0) 62%, rgba(11, 17, 32, 0.42)); transition: background 0.3s ease; }
+.work-live { position: absolute; z-index: 1; left: 14px; top: 14px; display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 999px; background: rgba(11, 17, 32, 0.55); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.16); color: #fff; font-size: 0.74rem; font-weight: 700; letter-spacing: 0.04em; }
+.work-live i { position: relative; width: 8px; height: 8px; border-radius: 50%; background: #34d399; }
+.work-live i::after { content: ""; position: absolute; inset: -4px; border-radius: 50%; border: 2px solid #34d399; animation: work-pulse 2.2s ease-out infinite; }
+@keyframes work-pulse { from { transform: scale(0.5); opacity: 0.9; } to { transform: scale(1.6); opacity: 0; } }
+.work-open { position: absolute; z-index: 1; right: 14px; bottom: 14px; display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 999px; background: rgba(255, 255, 255, 0.9); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); color: var(--ink); font-size: 0.84rem; font-weight: 650; opacity: 0; transform: translateY(6px); transition: opacity 0.25s ease, transform 0.25s ease; }
+@media (hover: hover) {
+  .card.work:hover .work-open { opacity: 1; transform: none; }
+  .card.work:hover .work-visual::after { background: linear-gradient(180deg, rgba(11, 17, 32, 0.2), rgba(11, 17, 32, 0) 30%, rgba(11, 17, 32, 0) 55%, rgba(11, 17, 32, 0.5)); }
+}
+.work-body { display: flex; flex-direction: column; flex: 1; padding: 0 24px 22px; }
+.work-logo { position: relative; z-index: 2; align-self: flex-start; display: inline-flex; align-items: center; height: 74px; margin: -37px 0 16px; padding: 11px 16px; border-radius: 18px; background: rgba(255, 255, 255, 0.92); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.9); box-shadow: 0 0 0 1px rgba(15, 23, 42, 0.06), 0 14px 30px -18px rgba(15, 23, 42, 0.45); }
+.work-logo img { height: 52px; width: auto; max-width: 170px; object-fit: contain; display: block; }
+@media (prefers-reduced-motion: reduce) { .work-shot, .work-live i::after { animation: none; } }
 .work-tag { margin: 0 0 8px; font-size: 0.72rem !important; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
 .card.work p:not(.work-tag) { flex: 1; }
 .work-link { margin-top: 18px; padding-top: 14px; border-top: 1px solid var(--line); display: flex; align-items: center; gap: 6px; font-weight: 650; font-size: 0.88rem; color: var(--accent); text-decoration: none; min-width: 0; }
@@ -596,27 +618,31 @@ export function renderFaq(): string {
 </section>`;
 }
 
-/** Live work the studio designed and built: real sites, each a click away. */
+/** Live work the studio designed and built: real sites, each a click away. Each has a picture from its own site and its own logo, in assets/work/<slug>.webp and <slug>-logo.webp. */
 export const STUDIO_WORK = [
   {
+    slug: "happyfine",
     name: "Happyfine Wholesalers",
     url: "https://happyfinewholesalers.co.ke",
     tag: "Wholesale & Retail E-Commerce · Kenya",
     summary: "Full-featured online wholesale storefront offering bulk and single-unit pricing across household and commercial goods in Kenya, engineered for fast mobile browsing and streamlined ordering.",
   },
   {
+    slug: "channah",
     name: "Channah Cake House",
     url: "https://channahcakes.co.ke",
     tag: "Bakery & Custom Orders · Mombasa",
     summary: "Branded showcase and custom order website for a Mombasa cake house, highlighting signature cakes, celebration galleries, and direct customer inquiry flows.",
   },
   {
+    slug: "ewama",
     name: "EWAMA Properties Ltd",
     url: "https://ewamaproperties.com",
     tag: "Real Estate & Property · Kenya",
     summary: "High-trust corporate real estate website (\u201cFoundation of Trust\u201d) designed to present property listings, build buyer credibility, and capture qualified investor and tenant leads.",
   },
   {
+    slug: "tembea",
     name: "Tembea Bila Matata",
     url: "https://tembeabilamatata.com",
     tag: "Travel, Stays & Local Concierge · Kenyan Coast",
@@ -649,13 +675,20 @@ export function renderWork(featured: FeaturedBusiness[] = []): string {
       <h2 id="work-title">Selected work built by our studio</h2>
       <p>Live websites and platforms we designed and built for businesses in Kenya. Open any of them: they're working sites, not mock-ups.</p>
     </div>
-    <div class="grid four work-grid">
+    <div class="grid two work-grid">
       ${STUDIO_WORK.map((project) => `<article class="card work">
-        <div class="icon work-mark" aria-hidden="true">${esc(monogram(project.name))}</div>
-        <p class="work-tag">${esc(project.tag).replace(/-/g, "\u2011")}</p>
-        <h3>${esc(project.name)}</h3>
-        <p>${esc(project.summary)}</p>
-        <a class="work-link" href="${esc(project.url)}" target="_blank" rel="noopener"><span class="work-host">${esc(host(project.url))}</span>${ARROW}<span class="visually-hidden"> (opens ${esc(project.name)} in a new tab)</span></a>
+        <a class="work-visual" href="${esc(project.url)}" target="_blank" rel="noopener" tabindex="-1" aria-hidden="true">
+          <img class="work-shot" src="/site/work/${project.slug}.webp" alt="" width="960" height="600" loading="lazy" decoding="async">
+          <span class="work-live"><i></i>Live website</span>
+          <span class="work-open">Open the site ${ARROW}</span>
+        </a>
+        <div class="work-body">
+          <span class="work-logo"><img src="/site/work/${project.slug}-logo.webp" alt="${esc(project.name)} logo" height="52" loading="lazy" decoding="async"></span>
+          <p class="work-tag">${esc(project.tag).replace(/-/g, "\u2011")}</p>
+          <h3>${esc(project.name)}</h3>
+          <p>${esc(project.summary)}</p>
+          <a class="work-link" href="${esc(project.url)}" target="_blank" rel="noopener"><span class="work-host">${esc(host(project.url))}</span>${ARROW}<span class="visually-hidden"> (opens ${esc(project.name)} in a new tab)</span></a>
+        </div>
       </article>`).join("\n      ")}
     </div>
     ${powered}

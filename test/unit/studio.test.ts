@@ -125,7 +125,7 @@ test("money and links read the way the studio writes them", () => {
 test("the home page carries the agreed offer: headline, navigation, both plans, the comparison and four services", () => {
   const html = renderHome(PAGE);
   const words = text(html);
-  assert.match(html, /<h1>Run Your Business <em>Without the Hassle\.<\/em><\/h1>/);
+  assert.match(html, /<h1>Run Your Business <em>Without the Hassle<span class="stop">\.<\/span><\/em><\/h1>/);
   assert.match(words, /24\/7 AI sales & booking concierges, custom web & mobile apps, AI automation, and data-backed research that help businesses capture more leads and scale effortlessly\./);
   const nav = /<nav class="nav"[\s\S]*?<\/nav>/.exec(html)![0];
   assert.deepEqual([...nav.matchAll(/<a [^>]*>([^<]+)<\/a>/g)].map((match) => match[1]), ["Zaina AI", "Services", "Pricing", "Blog", "Client Login", "Pay Invoice", "Contact"]);

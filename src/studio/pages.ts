@@ -11,7 +11,7 @@ import { MENU_PLAN, PLANS } from "./plans.ts";
 import type { FeaturedBusiness } from "./featured.ts";
 import { articlesByDate, longDate, readMinutes } from "./blog/articles.ts";
 import { SITE_ASSETS_VERSION } from "./site-css.ts";
-import { TITLE_FONTS } from "../frontdoor/title-fonts.ts";
+import { SITE_FONTS } from "./site-fonts.ts";
 import { breakEvenBookings, CALC_PRESETS, homeFaq, renderCalculator, renderFaq, renderHeroCard, renderHospitality, renderIndustryPicker, renderMeetZaina, renderReach, renderStickyCta, renderValueTable, renderWork } from "./home-sections.ts";
 import { STUDIO_SERVICES, type StudioServiceId } from "./services.ts";
 
@@ -66,7 +66,8 @@ ${canonical ? `<meta property="og:url" content="${esc(canonical)}">` : ""}
 ${options.baseUrl ? `<meta property="og:image" content="${esc(options.baseUrl)}${esc(options.image ?? "/site/og.png")}">\n<meta name="twitter:card" content="summary_large_image">` : ""}
 <meta name="theme-color" content="#047857">
 <link rel="icon" href="/site/favicon.svg" type="image/svg+xml">
-<link rel="preload" href="/c-assets/title-modern.woff2?v=${TITLE_FONTS.modern.version}" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/site/font-display.woff2?v=${SITE_FONTS.display.version}" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="/site/font-text.woff2?v=${SITE_FONTS.text.version}" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="/site/site.css?v=${SITE_ASSETS_VERSION}">
 <link rel="alternate" type="application/rss+xml" title="${esc(STUDIO.name)}: articles" href="/blog/feed.xml">
 ${options.extra ?? ""}
@@ -200,7 +201,7 @@ ${header("home")}
   <div class="wrap hero-grid">
     <div>
       <p class="eyebrow">AI · Software · Data · Research · Kenya and beyond</p>
-      <h1>Run Your Business <em>Without the Hassle.</em></h1>
+      <h1>Run Your Business <em>Without the Hassle<span class="stop">.</span></em></h1>
       <p class="lede">24/7 AI sales &amp; booking concierges, custom web &amp; mobile apps, AI automation, and data-backed research that help businesses capture more leads and scale effortlessly.</p>
       <div class="cta-row">
         <a class="btn btn-primary" href="#zaina" data-open-zaina>${ICONS.chat}Try Zaina AI Live</a>
@@ -327,8 +328,11 @@ ${renderCalculator({ starter: PLANS[0].monthlyMinor, full: PLANS[1].monthlyMinor
       </div>
     </article>
     <p class="fine">Prices are in Kenya shillings. Set-up is paid once and covers loading your catalogue and prices, tuning Zaina's answers with you, and installation. Monthly plans are billed in advance and you can cancel at any time; see the <a href="/terms">terms</a>. Already a client? <a href="/app/">Sign in</a> or <a href="/pay">pay an invoice</a>.</p>
-    <div class="snippet" role="img" aria-label="The one line of code that adds Zaina to a website">&lt;script src="${esc(page.baseUrl ?? "https://bilamatata.com")}/zaina.js" data-business="your-business" async&gt;&lt;/script&gt;</div>
-    <p class="fine">That one line adds Zaina to any website: WordPress, Shopify, Wix or custom-built.</p>
+    <div class="install-note">
+      <p class="install-title">Works on the website you already have</p>
+      <ul class="install-platforms"><li>WordPress</li><li>Shopify</li><li>Wix</li><li>Webflow</li><li>Custom-built</li></ul>
+      <p class="fine">We install Zaina for you in a few minutes, and she answers only on your own website: a copy placed anywhere else is refused.</p>
+    </div>
   </div>
 </section>
 

@@ -62,6 +62,8 @@ import { readRequest, saveRequest } from "./requests.ts";
 import { requestTopic } from "./services.ts";
 import { renderStart, renderStartThanks } from "./start-pages.ts";
 import { ZAINA_FACE_SVG } from "../brand/zaina-face.ts";
+import { STUDIO_WORK } from "./home-sections.ts";
+import { SITE_FONTS, type SiteFont } from "./site-fonts.ts";
 import { SITE_SCRIPT, SITE_STYLES } from "./site-css.ts";
 import { featuredBusinesses } from "./featured.ts";
 import { articleBySlug } from "./blog/articles.ts";
@@ -161,6 +163,30 @@ export function registerStudioRoutes(app: Express, config: PlatformConfig): void
     res.setHeader("Content-Type", "image/png");
     res.setHeader("Cache-Control", "public, max-age=86400");
     res.send(og);
+  });
+  // The site's two typefaces; the address carries the version, so they can be kept for a year.
+  app.get("/site/font-:key.woff2", (req: Request, res: Response) => {
+    const font = SITE_FONTS[String(req.params.key) as SiteFont];
+    if (!font) return res.status(404).end();
+    res.setHeader("Content-Type", "font/woff2");
+    res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+    res.setHeader("Access-Control-Allow-Origin", "*");
+    res.send(font.file);
+  });
+  // The studio's work: a picture and the logo of each project, from assets/work/.
+  const workImages = new Map<string, Buffer>();
+  for (const project of STUDIO_WORK) {
+    for (const name of [`${project.slug}.webp`, `${project.slug}-logo.webp`]) {
+      const file = shareImage(`work/${name}`);
+      if (file) workImages.set(name, file);
+    }
+  }
+  app.get("/site/work/:file", (req: Request, res: Response) => {
+    const file = workImages.get(String(req.params.file));
+    if (!file) return res.status(404).end();
+    res.setHeader("Content-Type", "image/webp");
+    res.setHeader("Cache-Control", "public, max-age=604800");
+    res.send(file);
   });
   app.get("/site/og-zaina.png", (_req: Request, res: Response) => {
     if (!ogZaina) return res.status(404).end();

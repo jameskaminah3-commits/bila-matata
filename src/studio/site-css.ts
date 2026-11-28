@@ -5,21 +5,23 @@
 //
 // The brand: alabaster and deep forest emerald, finished in glass, a high-trust light page for
 // owners reading prices and plans, with dark slate stages where the product
-// itself shows (the live demo, the code snippet, the calculator's answer).
+// itself shows (the live demo, the calculator's answer, the contact panel).
 // Emerald for actions and trust cues (it sits naturally beside WhatsApp and
 // M-Pesa); text-sized emerald is the darker #047857 so it always reads
 // (WCAG AA); cyan and amber only inside the demo and the figures. Light
-// only: the bright page is the point. Headlines, the wordmark and prices in
-// Jost, a precise geometric sans (served from our own address); everything
-// else in the phone's own sans-serif, so pages stay fast and easy to read.
+// only: the bright page is the point. Headlines, card titles, the wordmark
+// and prices in Plus Jakarta Sans; everything else in Inter, made for screens.
+// Both served from our own address (site-fonts.ts), so every phone and
+// computer shows the same letters.
 
 import { createHash } from "node:crypto";
-import { TITLE_FONTS } from "../frontdoor/title-fonts.ts";
+import { SITE_FONTS } from "./site-fonts.ts";
 import { DEMO_CSS, DEMO_JS } from "./demo.ts";
 import { HOME_CSS, HOME_JS } from "./home-sections.ts";
 
 export const SITE_CSS = String.raw`
-@font-face { font-family: "Bila Display"; src: url(/c-assets/title-modern.woff2?v=${TITLE_FONTS.modern.version}) format("woff2"); font-weight: 600; font-style: normal; font-display: swap; }
+@font-face { font-family: "Bila Display"; src: url(/site/font-display.woff2?v=${SITE_FONTS.display.version}) format("woff2"); font-weight: 200 800; font-style: normal; font-display: swap; }
+@font-face { font-family: "Bila Text"; src: url(/site/font-text.woff2?v=${SITE_FONTS.text.version}) format("woff2"); font-weight: 100 900; font-style: normal; font-display: swap; }
 :root {
   color-scheme: light;
   --bg: #f8fafc;
@@ -49,8 +51,8 @@ export const SITE_CSS = String.raw`
   --bad: #b91c1c;
   --bad-soft: #fdecec;
   --pen: rgba(16, 185, 129, 0.28);
-  --display: "Bila Display", Jost, Futura, "Century Gothic", ui-sans-serif, system-ui, sans-serif;
-  --sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --display: "Bila Display", "Plus Jakarta Sans", ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --sans: "Bila Text", Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --shadow: 0 1px 2px rgba(15, 23, 42, 0.05), 0 18px 40px -24px rgba(15, 23, 42, 0.28);
   --radius: 18px;
   --wrap: 1200px;
@@ -64,18 +66,23 @@ body {
   color: var(--body);
   font-family: var(--sans);
   font-size: 17px;
-  line-height: 1.6;
+  line-height: 1.62;
+  letter-spacing: -0.006em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 img, svg { max-width: 100%; }
 a { color: var(--accent); text-underline-offset: 3px; text-decoration-thickness: 1px; text-decoration-color: color-mix(in srgb, currentColor 45%, transparent); }
 a:hover { color: var(--accent-strong); text-decoration-color: currentColor; }
 ::selection { background: #a7f3d0; color: #064e3b; }
 h1, h2, h3 { line-height: 1.15; letter-spacing: -0.02em; margin: 0; text-wrap: balance; color: var(--ink); }
-/* Headlines in the display serif: one weight, set a touch loose, figures that line up. */
-h1, h2 { font-family: var(--display); font-weight: 600; letter-spacing: -0.022em; font-synthesis: none; }
+/* Headlines, card titles and prices in Plus Jakarta Sans: bold, tightly set, figures that line up. */
+h1, h2, h3 { font-family: var(--display); font-synthesis: none; }
+h1, h2 { font-weight: 700; letter-spacing: -0.032em; }
 h1 { font-size: clamp(2.5rem, 5.6vw, 4.2rem); line-height: 1.02; }
 h2 { font-size: clamp(1.95rem, 3.6vw, 2.8rem); line-height: 1.07; }
-h3 { font-size: 1.18rem; font-weight: 700; letter-spacing: -0.01em; }
+h3 { font-size: 1.18rem; font-weight: 700; letter-spacing: -0.018em; }
 p { margin: 0; }
 .wrap { width: 100%; max-width: var(--wrap); margin: 0 auto; padding-inline: 20px; }
 .skip { position: absolute; left: -999px; top: 8px; background: var(--surface); padding: 8px 12px; border-radius: 8px; z-index: 50; }
@@ -87,7 +94,7 @@ p { margin: 0; }
 /* Once the page moves, the header lifts off it a little. */
 .site-header.is-scrolled { background: color-mix(in srgb, var(--surface) 86%, transparent); box-shadow: 0 12px 32px -24px rgba(15, 23, 42, 0.45); }
 .site-header .wrap { display: flex; align-items: center; justify-content: space-between; gap: 16px; min-height: 68px; }
-.brand { display: inline-flex; align-items: center; gap: 10px; color: var(--ink); text-decoration: none; font-family: var(--display); font-weight: 600; letter-spacing: -0.01em; font-size: 1.3rem; font-synthesis: none; }
+.brand { display: inline-flex; align-items: center; gap: 10px; color: var(--ink); text-decoration: none; font-family: var(--display); font-weight: 700; letter-spacing: -0.03em; font-size: 1.3rem; font-synthesis: none; }
 .brand svg { width: 30px; height: 30px; flex: none; }
 .logo-bg { fill: var(--accent); }
 .logo-fg { fill: var(--accent-ink); }
@@ -141,6 +148,8 @@ p { margin: 0; }
 .hero h1 { margin-top: 18px; }
 /* The promise, underlined with a soft emerald band like a highlighter stroke. */
 .hero h1 em { font-style: normal; color: var(--accent); background: linear-gradient(transparent 87%, var(--pen) 87%, var(--pen) 95%, transparent 95%); -webkit-box-decoration-break: clone; box-decoration-break: clone; }
+/* Plus Jakarta Sans sets its full stop well clear of the letter before; at headline size that reads as a gap. */
+.hero h1 .stop { margin-left: -0.1em; }
 .lede { margin-top: 20px; font-size: clamp(1.05rem, 1.6vw, 1.22rem); color: var(--muted); max-width: 36em; }
 .cta-row { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 30px; }
 .hero-note { margin-top: 18px; font-size: 0.92rem; color: var(--muted); }
@@ -214,7 +223,7 @@ table.compare { width: 100%; min-width: 640px; border-collapse: collapse; font-s
 .plan .tag { align-self: flex-start; font-size: 0.74rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; padding: 5px 10px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); margin-bottom: 14px; }
 .plan .price { margin-top: 14px; font-size: 2.5rem; line-height: 1.1; }
 /* Prices in the display serif, figures lined up. */
-.plan .price, .plan-extra .price, .card.service .from, .amount { font-family: var(--display); font-weight: 600; color: var(--ink); letter-spacing: -0.015em; font-variant-numeric: tabular-nums; font-synthesis: none; }
+.plan .price, .plan-extra .price, .card.service .from, .amount { font-family: var(--display); font-weight: 700; color: var(--ink); letter-spacing: -0.015em; font-variant-numeric: tabular-nums; font-synthesis: none; }
 .plan .price small, .plan-extra .price small, .card.service .from span { font-family: var(--sans); }
 .plan .price small { font-size: 1rem; font-weight: 600; color: var(--muted); letter-spacing: 0; }
 .plan .setup { margin-top: 4px; color: var(--muted); font-size: 0.95rem; }
@@ -243,6 +252,11 @@ table.compare { width: 100%; min-width: 640px; border-collapse: collapse; font-s
 .plan li { position: relative; padding-left: 26px; font-size: 0.97rem; }
 .plan li::before { content: ""; position: absolute; left: 3px; top: 0.5em; width: 12px; height: 7px; border-left: 2px solid var(--accent); border-bottom: 2px solid var(--accent); transform: rotate(-45deg); }
 .fine { margin-top: 18px; font-size: 0.9rem; color: var(--muted); }
+.install-note { margin-top: 28px; padding: 22px 24px; border-radius: 20px; border: 1px solid var(--line); background: var(--surface); }
+.install-title { font-weight: 700; color: var(--ink); }
+.install-platforms { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0 0; padding: 0; list-style: none; }
+.install-platforms li { font-size: 0.86rem; font-weight: 600; padding: 6px 12px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); }
+.install-note .fine { margin-top: 12px; }
 .snippet { margin-top: 28px; padding: 16px 18px; border-radius: 14px; background: var(--stage); color: var(--stage-ink); border: 1px solid var(--stage-line); font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.86rem; overflow-x: auto; white-space: pre; }
 
 /* Steps. */
@@ -372,7 +386,7 @@ table.compare { width: 100%; min-width: 640px; border-collapse: collapse; font-s
 .post-card { position: relative; display: flex; flex-direction: column; gap: 10px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 24px; min-width: 0; transition: border-color .15s ease, transform .15s ease; }
 .band.alt .post-card { background: var(--bg); }
 .post-card:hover { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); transform: translateY(-2px); }
-.post-card h2, .post-card h3 { font-family: var(--display); font-weight: 600; font-size: 1.28rem; line-height: 1.25; letter-spacing: -0.012em; }
+.post-card h2, .post-card h3 { font-family: var(--display); font-weight: 700; font-size: 1.28rem; line-height: 1.25; letter-spacing: -0.012em; }
 .post-card h2 a, .post-card h3 a { color: var(--ink); text-decoration: none; }
 .post-card h2 a::after, .post-card h3 a::after { content: ""; position: absolute; inset: 0; border-radius: inherit; }
 .post-card p { color: var(--muted); font-size: 0.97rem; }
@@ -409,7 +423,7 @@ table.compare { width: 100%; min-width: 640px; border-collapse: collapse; font-s
 .prose strong { color: var(--ink); }
 .post-cta { margin-top: 2.4em; padding: 26px; border-radius: var(--radius); background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 25%, var(--line)); }
 .post-cta p { font-size: 1rem; }
-.post-cta-title { font-family: var(--display); font-weight: 600; font-size: 1.3rem !important; color: var(--ink); }
+.post-cta-title { font-family: var(--display); font-weight: 700; font-size: 1.3rem !important; color: var(--ink); }
 .post-cta .cta-row { margin-top: 16px; }
 .related-title { font-size: clamp(1.5rem, 2.8vw, 2rem); }
 
@@ -532,7 +546,7 @@ export const GLASS_CSS = String.raw`
 
 /* Frosted surfaces: translucent white, a bright rim on top, a fine edge and a soft shadow. */
 .card, .band.alt .card, .plan, .plan-extra, .steps li, .faq-item, .band.alt .faq-item, .post-card, .band.alt .post-card,
-.calc-inputs, .value-more, .table-scroll, .start-side, .panel, .doc .toc, .powered-list a, .hero-card, .chat-card, .meet-tag {
+.calc-inputs, .value-more, .table-scroll, .start-side, .panel, .doc .toc, .powered-list a, .hero-card, .chat-card, .meet-tag, .install-note {
   background: var(--glass); border-color: var(--glass-rim); box-shadow: var(--glass-shade);
 }
 .plan.featured { border-color: var(--brand); box-shadow: inset 0 1px 0 #fff, 0 28px 56px -28px rgba(5, 150, 105, 0.5); background: linear-gradient(160deg, rgba(236, 253, 245, 0.95), rgba(255, 255, 255, 0.66) 45%); }

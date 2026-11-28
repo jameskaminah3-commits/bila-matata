@@ -96,7 +96,7 @@ test("the home page and terms are served as plain documents under a strict polic
   assert.match(policy, /frame-ancestors 'none'/);
   assert.equal(home.headers.get("x-robots-tag"), null, "the home page may be indexed");
   const html = await home.text();
-  assert.match(html, /Run Your Business <em>Without the Hassle\.<\/em>/);
+  assert.match(html, /Run Your Business <em>Without the Hassle<span class="stop">\.<\/span><\/em>/);
   assert.match(html, new RegExp(`<link rel="canonical" href="${BASE}/">`));
   assert.match(html, /<script src="\/zaina\.js" data-business="bilamatata" async><\/script>/);
 
@@ -332,4 +332,30 @@ test("the blog is served for search engines: articles, a feed, the sitemap, and 
   const sitemap = await (await page("/sitemap.xml")).text();
   assert.match(sitemap, /<loc>[^<]+\/blog<\/loc><lastmod>\d{4}-\d{2}-\d{2}<\/lastmod>/);
   assert.match(sitemap, /<loc>[^<]+\/blog\/qr-code-menu-restaurants-kenya<\/loc><lastmod>2026-11-27<\/lastmod>/);
+});
+
+test("the site's typefaces and the pictures of the studio's work are served from its own address, and nothing else is", async () => {
+  const home = await (await page("/")).text();
+  for (const font of ["display", "text"]) {
+    const link = new RegExp(`/site/font-${font}\\.woff2\\?v=[0-9a-f]{12}`).exec(home)?.[0];
+    assert.ok(link, `the page preloads the ${font} face`);
+    const response = await page(link!);
+    assert.equal(response.status, 200);
+    assert.equal(response.headers.get("content-type"), "font/woff2");
+    assert.match(response.headers.get("cache-control") ?? "", /immutable/);
+    assert.equal(Buffer.from(await response.arrayBuffer()).subarray(0, 4).toString("latin1"), "wOF2");
+  }
+  assert.equal((await page("/site/font-other.woff2")).status, 404);
+
+  const pictures = [...home.matchAll(/src="(\/site\/work\/[a-z-]+\.webp)"/g)].map((match) => match[1]);
+  assert.equal(pictures.length, 8, "a picture and a logo for each of the four projects");
+  for (const picture of pictures) {
+    const response = await page(picture);
+    assert.equal(response.status, 200, picture);
+    assert.equal(response.headers.get("content-type"), "image/webp");
+    assert.equal(Buffer.from(await response.arrayBuffer()).subarray(8, 12).toString("latin1"), "WEBP");
+  }
+  assert.equal((await page("/site/work/..%2Fog.png")).status, 404);
+  assert.equal((await page("/site/work/other.webp")).status, 404);
+  assert.doesNotMatch(home, /data-business="your-business"/, "no code on the page: the install note says it in words");
 });
