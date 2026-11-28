@@ -3,7 +3,7 @@
 // The styles of bilamatata.com's own pages (home, terms, pay), served at
 // /site/site.css. One file, no outside frameworks; light and dark.
 //
-// The brand: alabaster and deep forest emerald, a high-trust light page for
+// The brand: alabaster and deep forest emerald, finished in glass, a high-trust light page for
 // owners reading prices and plans, with dark slate stages where the product
 // itself shows (the live demo, the code snippet, the calculator's answer).
 // Emerald for actions and trust cues (it sits naturally beside WhatsApp and
@@ -453,28 +453,38 @@ export const SITE_JS = String.raw`
     lift();
     window.addEventListener("scroll", lift, { passive: true });
   }
-  // Sections rise into place as they come into view. Whatever is already on screen shows at once, so nothing blinks.
+  // Sections rise into place as they come into view. Whatever is on screen, or already scrolled past, shows at
+  // once, so nothing blinks and a fast fling never leaves a section hidden.
   var calm = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  if (!calm && "IntersectionObserver" in window) {
+  if (!calm && window.requestAnimationFrame) {
     var targets = document.querySelectorAll("main .band .section-head, main .grid > *, main .plans > *, main .plan-extra, main .steps > li, main .post-grid > *, main .calc-inputs, main .calc-results, main .faq-list, main .contact");
-    var seen = new IntersectionObserver(function (entries) {
-      for (var e = 0; e < entries.length; e += 1) {
-        if (entries[e].isIntersecting) { entries[e].target.classList.add("in"); seen.unobserve(entries[e].target); }
-      }
-    }, { rootMargin: "0px 0px -6% 0px" });
-    var order = [];
+    var pending = [];
+    var parents = [];
     for (var t = 0; t < targets.length; t += 1) {
       var el = targets[t];
-      var place = el.getBoundingClientRect();
-      if (place.top < window.innerHeight && place.bottom > 0) continue;
+      if (el.getBoundingClientRect().top < window.innerHeight) continue;
       var step = 0;
-      for (var o = 0; o < order.length; o += 1) if (order[o] === el.parentNode) step += 1;
-      order.push(el.parentNode);
+      for (var o = 0; o < parents.length; o += 1) if (parents[o] === el.parentNode) step += 1;
+      parents.push(el.parentNode);
       el.classList.add("reveal");
       if (step % 4) el.classList.add("d" + (step % 4));
-      seen.observe(el);
+      pending.push(el);
     }
-    document.documentElement.classList.add("reveal-on");
+    var queued = false;
+    var check = function () {
+      queued = false;
+      var line = window.innerHeight * 0.94;
+      for (var p = pending.length - 1; p >= 0; p -= 1) {
+        if (pending[p].getBoundingClientRect().top < line) { pending[p].classList.add("in"); pending.splice(p, 1); }
+      }
+      if (!pending.length) { window.removeEventListener("scroll", queue); window.removeEventListener("resize", queue); }
+    };
+    var queue = function () { if (!queued) { queued = true; window.requestAnimationFrame(check); } };
+    if (pending.length) {
+      document.documentElement.classList.add("reveal-on");
+      window.addEventListener("scroll", queue, { passive: true });
+      window.addEventListener("resize", queue);
+    }
   }
   // "Try Zaina" opens the chat; if the chat's script is still loading, it opens once it has.
   function openZaina(tries) {
@@ -497,7 +507,70 @@ export const SITE_JS = String.raw`
 })();
 `;
 
+/** The glass layer: soft emerald and cyan light behind each section, frosted surfaces in front of it, smoked glass on the dark stages. Last in the file, so it sits over everything above. */
+export const GLASS_CSS = String.raw`
+/* ── Glass ────────────────────────────────────────────────────────── */
+:root {
+  --glass: linear-gradient(150deg, rgba(255, 255, 255, 0.9), rgba(255, 255, 255, 0.6));
+  --glass-rim: rgba(255, 255, 255, 0.85);
+  --glass-shade: inset 0 1px 0 #fff, 0 0 0 1px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04), 0 22px 46px -32px rgba(15, 23, 42, 0.34);
+  --glass-lift: inset 0 1px 0 #fff, 0 0 0 1px rgba(5, 150, 105, 0.28), 0 1px 2px rgba(15, 23, 42, 0.04), 0 28px 56px -32px rgba(15, 23, 42, 0.4);
+  --frost: saturate(1.6) blur(18px);
+  --smoke: linear-gradient(160deg, rgba(30, 41, 59, 0.62), rgba(15, 23, 42, 0.46));
+  --smoke-rim: rgba(255, 255, 255, 0.09);
+  --stage-light: radial-gradient(55% 65% at 12% 0%, rgba(16, 185, 129, 0.24), transparent 70%), radial-gradient(50% 60% at 100% 100%, rgba(2, 132, 199, 0.22), transparent 70%);
+}
+
+/* The light behind the glass: two soft pools per section, mirrored from one section to the next. */
+.band { position: relative; isolation: isolate; }
+.band::before { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background: radial-gradient(42% 50% at 6% 16%, rgba(16, 185, 129, 0.17), transparent 70%), radial-gradient(38% 46% at 96% 86%, rgba(2, 132, 199, 0.12), transparent 70%); }
+.band:nth-of-type(even)::before {
+  background: radial-gradient(42% 50% at 94% 14%, rgba(16, 185, 129, 0.17), transparent 70%), radial-gradient(38% 46% at 4% 88%, rgba(2, 132, 199, 0.12), transparent 70%); }
+.band.alt { background: linear-gradient(180deg, rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0.2)); border-block-color: rgba(15, 23, 42, 0.05); }
+.reach { background: rgba(255, 255, 255, 0.55); border-block-color: rgba(15, 23, 42, 0.05); }
+
+/* Frosted surfaces: translucent white, a bright rim on top, a fine edge and a soft shadow. */
+.card, .band.alt .card, .plan, .plan-extra, .steps li, .faq-item, .band.alt .faq-item, .post-card, .band.alt .post-card,
+.calc-inputs, .value-more, .table-scroll, .start-side, .panel, .doc .toc, .powered-list a, .hero-card, .chat-card, .meet-tag {
+  background: var(--glass); border-color: var(--glass-rim); box-shadow: var(--glass-shade);
+}
+.plan.featured { border-color: var(--brand); box-shadow: inset 0 1px 0 #fff, 0 28px 56px -28px rgba(5, 150, 105, 0.5); background: linear-gradient(160deg, rgba(236, 253, 245, 0.95), rgba(255, 255, 255, 0.66) 45%); }
+.faq-item[open] { border-color: var(--glass-rim); box-shadow: var(--glass-lift); }
+@media (hover: hover) {
+  .card:hover, .post-card:hover { border-color: var(--glass-rim); box-shadow: var(--glass-lift); }
+}
+/* Real blur only where there is detail behind the glass, so phones stay smooth. */
+.hero-card, .chat-card, .meet-tag { -webkit-backdrop-filter: var(--frost); backdrop-filter: var(--frost); }
+.hero-card { background: linear-gradient(165deg, rgba(236, 253, 245, 0.82), rgba(255, 255, 255, 0.55) 42%, rgba(255, 255, 255, 0.7)); box-shadow: inset 0 1px 0 #fff, 0 0 0 1px rgba(15, 23, 42, 0.06), 0 40px 80px -40px rgba(15, 23, 42, 0.45); }
+.hero-card::before { background: linear-gradient(180deg, rgba(209, 250, 229, 0.7), transparent); }
+.site-header { background: rgba(248, 250, 252, 0.6); -webkit-backdrop-filter: var(--frost); backdrop-filter: var(--frost); border-bottom-color: rgba(255, 255, 255, 0.7); }
+.site-header.is-scrolled { background: rgba(255, 255, 255, 0.68); border-bottom-color: rgba(15, 23, 42, 0.06); }
+@media (max-width: 900px) { .nav { background: rgba(255, 255, 255, 0.86); -webkit-backdrop-filter: var(--frost); backdrop-filter: var(--frost); } }
+.btn-ghost, .picker-chip, .chips li, .demo-tabs button:not([aria-selected="true"]), .demo-controls button { background: rgba(255, 255, 255, 0.62); border-color: rgba(15, 23, 42, 0.08); box-shadow: inset 0 1px 0 #fff, 0 1px 2px rgba(15, 23, 42, 0.04); }
+.btn-ghost:hover { background: rgba(236, 253, 245, 0.85); }
+.site-footer { background: linear-gradient(180deg, rgba(255, 255, 255, 0.55), rgba(255, 255, 255, 0.92)); border-top-color: rgba(15, 23, 42, 0.06); }
+
+/* Smoked glass on the dark stages, lit from two corners. */
+.demo-stage { background: var(--stage-light), var(--stage); border-color: rgba(255, 255, 255, 0.06); }
+.demo-panel { background: var(--smoke); border-color: var(--smoke-rim); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07); -webkit-backdrop-filter: var(--frost); backdrop-filter: var(--frost); }
+.demo-screen { box-shadow: 0 30px 60px -30px rgba(0, 0, 0, 0.6), inset 0 0 0 1px rgba(255, 255, 255, 0.5); border-color: transparent; }
+.demo-row, .demo-record { border-color: var(--smoke-rim); background: rgba(255, 255, 255, 0.04); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05); }
+.calc-results { background: var(--stage-light), var(--stage); border-color: rgba(255, 255, 255, 0.06); }
+.calc-plans li { background: rgba(255, 255, 255, 0.06); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.07), inset 0 0 0 1px rgba(255, 255, 255, 0.06); }
+.calc-plans li.us { background: rgba(16, 185, 129, 0.16); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), inset 0 0 0 1px rgba(110, 231, 183, 0.25); }
+.contact { background: radial-gradient(60% 120% at 100% 0%, rgba(16, 185, 129, 0.32), transparent 62%), radial-gradient(50% 90% at 0% 100%, rgba(2, 132, 199, 0.2), transparent 65%), var(--stage); box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.06), 0 40px 80px -48px rgba(15, 23, 42, 0.7); }
+.snippet { background: var(--stage-light), var(--stage); }
+
+/* Anyone who asks for less transparency gets solid surfaces. */
+@media (prefers-reduced-transparency: reduce) {
+  .card, .band.alt .card, .plan, .plan-extra, .steps li, .faq-item, .band.alt .faq-item, .post-card, .band.alt .post-card,
+  .calc-inputs, .value-more, .table-scroll, .start-side, .panel, .doc .toc, .powered-list a, .hero-card, .chat-card, .meet-tag, .site-header, .nav { background: var(--surface); -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .demo-panel { background: var(--stage-card); -webkit-backdrop-filter: none; backdrop-filter: none; }
+}
+`;
+
 /** Everything the site's pages style themselves with, in one file, and its version (the address changes when it does, so a visitor never gets yesterday's look). */
-export const SITE_STYLES = SITE_CSS + DEMO_CSS + HOME_CSS;
+export const SITE_STYLES = SITE_CSS + DEMO_CSS + HOME_CSS + GLASS_CSS;
 export const SITE_SCRIPT = SITE_JS + DEMO_JS + HOME_JS;
 export const SITE_ASSETS_VERSION = createHash("sha256").update(SITE_STYLES).update(SITE_SCRIPT).digest("hex").slice(0, 12);
